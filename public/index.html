@@ -732,21 +732,21 @@ input[type=number]{-moz-appearance:textfield;}
 <!-- Application Modal -->
 <div class="modal-ov" id="consultantModal">
   <div class="modal" style="max-width:420px">
-    <div class="modal-hdr"><h3>编辑顾问信息</h3><button class="btn-icon" onclick="closeModal(&#39;consultantModal&#39;)"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="x" aria-hidden="true" class="lucide lucide-x"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></div>
+    <div class="modal-hdr"><h3>顾问信息</h3><button class="btn-icon" onclick="closeModal(&#39;consultantModal&#39;)"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="x" aria-hidden="true" class="lucide lucide-x"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></div>
     <div class="modal-body" style="text-align:center">
       <div style="display:flex;flex-direction:column;align-items:center;gap:14px">
         <div id="avatarPreview" style="position:relative;width:110px;height:110px;border-radius:50%;background:var(--sf-bg-soft);display:flex;align-items:center;justify-content:center;overflow:hidden;border:3px solid var(--sf-border);cursor:pointer;flex-shrink:0" onclick="document.getElementById(&#39;avatarFile&#39;).click()" title="点击上传头像图片">
           <span id="avatarPreviewIni" style="font-size:40px;font-weight:var(--weight-semibold);color:var(--sf-text-secondary)">顾</span>
         </div>
-        <div style="font-size:var(--text-xs);color:var(--sf-text-muted)">点击左侧圆圈上传图片，或下方输入顾问姓名</div>
+        <div style="font-size:var(--text-xs);color:var(--sf-text-muted)">点击左侧圆圈上传头像</div>
         <input type="file" id="avatarFile" accept="image/*" style="display:none" onchange="onAvatarFileChange(this)">
         <div style="display:flex;gap:8px;justify-content:center">
           <button type="button" class="btn" onclick="document.getElementById(&#39;avatarFile&#39;).click()"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="upload" aria-hidden="true" style="width:14px;height:14px" class="lucide lucide-upload"><path d="M12 3v12"></path><path d="m17 8-5-5-5 5"></path><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path></svg> 上传图片</button>
-          <button type="button" class="btn" onclick="removeAvatar()"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="trash-2" aria-hidden="true" style="width:14px;height:14px" class="lucide lucide-trash-2"><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path><path d="M3 6h18"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg> 删除头像</button>
+          
         </div>
       </div>
       <div style="margin-top:20px">
-        <div class="fg"><label>顾问姓名</label><input id="consultantNameInput" class="fi" placeholder="请输入顾问姓名"></div>
+        <div class="fg"><label>顾问姓名</label><input id="consultantNameInput" class="fi" placeholder="请输入顾问姓名" readonly style="background:var(--sf-bg-soft);cursor:not-allowed"></div>
       </div>
     </div>
     <div class="modal-ft">
@@ -1822,9 +1822,10 @@ function renderHdrConsult() {
 }
 
 function openConsultantModal() {
-  document.getElementById('consultantNameInput').value = state.consultant || '';
+  var curName = (_currentUser && (_currentUser.displayName || _currentUser.username)) || state.consultant || '';
+  document.getElementById('consultantNameInput').value = curName;
   _tempAvatar = state.consultantAvatar || '';
-  setAvatarPreview(_tempAvatar, state.consultant || '');
+  setAvatarPreview(_tempAvatar, curName);
   openModal('consultantModal');
 }
 
@@ -1888,8 +1889,7 @@ function removeAvatar() {
 }
 
 async function saveConsultantProfile() {
-  const name = (document.getElementById('consultantNameInput').value || '').trim();
-  state.consultant = name;
+  const name = (_currentUser && (_currentUser.displayName || _currentUser.username)) || state.consultant || '';
   state.consultantAvatar = _tempAvatar || '';
   // 同时持久化到服务器（autoSave 只写 localStorage，刷新后会丢）
   try {
@@ -5139,13 +5139,14 @@ function finishInit() {
   finishInit();
 
   // 2.5. 从服务器加载顾问配置（防止被权限过滤覆盖，GET /api/consultant 直读全局 state）
+  // 非管理员：顾问姓名固定为登录用户，不从服务器旧记录覆盖
   (async function loadConsultantFromServer() {
     try {
       var r = await fetch('/api/consultant', { credentials: 'include' });
       if (r.ok) {
         var d = await r.json();
-        if (d.consultant) {
-          state.consultant = d.consultant;
+        // 只加载头像（姓名由登录用户决定，不被旧记录覆盖）
+        if (d.consultantAvatar) {
           state.consultantAvatar = d.consultantAvatar || '';
           renderHdrConsult();
         }
@@ -5408,17 +5409,19 @@ var _currentUser = null;
       if (_currentUser.view_depts && _currentUser.view_depts.length > 0) {
         state.filterConsultant = null;
         state.filterDept = null;
+        state.consultant = d.displayName || d.username || '';
       } else {
         state.filterConsultant = d.displayName || d.username;
         state.filterDept = null;
+        state.consultant = d.displayName || d.username || '';
       }
     }
 
     buildPeriodPanels();
     render();
-    // 在 render() 之后设置顾问名称（render 内部的 buildPeriodPanels 不会覆盖 hdrConsultName）
+    // 在 render() 之后设置顾问名称（使用 state.consultant，即登录时已写入的用户名）
     if (document.getElementById('hdrConsultName')) {
-      document.getElementById('hdrConsultName').textContent = d.displayName || d.username || '';
+      document.getElementById('hdrConsultName').textContent = state.consultant || d.displayName || d.username || '';
     }
   } catch (e) {
     window.location.href = '/login.html';
