@@ -3116,7 +3116,7 @@ function renderAppTable() {
       '<td>' + amt + '</td>' +
       '<td onclick="event.stopPropagation()">' +
       '<button onclick="openAppModal(\'' + a.id + '\')" style="background:none;border:none;padding:1px;color:var(--sf-blue);cursor:pointer" title="编辑"><i data-lucide="edit-2" style="width:12px;height:12px"></i></button> ' +
-      '<button onclick="deleteRecord(\'applications\',\'' + a.id + '\')" style="background:none;border:none;padding:1px;color:var(--sf-text-danger);cursor:pointer" title="删除"><i data-lucide="trash-2" style="width:12px;height:12px"></i></button>' +
+      '<button type="button" onclick="deleteRecord(\'applications\',\'' + a.id + '\')" style="background:none;border:none;padding:1px;color:var(--sf-text-danger);cursor:pointer" title="删除"><i data-lucide="trash-2" style="width:12px;height:12px"></i></button>' +
       '</td></tr>';
   });
   html += '</tbody></table>';
@@ -3339,7 +3339,7 @@ function renderJudgeTable(oppNo) {
       '</select></td>' +
       '<td class="wrap" contenteditable="true" onblur="updateJudgeCell(\'' + r.id + '\',\'riskDesc\',this.textContent)" style="outline:none">' + escHtml(r.riskDesc || '') + '</td>' +
       '<td class="wrap" contenteditable="true" onblur="updateJudgeCell(\'' + r.id + '\',\'countermeasure\',this.textContent)" style="outline:none">' + escHtml(r.countermeasure || '') + '</td>' +
-      '<td style="white-space:nowrap"><button onclick="deleteRecord(\'judgments\',\'' + r.id + '\')" style="background:none;border:none;padding:1px;color:var(--sf-text-danger);cursor:pointer" title="删除"><i data-lucide="trash-2" style="width:12px;height:12px"></i></button></td></tr>';
+      '<td style="white-space:nowrap"><button type="button" onclick="deleteRecord(\'judgments\',\'' + r.id + '\')" style="background:none;border:none;padding:1px;color:var(--sf-text-danger);cursor:pointer" title="删除"><i data-lucide="trash-2" style="width:12px;height:12px"></i></button></td></tr>';
   });
   rh += '</tbody></table></div>';
   document.getElementById('tblJudgeRight').innerHTML = rh;
@@ -3364,7 +3364,7 @@ function renderFollowTable(oppNo) {
       '<td class="wrap" contenteditable="true" onblur="updateFollowCell(\'' + r.id + '\',\'nextWork\',this.textContent)" style="outline:none">' + (r.nextWork || '') + '</td>' +
       '<td><input type="date" value="' + (r.nextDate || '') + '" onchange="updateFollowCell(\'' + r.id + '\',\'nextDate\',this.value)" style="border:none;border-radius:var(--sf-radius);padding:3px 6px;font-size:var(--text-xs);outline:none;width:100%;background:transparent"></td>' +
       '<td><button onclick="openFollowModal(\'' + r.id + '\')" style="background:none;border:none;padding:1px;color:var(--sf-blue);cursor:pointer" title="编辑"><i data-lucide="edit-2" style="width:12px;height:12px"></i></button> ' +
-      '<button onclick="deleteRecord(\'followUps\',\'' + r.id + '\')" style="background:none;border:none;padding:1px;color:var(--sf-text-danger);cursor:pointer" title="删除"><i data-lucide="trash-2" style="width:12px;height:12px"></i></button></td></tr>';
+      '<button type="button" onclick="deleteRecord(\'followUps\',\'' + r.id + '\')" style="background:none;border:none;padding:1px;color:var(--sf-text-danger);cursor:pointer" title="删除"><i data-lucide="trash-2" style="width:12px;height:12px"></i></button></td></tr>';
   });
   h += '</tbody></table></div>';
   document.getElementById('tblFollow').innerHTML = h;
@@ -3405,7 +3405,7 @@ function renderContractTable(oppNo) {
       '<td class="wrap">' + (r.partnerSettle || '—') + '</td>' +
       '<td class="wrap">' + (r.remarks || '—') + '</td>' +
       '<td onclick="event.stopPropagation()"><button onclick="openContractModal(\'' + r.id + '\')" style="background:none;border:none;padding:1px;color:var(--sf-blue);cursor:pointer" title="编辑"><i data-lucide="edit-2" style="width:12px;height:12px"></i></button> ' +
-      '<button onclick="deleteRecord(\'contracts\',\'' + r.id + '\')" style="background:none;border:none;padding:1px;color:var(--sf-text-danger);cursor:pointer" title="删除"><i data-lucide="trash-2" style="width:12px;height:12px"></i></button></td></tr>';
+      '<button type="button" onclick="deleteRecord(\'contracts\',\'' + r.id + '\')" style="background:none;border:none;padding:1px;color:var(--sf-text-danger);cursor:pointer" title="删除"><i data-lucide="trash-2" style="width:12px;height:12px"></i></button></td></tr>';
   });
   h += '</tbody></table></div>';
   document.getElementById('tblContract').innerHTML = h;

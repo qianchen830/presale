@@ -129,7 +129,6 @@ function getState() {
 }
 
 function saveState(newState) {
-  console.log('[DEBUG saveState] quarter:', newState.quarter, 'year:', newState.year);
   // newState 是本次要保存的增量数据（来自当前用户的过滤状态）
   // 必须与磁盘上已有的完整状态合并，防止过滤后的数据覆盖全局数据
   const existing = getStateRow();
@@ -160,6 +159,17 @@ function saveState(newState) {
   } else {
     merged = newState;
   }
+  // 从 merged 中移除本次删除的记录
+  if (_deletedIds.applications) merged.applications = merged.applications.filter(a => !_deletedIds.applications.has(String(a.id)));
+  if (_deletedIds.contracts) merged.contracts = merged.contracts.filter(c => !_deletedIds.contracts.has(String(c.id)));
+  if (_deletedIds.allocations) merged.allocations = merged.allocations.filter(a => !_deletedIds.allocations.has(String(a.id)));
+  if (_deletedIds.judgments) merged.judgments = merged.judgments.filter(j => !_deletedIds.judgments.has(String(j.id)));
+  if (_deletedIds.followUps) merged.followUps = merged.followUps.filter(f => !_deletedIds.followUps.has(String(f.id)));
+  if (_deletedIds.requirements) merged.requirements = merged.requirements.filter(r => !_deletedIds.requirements.has(String(r.id)));
+  if (_deletedIds.salesQuestions) merged.salesQuestions = merged.salesQuestions.filter(q => !_deletedIds.salesQuestions.has(String(q.id)));
+  // 清除本次记录
+  for (const k in _deletedIds) delete _deletedIds[k];
+
   const dataStr = JSON.stringify(merged);
   db.run('INSERT INTO app_state_history (data, created_at) VALUES (?, ?)', [existing ? existing.data : '{}', now]);
   db.run("UPDATE app_state SET data = ?, updated_at = ? WHERE id = 1", [dataStr, now]);
@@ -272,6 +282,7 @@ function injectCreatedBy(state, displayName) {
 
 // ---- App ----
 const app = express();
+app.set('trust proxy', 1);
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
@@ -630,6 +641,9 @@ function checkModuleOwnership(record, session) {
   return false;
 }
 
+// 记录本次操作中删除的 record id，按 module 分组
+const _deletedIds = {}; // { applications: Set(['id1','id2']), contracts: Set([...]) }
+
 function moduleOp(key, action, record, session) {
   if (!MODULE_KEYS.includes(key)) return { error: '不支持的模块: ' + key };
   const state = getState().state;
@@ -680,9 +694,13 @@ function moduleOp(key, action, record, session) {
       state.contracts = (state.contracts || []).filter(function(c) { return c.oppNo !== oppNo; });
       state.allocations = (state.allocations || []).filter(function(a) { return a.oppNo !== oppNo; });
       arr.splice(idx, 1);
+      if (!_deletedIds[key]) _deletedIds[key] = new Set();
+      _deletedIds[key].add(delId);
     } else if (key === 'contracts') {
       state.allocations = (state.allocations || []).filter(function(a) { return String(a.contractId) !== delId; });
       arr.splice(idx, 1);
+      if (!_deletedIds[key]) _deletedIds[key] = new Set();
+      _deletedIds[key].add(delId);
     } else {
       arr[idx] = { ...arr[idx], deleted: true, updatedAt: now };
     }
