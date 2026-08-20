@@ -4090,6 +4090,8 @@ function saveApp() {
     if (idx >= 0) state.applications[idx] = { ...state.applications[idx], ...data };
   } else {
     data.id = uid();
+    // 新建时写入当前顾问，确保权限过滤能识别记录归属人
+    if (!data.consultant) data.consultant = state.consultant || '';
     state.applications.push(data);
   }
   autoSave();
