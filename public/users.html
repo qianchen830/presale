@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>用户管理 - 售前管理</title>
+<style>
+:root {
+  --sf-blue: #2563eb; --sf-bg: #f8fafc; --sf-card: #fff;
+  --sf-border: #e2e8f0; --sf-text: #1e293b; --sf-muted: #64748b;
+  --sf-sm: 0.875rem; --sf-xs: 0.75rem;
+}
+body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background: var(--sf-bg); color: var(--sf-text); margin: 0; }
+.hdr { background: var(--sf-card); border-bottom: 1px solid var(--sf-border); padding: 12px 20px; display: flex; align-items: center; gap: 12px; }
+.hdr-back { color: var(--sf-blue); text-decoration: none; font-size: var(--sf-sm); }
+.hdr h1 { margin: 0; font-size: 1.1rem; flex: 1; }
+.user-info { font-size: var(--sf-sm); color: var(--sf-muted); }
+.main { max-width: 1200px; margin: 24px auto; padding: 0 20px; }
+.toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.toolbar h2 { margin: 0; font-size: 1rem; }
+.btn { background: var(--sf-blue); color: #fff; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: var(--sf-sm); text-decoration: none; }
+.btn:hover { opacity: 0.9; }
+.card { background: var(--sf-card); border-radius: 8px; border: 1px solid var(--sf-border); overflow: hidden; }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: var(--sf-sm); }
+th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--sf-border); white-space: nowrap; }
+th { background: var(--sf-bg); font-weight: 600; color: var(--sf-muted); font-size: var(--sf-xs); }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #f1f5f9; }
+.empty { padding: 48px; text-align: center; color: var(--sf-muted); }
+.col-op { width: 120px; }
+.col-role { width: 80px; }
+.btn-xs { padding: 3px 8px; font-size: var(--sf-xs); border-radius: 4px; border: 1px solid var(--sf-border); cursor: pointer; background: #fff; }
+.btn-xs.d { color: #dc2626; }
+.role-badge { padding: 2px 8px; border-radius: 4px; font-size: var(--sf-xs); }
+.role-badge.admin { background: #dbeafe; color: #1d4ed8; }
+.role-badge.user { background: #f1f5f9; color: #475569; }
+.dept-badge { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-size: var(--sf-xs); color: var(--sf-muted); }
+.dept-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.dept-tags .dt { background: #e0f2fe; color: #0369a1; padding: 1px 5px; border-radius: 3px; font-size: 11px; }
+.user-actions { display: flex; gap: 4px; }
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.modal { background: #fff; border-radius: 10px; width: 480px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
+.modal-hdr { padding: 16px 20px; border-bottom: 1px solid var(--sf-border); display: flex; align-items: center; justify-content: space-between; font-weight: 600; }
+.modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--sf-muted); }
+.modal-body { padding: 20px; }
+.form-row { margin-bottom: 14px; }
+.form-row label { display: block; font-size: var(--sf-sm); color: var(--sf-muted); margin-bottom: 4px; }
+.form-row input, .form-row select { width: 100%; padding: 8px 10px; border: 1px solid var(--sf-border); border-radius: 6px; font-size: var(--sf-sm); box-sizing: border-box; }
+.modal-foot { padding: 12px 20px; border-top: 1px solid var(--sf-border); display: flex; gap: 8px; justify-content: flex-end; }
+.admin-msg { padding: 10px 14px; border-radius: 6px; font-size: 13px; margin-bottom: 12px; display: none; min-height: 20px; }
+.admin-msg.show { display: block; }
+.admin-msg.err { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+.admin-msg.ok { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+.dept-checkboxes { border: 1px solid var(--sf-border); border-radius: 6px; overflow: hidden; }
+.dept-search-wrap { padding: 6px 8px; border-bottom: 1px solid var(--sf-border); background: #f8fafc; }
+.dept-search-wrap input { width: 100%; padding: 5px 8px; border: 1px solid var(--sf-border); border-radius: 4px; font-size: var(--sf-xs); outline: none; box-sizing: border-box; }
+.dept-checkboxes-wrap { max-height: 200px; overflow-y: auto; padding: 6px 8px; background: #fff; }
+.dept-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+.dept-box { padding: 7px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; border: 1px solid var(--sf-border); background: #fff; color: var(--sf-text); text-align: center; transition: all 0.15s; user-select: none; }
+.dept-box:hover { border-color: #93c5fd; background: #eff6ff; }
+.dept-box.sel { background: #2563eb; color: #fff; border-color: #2563eb; font-weight: 600; }
+.dept-box.sel:hover { background: #1d4ed8; border-color: #1d4ed8; }
+.dm-selected { padding: 6px 8px; min-height: 30px; display: flex; flex-wrap: wrap; gap: 5px; align-items: center; border-top: 1px solid var(--sf-border); background: #f8fafc; }
+.dm-tag { display: inline-flex; align-items: center; gap: 3px; background: #dbeafe; color: #1d4ed8; padding: 2px 6px; border-radius: 10px; font-size: 11px; font-weight: 500; }
+.dm-tag-remove { cursor: pointer; font-size: 13px; line-height: 1; margin-left: 1px; }
+.dm-tag-remove:hover { color: #dc2626; }
+.dm-empty { color: var(--sf-muted); font-size: 11px; padding: 2px 0; }
+
+</style>
+</head>
+<body>
+<div class="hdr">
+  <a href="/index.html" class="hdr-back">← 返回列表</a>
+  <h1>用户管理</h1>
+  <span class="user-info" id="hdrUser"></span>
+</div>
+<div class="main">
+  <div class="toolbar">
+    <h2 id="userCount">加载中…</h2>
+    <button class="btn" onclick="openUserModal()">+ 新建用户</button>
+  </div>
+  <div class="card">
+    <div class="table-wrap" id="tableWrap">
+      <div class="empty"><p>加载中…</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- 用户弹窗 -->
+<div class="modal-overlay" id="userModal" style="display:none">
+  <div class="modal">
+    <div class="modal-hdr">
+      <span id="userModalTitle">新建用户</span>
+      <button class="modal-close" onclick="closeUserModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="admin-msg" id="userFormMsg"></div>
+      <input type="hidden" id="editUserId">
+      <div class="form-row" id="empSearchRow">
+        <label>员工 <span style="color:#ea001e">*</span></label>
+        <div style="position:relative">
+          <input id="empSearchInput" type="text" placeholder="搜索员工姓名或工号..." autocomplete="off" style="width:100%;padding:8px 10px;border:1px solid var(--sf-border);border-radius:6px;font-size:var(--sf-sm);box-sizing:border-box" oninput="onEmpSearch(this.value)" onfocus="showEmpDropdown()" onclick="showEmpDropdown()">
+          <div id="empDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--sf-border);border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.1);max-height:220px;overflow-y:auto;z-index:200">
+            <div id="empDropdownList" style="padding:10px 14px;color:var(--sf-muted);font-size:12px">输入员工姓名或工号搜索...</div>
+          </div>
+        </div>
+        <input type="hidden" id="selectedEmpNo">
+      </div>
+      <div class="form-row">
+        <label>显示名</label>
+        <input id="displayNameInput" readonly style="background:#f3f3f3;cursor:not-allowed" placeholder="选择员工后自动填充">
+      </div>
+      <div class="form-row">
+        <label>所属部门</label>
+        <input id="deptInput" readonly style="background:#f3f3f3;cursor:not-allowed" placeholder="选择员工后自动填充">
+      </div>
+      <div class="form-row">
+        <label>角色</label>
+        <select id="roleSelect" onchange="onUserRoleChange(this.value)">
+          <option value="user">普通用户</option>
+          <option value="admin">管理员</option>
+        </select>
+      </div>
+      <div class="form-row" id="viewDeptsRow" style="display:none">
+        <label>可查看部门</label>
+        <div class="dept-search-wrap"><input type="text" id="deptSearchInput" placeholder="搜索部门..." oninput="filterDeptBoxes(this.value)" style="width:100%;padding:5px 8px;border:1px solid var(--sf-border);border-radius:4px;font-size:12px;outline:none;box-sizing:border-box"></div><div class="dept-checkboxes-wrap" id="viewDeptsCheckboxes" style="max-height:160px;overflow-y:auto"></div><div class="dm-selected" id="deptMultiSelected"></div>
+      </div>
+      <div class="form-row" id="pwdRow">
+        <label>密码 <span id="pwdHint" style="color:var(--sf-muted);font-weight:normal">(留空则不修改)</span></label>
+        <input type="password" id="pwdInput" placeholder="密码">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" style="background:#64748b" onclick="closeUserModal()">取消</button>
+      <button class="btn" onclick="saveUser()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var _currentUser = null;
+var _editingUserId = null;
+var _allDepartments = [];
+var _selectedViewDepts = [];
+
+function escHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+(function init() {
+  fetch('/api/auth/me', { credentials: 'include' })
+    .then(r => r.json())
+    .then(d => {
+      if (!d.loggedIn) { window.location.href = '/login.html'; return; }
+      _currentUser = d;
+      document.getElementById('hdrUser').textContent = (d.displayName || d.username) + (d.role === 'admin' ? ' (管理员)' : '');
+      fetch('/api/admin/departments', { credentials: 'include' })
+        .then(r => r.ok ? r.json() : { departments: [] })
+        .then(dd => { _allDepartments = dd.departments || []; })
+        .catch(() => {});
+      loadUsers();
+    })
+    .catch(() => { window.location.href = '/login.html'; return; });
+})();
+
+async function loadUsers() {
+  try {
+    var endpoint = _currentUser.role === 'admin' ? '/api/admin/users' : '/api/users/me-record';
+    var r = await fetch(endpoint, { credentials: 'include' });
+    var d = await r.json();
+    var wrap = document.getElementById('tableWrap');
+    var count = document.getElementById('userCount');
+    if (!d.users || d.users.length === 0) {
+      wrap.innerHTML = '<div class="empty"><p>暂无用户</p></div>';
+      if (count) count.textContent = '0 位用户';
+      return;
+    }
+    var myName = _currentUser.displayName || _currentUser.username;
+    var visibleUsers = _currentUser.role === 'admin' ? d.users : d.users.filter(function(u) { return u.username === myName || u.display_name === myName; });
+    if (count) count.textContent = visibleUsers.length + ' 位用户';
+    var html = '<div class="tw"><table class="user-table"><thead><tr>';
+    html += '<th class="col-user">用户名</th><th class="col-name">显示名</th><th class="col-role">角色</th>';
+    html += '<th class="col-dept">所属部门</th><th class="col-view-depts">可查看部门</th>';
+    html += '<th class="col-time">创建时间</th><th class="col-op">操作</th></tr></thead><tbody>';
+    html += visibleUsers.map(function(u) {
+      var viewDepts = u.view_depts || [];
+      var viewDeptsHtml = viewDepts.length === 0
+        ? '<span class="dept-badge">仅自己</span>'
+        : '<div class="dept-tags">' + viewDepts.slice(0,4).map(function(dept) {
+            return '<span class="dt">' + escHtml(dept) + '</span>';
+          }).join('') + (viewDepts.length > 4 ? '<span class="dt">+' + (viewDepts.length - 4) + '</span>' : '') + '</div>';
+      return '<tr>' +
+        '<td class="col-user" style="white-space:nowrap">' + escHtml(u.username) + '</td>' +
+        '<td class="col-name">' + escHtml(u.display_name || '') + '</td>' +
+        '<td class="col-role"><span class="role-badge ' + (u.role === 'admin' ? 'admin' : 'user') + '">' + (u.role === 'admin' ? '管理员' : '普通用户') + '</span></td>' +
+        '<td class="col-dept">' + (u.department ? '<span class="dept-badge">' + escHtml(u.department) + '</span>' : '<span class="dept-badge">未设置</span>') + '</td>' +
+        '<td class="col-view-depts">' + viewDeptsHtml + '</td>' +
+        '<td style="white-space:nowrap;color:var(--sf-muted);font-size:var(--sf-xs)">' + escHtml(u.created_at ? u.created_at.slice(0,10) : '') + '</td>' +
+        '<td class="col-op"><div class="user-actions">' +
+        (_currentUser.role === 'admin' ? '<button class="btn-xs" onclick="openUserModal(' + u.id + ')">编辑</button>' : '') +
+        (u.id === _currentUser.id || _currentUser.role === 'admin' ? '<button class="btn-xs" style="color:#896606" onclick="resetUserPwd(' + u.id + ', &quot;' + escHtml(u.display_name || u.username) + '&quot;)">重置密码</button>' : '') +
+        (_currentUser.role === 'admin' && u.role !== 'admin' && u.id !== _currentUser.id ? ' <button class="btn-xs d" onclick="deleteUser(' + u.id + ')">删除</button>' : '') +
+        '</div></td></tr>';
+    }).join('');
+    html += '</tbody></table></div>';
+    wrap.innerHTML = html;
+  } catch(e) {
+    document.getElementById('tableWrap').innerHTML = '<div class="empty"><p>加载失败: ' + escHtml(e.message) + '</p></div>';
+  }
+}
+
+function openUserModal(userId) {
+  _editingUserId = userId || null;
+  document.getElementById('userModal').style.display = 'flex';
+  document.getElementById('userModalTitle').textContent = userId ? '编辑用户' : '新建用户';
+  var msgEl = document.getElementById('userFormMsg'); if (msgEl) { msgEl.style.display = 'none'; msgEl.className = 'admin-msg'; }
+  document.getElementById('editUserId').value = userId || '';
+
+  // 新建时：显示员工搜索框，可选员工
+  var empRow = document.getElementById('empSearchRow');
+  var empInput = document.getElementById('empSearchInput');
+  var selEmpNo = document.getElementById('selectedEmpNo');
+  empInput.value = '';
+  selEmpNo.value = '';
+  empInput.readOnly = false;
+  empInput.style.cursor = '';
+  empInput.style.background = '';
+
+  document.getElementById('displayNameInput').value = '';
+  document.getElementById('deptInput').value = '';
+  document.getElementById('pwdInput').value = '';
+  document.getElementById('pwdRow').style.display = userId ? 'none' : 'block';
+
+  if (userId) {
+    // 编辑：员工下拉显示当前用户名，字段只读
+    empInput.readOnly = true;
+    empInput.style.cursor = 'not-allowed';
+    empInput.style.background = '#f3f3f3';
+    fetch('/api/admin/users', { credentials: 'include' })
+      .then(r => r.json())
+      .then(d => {
+        var u = (d.users || []).find(function(x) { return String(x.id) === String(userId); });
+        if (!u) return;
+        var role = u.role || 'user';
+        // 员工搜索框显示当前用户名
+        empInput.value = u.username;
+        selEmpNo.value = u.username;
+        document.getElementById('displayNameInput').value = u.display_name || '';
+        document.getElementById('deptInput').value = u.department || '';
+        document.getElementById('roleSelect').value = role;
+        // 部门权限
+        if (role === 'admin') {
+          _selectedViewDepts = (_allDepartments || []).map(function(d2) { return d2.name; });
+        } else {
+          _selectedViewDepts = (u.view_depts && Array.isArray(u.view_depts)) ? u.view_depts : [];
+        }
+        onUserRoleChange(role);
+        renderDeptCheckboxes(_selectedViewDepts);
+      });
+  } else {
+    // 新建
+    _selectedViewDepts = [];
+    onUserRoleChange('user');
+    renderDeptCheckboxes([]);
+  }
+}
+
+function closeUserModal() {
+  document.getElementById('userModal').style.display = 'none';
+  _editingUserId = null;
+}
+
+function filterDeptBoxes(search) {
+  var s = (search || '').toLowerCase();
+  var container = document.getElementById('viewDeptsCheckboxes');
+  container.querySelectorAll('.dept-box').forEach(function(box) {
+    box.style.display = !s || box.textContent.toLowerCase().includes(s) ? '' : 'none';
+  });
+}
+
+function renderDeptCheckboxes(selectedNames) {
+  var container = document.getElementById('viewDeptsCheckboxes');
+  if (!_allDepartments || _allDepartments.length === 0) {
+    container.innerHTML = '<div style="color:var(--sf-text-muted);font-size:var(--sf-xs);padding:8px">暂无部门数据</div>';
+    return;
+  }
+  var html = '<div class="dept-grid">';
+  _allDepartments.forEach(function(dept) {
+    var sel = selectedNames && selectedNames.indexOf(dept.name) >= 0;
+    html += '<div class="dept-box ' + (sel ? 'sel' : '') + '" data-dept="' + escHtml(dept.name) + '" onclick="toggleDeptBox(this, \'' + dept.name.replace(/'/g, "\\'") + '\')">' + escHtml(dept.name) + '</div>';
+  });
+  html += '</div>';
+  container.innerHTML = html;
+  renderDeptMultiSelected();
+}
+
+function renderDeptMultiSelected() {
+  var el = document.getElementById('deptMultiSelected');
+  if (!el) return;
+  if (_selectedViewDepts.length === 0) {
+    el.innerHTML = '<span class="dm-empty">未选择部门（仅自己）</span>';
+  } else {
+    el.innerHTML = _selectedViewDepts.map(function(d) {
+      return '<span class="dm-tag">' + escHtml(d) + ' <span class="dm-tag-remove" data-dept="' + encodeURIComponent(d) + '" onclick="removeUserDept(this.dataset.dept)">&times;</span></span>';
+    }).join('');
+  }
+}
+
+function removeUserDept(deptEncoded) {
+  var dept = decodeURIComponent(deptEncoded);
+  _selectedViewDepts = _selectedViewDepts.filter(function(d) { return d !== dept; });
+  var container = document.getElementById('viewDeptsCheckboxes');
+  var box = container.querySelector('.dept-box[data-dept="' + dept.replace(/"/g, '\\"') + '"]');
+  if (box) box.classList.remove('sel');
+  renderDeptMultiSelected();
+}
+
+function onUserRoleChange(role) {
+  var row = document.getElementById('viewDeptsRow');
+  if (!row) return;
+  if (role === 'admin') {
+    row.style.display = 'none';
+    _selectedViewDepts = [];
+    renderDeptMultiSelected();
+  } else {
+    row.style.display = '';
+    renderDeptCheckboxes(_selectedViewDepts);
+  }
+}
+
+function toggleDeptBox(el, deptName) {
+  var idx = _selectedViewDepts.indexOf(deptName);
+  if (idx >= 0) {
+    _selectedViewDepts.splice(idx, 1);
+    el.classList.remove('sel');
+  } else {
+    _selectedViewDepts.push(deptName);
+    el.classList.add('sel');
+  }
+  renderDeptMultiSelected();
+}
+
+function showUserFormMsg(text, type) {
+  var msg = document.getElementById('userFormMsg');
+  if (!msg) { alert(text); return; }
+  msg.textContent = text;
+  msg.className = 'admin-msg show ' + type;
+  msg.style.display = 'block';
+}
+
+async function saveUser() {
+  var displayName = document.getElementById('displayNameInput').value.trim();
+  var department = document.getElementById('deptInput').value.trim();
+  var role = document.getElementById('roleSelect').value;
+  var pwd = document.getElementById('pwdInput').value;
+  var selectedEmpNo = document.getElementById('selectedEmpNo') ? document.getElementById('selectedEmpNo').value : '';
+  if (!selectedEmpNo) { showUserFormMsg('请选择员工', 'err'); return; }
+  if (!_editingUserId && (!pwd || pwd.length < 6)) { showUserFormMsg('密码至少6位', 'err'); return; }
+  // 用 empNo 查找员工真实姓名
+  var emp = _empSearchResults.find(function(e) { return e.empNo === selectedEmpNo; });
+  var empRealName = emp ? emp.name : (displayName || selectedEmpNo);
+  var empDeptName = emp ? (emp.deptName || '') : (department || '');
+  // 用户名存员工真实姓名（中文）
+  var body = { username: empRealName, displayName: empRealName, department: empDeptName, role, viewDepts: role === 'admin' ? [] : _selectedViewDepts };
+  if (pwd) body.password = pwd;
+  try {
+    var r = await fetch('/api/admin/users' + (_editingUserId ? '/' + _editingUserId : ''), {
+      method: _editingUserId ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(body)
+    });
+    var d = await r.json();
+    if (!r.ok) {
+      var errMsg = d.error || '保存失败';
+      if (r.status === 409) errMsg = '该员工已创建账号';
+      else if (r.status === 400) errMsg = d.error || '参数错误，请检查输入';
+      else if (r.status === 404) errMsg = '用户不存在';
+      showUserFormMsg(errMsg, 'err');
+      return;
+    }
+    showUserFormMsg('保存成功', 'ok');
+    setTimeout(function() { closeUserModal(); loadUsers(); }, 1000);
+  } catch(e) {
+    showUserFormMsg('网络错误', 'err');
+  }
+}
+
+async function resetUserPwd(userId, displayName) {
+  if (!confirm('确定要重置 ' + displayName + ' 的密码吗？')) return;
+  var newPwd = prompt('请输入新密码（至少6位）：');
+  if (!newPwd || newPwd.length < 6) { alert('密码至少6位'); return; }
+  try {
+    var r = await fetch('/api/admin/users/' + userId + '/password', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ password: newPwd })
+    });
+    var d = await r.json();
+    if (r.ok) { alert('密码已重置为：' + newPwd); }
+    else { alert(d.error || '重置失败'); }
+  } catch(e) { alert('重置失败'); }
+}
+
+async function deleteUser(id) {
+  if (!confirm('确定删除该用户？')) return;
+  try {
+    var r = await fetch('/api/admin/users/' + id, { method: 'DELETE', credentials: 'include' });
+    var d = await r.json();
+    if (!r.ok) { alert(d.error || '删除失败'); return; }
+    await loadUsers();
+  } catch(e) { alert('删除失败'); }
+}
+// ---- 员工搜索下拉 ----
+var _empSearchResults = [];
+
+function showEmpDropdown() {
+  var dd = document.getElementById('empDropdown');
+  if (!dd) return;
+  dd.style.display = 'block';
+  // 如果搜索框为空或结果为空，默认展示全部可用员工
+  var inp = document.getElementById('empSearchInput');
+  if (!inp || !inp.value) {
+    onEmpSearch('');
+  }
+}
+
+function hideEmpDropdown() {
+  var dd = document.getElementById('empDropdown');
+  if (dd) dd.style.display = 'none';
+}
+
+var _empVisibleCount = 10;
+
+function onEmpSearch(val) {
+  _empVisibleCount = 10;
+  renderEmpDropdown(val);
+}
+
+function renderEmpDropdown(val) {
+  var s = (val || '').trim().toLowerCase();
+  var list = document.getElementById('empDropdownList');
+  if (!list) return;
+  if (s.length === 0 && _empSearchResults.length === 0) {
+    list.innerHTML = '<div style="padding:10px 14px;color:var(--sf-muted);font-size:12px">加载中...</div>';
+    return;
+  }
+  var filtered = s ? _empSearchResults.filter(function(e) {
+    return e.name.toLowerCase().includes(s) || (e.empNo || '').toLowerCase().includes(s);
+  }) : _empSearchResults;
+  if (filtered.length === 0) {
+    list.innerHTML = '<div style="padding:10px 14px;color:var(--sf-muted);font-size:12px">未找到匹配的员工</div>';
+    return;
+  }
+  var vis = filtered.slice(0, _empVisibleCount);
+  var html = vis.map(function(e) {
+    var no = escHtml(e.empNo || '');
+    var nm = escHtml(e.name);
+    return '<div data-empno="' + no + '" style="padding:8px 14px;cursor:pointer;font-size:12px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--sf-border)" onmouseover="this.style.background=\'#f1f5f9\'" onmouseout="this.style.background=\'\'"><span style="font-weight:600">' + nm + '</span><span style="color:var(--sf-muted);font-size:11px;white-space:nowrap">' + no + '</span></div>';
+  }).join('');
+  if (_empVisibleCount < filtered.length) {
+    html += '<div onclick="loadMoreEmp()" style="padding:8px 14px;text-align:center;color:#2563eb;cursor:pointer;font-size:12px;font-weight:500;border-top:1px solid var(--sf-border)">加载更多 (' + (filtered.length - _empVisibleCount) + ')</div>';
+  }
+  list.innerHTML = html;
+  list.querySelectorAll('[data-empno]').forEach(function(el) {
+    el.addEventListener('click', function() {
+      selectEmployee(el.dataset.empno);
+    });
+  });
+}
+
+function showEmpDropdown() {
+  var dd = document.getElementById('empDropdown');
+  if (!dd) return;
+  dd.style.display = 'block';
+  _empVisibleCount = 10;
+  renderEmpDropdown('');
+}
+
+function selectEmployee(empNo) {
+  var emp = _empSearchResults.find(function(e) { return e.empNo === empNo; });
+  if (!emp) return;
+  document.getElementById('empSearchInput').value = emp.name + ' (' + (emp.empNo || '') + ')';
+  document.getElementById('selectedEmpNo').value = emp.empNo || '';
+  document.getElementById('displayNameInput').value = emp.name;
+  document.getElementById('deptInput').value = emp.deptName || '';
+  hideEmpDropdown();
+  document.getElementById('empSearchInput').blur();
+}
+
+// 点击外部关闭员工下拉
+document.addEventListener('click', function(e) {
+  var dd = document.getElementById('empDropdown');
+  var inp = document.getElementById('empSearchInput');
+  if (dd && inp && !dd.contains(e.target) && !inp.contains(e.target)) {
+    hideEmpDropdown();
+  }
+});
+
+// 加载未创建账号的员工列表
+fetch('/api/admin/employees', { credentials: 'include' })
+  .then(function(r) { return r.ok ? r.json() : { employees: [] }; })
+  .then(function(d) {
+    _empSearchResults = d.employees || [];
+  })
+  .catch(function() {});
+
+</script>
+</body>
+</html>
