@@ -2841,6 +2841,15 @@ function renderCards() {
   const newApps = filtered.filter(a => inRange(a.applyDate, getPeriodRange(getPeriodKey())));
   const followApps = filtered.filter(a => a.status === '活跃');
   const lostApps = filtered.filter(a => a.status === '丢失');
+  // 用 contracts 口径算当前期间的签单金额（与年度实际执行口径一致）
+  var range = getPeriodRange(getPeriodKey());
+  var signedContracts = state.contracts.filter(function(c) {
+    if (c.mainSignDate && inRange(c.mainSignDate, range)) return true;
+    if (c.signOpDate && inRange(c.signOpDate, range)) return true;
+    if (c.yearMonth) { var ym = c.yearMonth + '-01'; if (inRange(ym, range)) return true; }
+    return false;
+  });
+  var signedContractAmount = signedContracts.reduce(function(s, c) { return s + (parseFloat(c.presalePerformance) || 0); }, 0);
   const wonApps = filtered.filter(a => a.status === '签单');
 
   const expectedApps = filtered.filter(a => a.status === '预计');
@@ -2851,7 +2860,7 @@ function renderCards() {
     { label: '跟进', count: followApps.length, amount: followApps.reduce((s, a) => s + amtOf(a), 0), color: 'var(--sf-warning-text)', type: 'active' },
     { label: '丢失', count: lostApps.length, amount: lostApps.reduce((s, a) => s + amtOf(a), 0), color: '#9e9e9e', type: 'lost' },
     { label: '预计', count: expectedApps.length, amount: expectedApps.reduce((s, a) => s + amtOf(a), 0), color: '#8b5cf6', type: 'expected' },
-    { label: '签单', count: wonApps.length, amount: wonApps.reduce((s, a) => s + amtOf(a), 0), color: 'var(--sf-success-text)', type: 'won' },
+    { label: '签单', count: wonApps.length, amount: signedContractAmount, color: 'var(--sf-success-text)', type: 'won' },
   ];
   document.getElementById('cardOverviewRisk').innerHTML =
     '<div class="overview-grid">' +
