@@ -4836,7 +4836,6 @@ function showDetail(card, type) {
   } else if (card === 'quarter') {
     title = type + ' 完成明细（' + state.year + '年）';
     var qAllocs = state.allocations.filter(function(a) {
-      if (a.consultant !== state.consultant) return false;
       if (a.quarter !== type) return false;
       var aYear = a.month ? parseInt(String(a.month).split('-')[0]) : null;
       return aYear === state.year;
@@ -4876,7 +4875,6 @@ function showDetail(card, type) {
     } else {
       // 无分配记录，从合同中统计
       var qContracts = state.contracts.filter(function(c) {
-        if (c.accountMgr !== state.consultant) return false;
         if (c.quarter !== type) return false;
         var cYear = c.yearMonth ? parseInt(String(c.yearMonth).split('-')[0]) : null;
         return cYear === state.year;
