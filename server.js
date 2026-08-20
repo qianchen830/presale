@@ -389,6 +389,22 @@ app.put('/api/admin/users/:id', requireAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
+// 重置/修改密码（本人或管理员可调用）
+app.put('/api/admin/users/:id/password', requireAuth, (req, res) => {
+  const id = parseInt(req.params.id);
+  const { password } = req.body || {};
+  if (!password || password.length < 6) return res.status(400).json({ error: '密码至少6位' });
+  // 非管理员只能修改自己的密码
+  if (req.session.role !== 'admin' && req.session.userId !== id) return res.status(403).json({ error: '无权限' });
+  const existing = db.exec("SELECT id FROM users WHERE id = " + id);
+  if (!existing.length || !existing[0].values.length) return res.status(404).json({ error: '用户不存在' });
+  const bcrypt = require('bcryptjs');
+  const hash = bcrypt.hashSync(password, 10);
+  db.run("UPDATE users SET password_hash = ? WHERE id = ?", [hash, id]);
+  saveDbs();
+  res.json({ ok: true });
+});
+
 // ---- 普通用户查看自己的账号信息 ----
 app.get('/api/users/me-record', requireAuth, (req, res) => {
   const r = db.exec("SELECT id, username, display_name, role, department, view_depts, created_at FROM users WHERE id = " + req.session.userId);
