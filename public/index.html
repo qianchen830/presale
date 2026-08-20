@@ -4814,24 +4814,6 @@ function showDetail(card, type) {
           '支持顾问': g.consultants.join(', ')
         };
       });
-    } else {
-      // 无分配记录，从合同中统计
-      var yContracts = state.contracts.filter(function(c) {
-        var cYear = c.yearMonth ? parseInt(String(c.yearMonth).split('-')[0]) : null;
-        return cYear === parseInt(type);
-      });
-      rows = yContracts.map(function(c) {
-        return {
-          '月份': c.yearMonth || '—', '季度': c.quarter || '—',
-          '主合同编号': c.mainContractNo || '—',
-          '申请客户名称': c.signCustomer || '—',
-          '签约客户名称': c.signCustomerName || '—',
-          '销售部门': c.salesDept || '—',
-          '客户经理': c.accountMgr || '—',
-          '合同业绩(元)': fmtMoney(c.presalePerformance),
-          '支持顾问': c.accountMgr ? (c.accountMgr + '(100%)') : '—'
-        };
-      });
     }
   } else if (card === 'quarter') {
     title = type + ' 完成明细（' + state.year + '年）';
@@ -4870,25 +4852,6 @@ function showDetail(card, type) {
           '客户经理': g.accountMgr,
           '合同业绩(元)': fmtMoney(g.contractPerformance),
           '支持顾问': g.consultants.join(', ')
-        };
-      });
-    } else {
-      // 无分配记录，从合同中统计
-      var qContracts = state.contracts.filter(function(c) {
-        if (c.quarter !== type) return false;
-        var cYear = c.yearMonth ? parseInt(String(c.yearMonth).split('-')[0]) : null;
-        return cYear === state.year;
-      });
-      rows = qContracts.map(function(c) {
-        return {
-          '月份': c.yearMonth || '—',
-          '主合同编号': c.mainContractNo || '—',
-          '申请客户名称': c.signCustomer || '—',
-          '签约客户名称': c.signCustomerName || '—',
-          '销售部门': c.salesDept || '—',
-          '客户经理': c.accountMgr || '—',
-          '合同业绩(元)': fmtMoney(c.presalePerformance),
-          '支持顾问': c.accountMgr ? (c.accountMgr + '(100%)') : '—'
         };
       });
     }
