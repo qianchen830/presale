@@ -2358,8 +2358,8 @@ function readEmbeddedState() {
 function writeEmbeddedState() {}
 
 /* ===== 构建完整 HTML 内容（使用原始 HTML 模板，替换数据库数据） ===== */
-function buildFullHtml() {
-  var b64 = exportDBToBase64();
+async function buildFullHtml() {
+  var b64 = await exportDBToBase64();
   if (!b64) { return null; }
 
   // 使用原始 HTML 模板（在 DOM 修改前捕获的），确保文件干净
@@ -2434,7 +2434,7 @@ async function saveNow() {
 /* ===== 手动保存：导出为 HTML 文件（选目录+改文件名） ===== */
 async function manualSaveToFile() {
   try { await apiPutState(state); } catch(e) {}
-  var html = buildFullHtml();
+  var html = await buildFullHtml();
   if (!html) { alert('数据序列化失败，数据库可能未初始化'); return; }
 
   // 验证 HTML 中确实包含嵌入的数据库数据
