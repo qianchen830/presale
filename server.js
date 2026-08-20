@@ -682,6 +682,21 @@ function moduleOp(key, action, record, session) {
     console.log('[delete] idx=' + idx + ' record.consultant=' + (idx >= 0 ? arr[idx].consultant : 'n/a'));
     if (idx < 0) return { error: '记录不存在' };
     var own = checkModuleOwnership(arr[idx], session);
+    // contracts/allocations 没有 consultant 字段，通过 oppNo 找对应 application 的顾问来判断
+    if (!own) {
+      var myName = session.displayName || session.username;
+      // allocations 有自己的 consultant 字段，直接比对
+      if (key === 'allocations' && arr[idx].consultant === myName) {
+        own = true;
+      }
+      // 其他模块（judgments/followUps/contracts/allocations）通过 oppNo 找对应 application 的顾问
+      if (!own) {
+        var oppNoStr = arr[idx].oppNo || '';
+        var firstOpp = oppNoStr.split('、')[0].trim();
+        var app = state.applications.find(function(a) { return a.oppNo === firstOpp; });
+        if (app && app.consultant === myName) own = true;
+      }
+    }
     console.log('[delete] checkModuleOwnership=' + own);
     if (!own) return { error: '无权限删除此记录' };
     // 级联删除：applications 删时同步删关联合同/业绩分配；contracts 删时同步删业绩分配；其他软删除
@@ -733,7 +748,9 @@ app.put('/api/modules/:module/:id', requireAuth, (req, res) => {
 app.delete('/api/modules/:module/:id', requireAuth, (req, res) => {
   const key = req.params.module;
   const id = req.params.id;
+  console.log('[DELETE] key=' + key + ' id=' + id);
   const result = moduleOp(key, 'delete', { id }, req.session);
+  console.log('[DELETE] result:', JSON.stringify(result));
   if (result.error) return res.status(400).json({ error: result.error });
   res.json({ ok: true, updatedAt: result.updatedAt });
 });

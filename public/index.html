@@ -4542,10 +4542,9 @@ async function deleteRecord(collection, id) {
     var r = await fetch('/api/modules/' + collection + '/' + id, { method: 'DELETE', credentials: 'include' });
     if (!r.ok) { var d = await r.json(); alert('删除失败：' + (d.error || r.status)); return; }
     // 删除成功后重新加载服务端最新数据，强制刷新页面
-    var fresh = await apiGetState();
-    if (fresh) { state = Object.assign({}, state, fresh); try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {} }
-    if (state.selectedAppId === id) state.selectedAppId = null;
-    render();
+    // 删除成功后强制刷新页面，从服务器重新加载最新数据
+    window.location.reload();
+    return;
   } catch(e) {
     alert('删除失败：' + e.message);
   }
