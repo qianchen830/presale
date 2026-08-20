@@ -3562,6 +3562,35 @@ function initCustomSelects() {
   }
 }
 
+// 重建自定义下拉面板的选项（当 select.innerHTML 被 JS 动态修改时调用）
+function rebuildCSPanel(wrap) {
+  var sel = wrap.querySelector('select.cs-native');
+  var panel = wrap.querySelector('.cs-panel');
+  if (!sel || !panel) return;
+  panel.innerHTML = '';
+  var curVal = sel.value;
+  for (var i = 0; i < sel.options.length; i++) {
+    var opt = sel.options[i];
+    var div = document.createElement('div');
+    div.className = 'cs-opt' + (opt.value === curVal ? ' cur' : '');
+    div.dataset.value = opt.value;
+    div.textContent = opt.textContent;
+    div.onclick = function() {
+      var v = this.dataset.value;
+      var wasOpen = wrap.classList.contains('open');
+      closeAllCS(wrap);
+      sel.value = v;
+      sel.dispatchEvent(new Event('change'));
+      syncCS(wrap);
+      if (!wasOpen) {
+        wrap.classList.add('open');
+        _repositionCS();
+      }
+    };
+    panel.appendChild(div);
+  }
+}
+
 function syncCS(wrap) {
   var sel = wrap.querySelector('select.cs-native');
   if (!sel) return;
@@ -3622,6 +3651,7 @@ function openAppModal(id) {
   const statusSel = document.querySelector('[name="status"]');
   // 1. 先还原为不含"签单"的标准选项（签单由合同驱动，新增/普通编辑不可手动选择）
   statusSel.innerHTML = '<option value="">请选择</option><option>活跃</option><option>暂停</option><option>预计</option><option>丢失</option><option>关闭</option>';
+  rebuildCSPanel(statusSel.closest('.cs-wrap'));
   if (id) {
     const rec = state.applications.find(r => r.id === id);
     if (rec) {
