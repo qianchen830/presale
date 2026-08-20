@@ -1492,7 +1492,7 @@ function selectYear(y) {
 }
 
 function selectQuarter(q) {
-  state.quarter = q;
+  state.quarter = 'Q' + q;
   state.month = null;
   state.weekNum = null;
   state.selectedAppId = null;
@@ -1515,7 +1515,7 @@ function clearQuarter() {
 
 function selectMonth(m) {
   if (state.quarter == null) {
-    state.quarter = getQuarterForMonth(m);
+    state.quarter = 'Q' + getQuarterForMonth(m);
   }
   state.month = m;
   state.weekNum = null;
