@@ -129,6 +129,7 @@ function getState() {
 }
 
 function saveState(newState) {
+  console.log('[DEBUG saveState] quarter:', newState.quarter, 'year:', newState.year);
   // newState 是本次要保存的增量数据（来自当前用户的过滤状态）
   // 必须与磁盘上已有的完整状态合并，防止过滤后的数据覆盖全局数据
   const existing = getStateRow();
@@ -153,7 +154,7 @@ function saveState(newState) {
       }
     }
     // 全局配置字段：直接取新值
-    for (const key of ['annualTarget','annualTargets','annualActuals','quarterTargets','quarterPcts','activeTab','year','departments','employees']) {
+    for (const key of ['annualTarget','annualTargets','annualActuals','quarterTargets','quarterPcts','activeTab','year','quarter','month','weekNum','weekYear','weekStart','weekEnd','departments','employees']) {
       if (newState[key] !== undefined) merged[key] = newState[key];
     }
   } else {
@@ -366,6 +367,7 @@ app.get('/api/state', requireAuth, (req, res) => {
 });
 
 app.put('/api/state', requireAuth, (req, res) => {
+  console.log('[DEBUG apiPutState] body.state.quarter:', req.body?.state?.quarter, 'year:', req.body?.state?.year);
   const body = req.body;
   if (!body || typeof body !== 'object' || !body.state) return res.status(400).json({ error: '请求体需要包含 state 对象' });
   // injectCreatedBy 在此处只补 createdBy，不做全量序列化
