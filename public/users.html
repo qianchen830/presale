@@ -155,6 +155,7 @@ function escHtml(s) {
     .then(d => {
       if (!d.loggedIn) { window.location.href = '/login.html'; return; }
       _currentUser = d;
+      _currentUser.id = _currentUser.userId; // 确保 id 字段存在
       document.getElementById('hdrUser').textContent = (d.displayName || d.username) + (d.role === 'admin' ? ' (管理员)' : '');
       fetch('/api/admin/departments', { credentials: 'include' })
         .then(r => r.ok ? r.json() : { departments: [] })
