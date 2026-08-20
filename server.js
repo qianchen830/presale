@@ -189,16 +189,12 @@ function filterStateByUser(state, user) {
       .map(a => a.oppNo)
   );
 
-  // 用 employees.deptId 建立 consultant → 真实部门 映射
+  // 建立 consultant → 归属部门 映射（只用 employees.deptId，不从 applications 表覆盖）
   const deptById = {};
   (s.departments || []).forEach(d => { if (d.id && d.name) deptById[d.id] = d.name; });
   const consultantDepts = {};
   (s.employees || []).forEach(e => {
-    if (e.name) consultantDepts[e.name] = deptById[e.deptId] || e.department || '';
-  });
-  // applications 表里 consultant 的部门也加入映射（兜底）
-  (s.applications || []).forEach(a => {
-    if (a.consultant && a.department) consultantDepts[a.consultant] = a.department;
+    if (e.name) consultantDepts[e.name] = deptById[e.deptId] || '';
   });
 
   // applications：本人是顾问 OR 本人参与的allocations OR 申请首席顾问属于授权部门

@@ -3561,37 +3561,6 @@ function initCustomSelects() {
     syncCS(wrap);
   });
 
-  // 统一的事件委托：处理所有 cs-opt 的点击（静态 HTML 和 JS 动态创建的都能响应）
-  document.addEventListener('click', function(e) {
-    var opt = e.target.closest('.cs-opt');
-    if (opt) {
-      var wrap = opt.closest('.cs-wrap');
-      if (!wrap) return;
-      var sel = wrap.querySelector('select.cs-native');
-      if (!sel) return;
-      e.stopPropagation();
-      var val = opt.dataset.value;
-      sel.value = val;
-      // 同步高亮 + 显示文本
-      var valEl = wrap.querySelector('.cs-val');
-      if (valEl) {
-        valEl.textContent = opt.textContent;
-        valEl.classList.remove('ph');
-      }
-      wrap.querySelectorAll('.cs-opt').forEach(function(o) { o.classList.toggle('cur', o === opt); });
-      wrap.classList.remove('open');
-      // 触发原生 change 事件
-      sel.dispatchEvent(new Event('change'));
-      // 重新同步（确保 onchange 执行后的状态一致）
-      var newSel = wrap.querySelector('select.cs-native');
-      if (newSel) syncCS(wrap);
-      return;
-    }
-    if (!e.target.closest('.cs-wrap')) {
-      closeAllCS(null);
-    }
-  });
-
   if (!window._csOutsideInit) {
     window._csOutsideInit = true;
   }
@@ -5495,6 +5464,41 @@ function escHtml(s) {
   if (s == null) return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+// 统一的事件委托：处理所有 cs-opt 的点击（静态 HTML 和 JS 动态创建的都能响应）
+// 每次页面加载无条件注册，确保所有 cs-opt（无论是否被 initCustomSelects 处理）都能响应
+(function() {
+  if (window._csDelegatedInit) return;
+  window._csDelegatedInit = true;
+  document.addEventListener('click', function(e) {
+    var opt = e.target.closest('.cs-opt');
+    if (opt) {
+      var wrap = opt.closest('.cs-wrap');
+      if (!wrap) return;
+      var sel = wrap.querySelector('select.cs-native');
+      if (!sel) return;
+      e.stopPropagation();
+      var val = opt.dataset.value;
+      sel.value = val;
+      // 同步高亮 + 显示文本
+      var valEl = wrap.querySelector('.cs-val');
+      if (valEl) {
+        valEl.textContent = opt.textContent;
+        valEl.classList.remove('ph');
+      }
+      wrap.querySelectorAll('.cs-opt').forEach(function(o) { o.classList.toggle('cur', o === opt); });
+      wrap.classList.remove('open');
+      // 触发原生 change 事件
+      sel.dispatchEvent(new Event('change'));
+      // 重新同步
+      syncCS(wrap);
+      return;
+    }
+    if (!e.target.closest('.cs-wrap')) {
+      closeAllCS(null);
+    }
+  });
+})();
 </script>
 
 
