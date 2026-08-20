@@ -3979,13 +3979,15 @@ function saveApp() {
 /* ----- Requirement Cell Update & Quick Add ----- */
 function updateReqCell(id, field, value) {
   const rec = state.requirements.find(r => r.id === id);
-  if (rec) { rec[field] = value; autoSave(); }
+  if (rec) { rec[field] = value; fetch('/api/modules/requirements/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) }).catch(() => {}); }
 }
 function addReqRow() {
   if (!state.selectedAppId) { alert('请先在「售前申请」列表中选择一条记录'); return; }
   const app = state.applications.find(a => a.id === state.selectedAppId);
-  state.requirements.push({ id: uid(), oppNo: app.oppNo, rawRequirement: '', domainAnalysis: '', businessAnalysis: '', itAnalysis: '', pendingQuestions: '', expectedGoal: '', needDev: '' });
-  autoSave(); renderSubTables();
+  const newRec2 = { id: uid(), oppNo: app.oppNo, rawRequirement: '', domainAnalysis: '', businessAnalysis: '', itAnalysis: '', pendingQuestions: '', expectedGoal: '', needDev: '' };
+  state.requirements.push(newRec2);
+  renderSubTables();
+  fetch('/api/modules/requirements', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newRec2) }).catch(() => {});
   setTimeout(() => { const rows = document.querySelectorAll('#tblReq .dt tbody tr'); const last = rows[rows.length - 1]; if (last) { last.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); const inp = last.querySelector('[contenteditable="true"]'); if (inp) inp.focus(); } }, 50);
 }
 
@@ -4031,8 +4033,10 @@ function addFollowRow() {
   if (!state.selectedAppId) { alert('请先在「售前申请」列表中选择一条记录'); return; }
   const app = state.applications.find(a => a.id === state.selectedAppId);
   const today = new Date().toISOString().slice(0, 10);
-  state.followUps.push({ id: uid(), oppNo: app.oppNo, followDate: today, workItem: '', hours: 0, summary: '', nextWork: '', nextDate: today });
-  autoSave(); renderSubTables();
+  const newRec = { id: uid(), oppNo: app.oppNo, followDate: today, workItem: '', hours: 0, summary: '', nextWork: '', nextDate: today };
+  state.followUps.push(newRec);
+  renderSubTables();
+  fetch('/api/modules/followUps', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newRec) }).catch(() => {});
   setTimeout(() => { const rows = document.querySelectorAll('#tblFollow .dt tbody tr'); const last = rows[rows.length - 1]; if (last) { last.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); const inp = last.querySelector('[contenteditable="true"]'); if (inp) inp.focus(); } }, 50);
 }
 
@@ -4042,7 +4046,7 @@ function updateMoneyCell(el, id, field) {
   var n = parseFloat(raw);
   if (isNaN(n)) n = 0;
   var rec = state.contracts.find(r => r.id === id);
-  if (rec) { rec[field] = n; autoSave(); }
+  if (rec) { rec[field] = n; fetch('/api/modules/contracts/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) }).catch(() => {}); }
   el.textContent = fmtMoney2(n);
 }
 
@@ -4054,14 +4058,16 @@ function updateContractCell(id, field, value) {
     } else {
       rec[field] = value;
     }
-    autoSave();
+    fetch('/api/modules/contracts/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) }).catch(() => {});
   }
 }
 function addContractRow() {
   const app = state.selectedAppId ? state.applications.find(a => a.id === state.selectedAppId) : null;
   const today = new Date().toISOString().slice(0, 10);
-  state.contracts.push({ id: uid(), oppNo: app ? (app.oppNo || '') : '', signOppNo: '', workOrderNo: '', mainContractNo: '', signCustomer: app ? (app.customer || '') : '', signCustomerName: '', subAmount: 0, actualCost: 0, subPerformance: 0, presalePerformance: 0, salesDept: app ? (app.department || '') : '', accountMgr: app ? (app.applicant || '') : '', mainSignDate: today, product: app ? (app.product || '') : '', isCloudSub: '否', signOpDate: today, partnerSettle: '未结算', yearMonth: '', quarter: '', remarks: '' });
-  autoSave(); renderSubTables();
+  const newRec = { id: uid(), oppNo: app ? (app.oppNo || '') : '', signOppNo: '', workOrderNo: '', mainContractNo: '', signCustomer: app ? (app.customer || '') : '', signCustomerName: '', subAmount: 0, actualCost: 0, subPerformance: 0, presalePerformance: 0, salesDept: app ? (app.department || '') : '', accountMgr: app ? (app.applicant || '') : '', mainSignDate: today, product: app ? (app.product || '') : '', isCloudSub: '否', signOpDate: today, partnerSettle: '未结算', yearMonth: '', quarter: '', remarks: '' };
+  state.contracts.push(newRec);
+  renderSubTables();
+  fetch('/api/modules/contracts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newRec) }).catch(() => {});
   setTimeout(() => { const rows = document.querySelectorAll('#tblContract .dt tbody tr'); const last = rows[rows.length - 1]; if (last) { last.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); const inp = last.querySelector('[contenteditable="true"]'); if (inp) inp.focus(); } }, 50);
 }
 
@@ -4070,7 +4076,7 @@ function updateQ12Cell(id, field, value) {
   const rec = state.salesQuestions.find(r => r.id === id);
   if (rec) {
     rec[field] = value;
-    autoSave();
+    fetch('/api/modules/salesQuestions/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) }).catch(() => {});
   }
 }
 
@@ -4088,8 +4094,8 @@ function addQ12Row() {
     note: ''
   };
   state.salesQuestions.push(newRow);
-  autoSave();
   renderSubTables();
+  fetch('/api/modules/salesQuestions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newRow) }).catch(() => {});
   // Scroll to bottom and focus the new row's first editable cell
   setTimeout(() => {
     const rows = document.querySelectorAll('#tblQ12 .dt tbody tr');
