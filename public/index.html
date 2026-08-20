@@ -1593,13 +1593,13 @@ function getPeriodLabel() {
     return state.year + '年 ' + (range.start.getMonth() + 1) + '/' + range.start.getDate() + ' - ' + (range.end.getMonth() + 1) + '/' + range.end.getDate();
   }
   if (state.month != null) return state.year + '年' + (state.month + 1) + '月';
-  if (state.quarter != null) return state.year + '年 Q' + state.quarter;
+  if (state.quarter != null) return state.year + '年 ' + state.quarter;
   return state.year + '年（全年）';
 }
 
 function getBtnLabel(type) {
   if (type === 'year') return state.year + '年';
-  if (type === 'quarter') return state.quarter != null ? 'Q' + state.quarter : '全年';
+  if (type === 'quarter') return state.quarter != null ? state.quarter : '全年';
   if (type === 'month') return state.month != null ? (state.month + 1) + '月' : '不限';
   if (type === 'week') {
     if (state.weekNum != null) {
