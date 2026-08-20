@@ -5425,12 +5425,18 @@ var _currentUser = null;
       state.filterConsultant = null;
       state.filterDept = null;
     } else {
-      // 非管理员默认显示顾问区块，并默认过滤到本人
+      // 非管理员默认显示顾问区块
       var consultEl2 = document.getElementById('hdrConsult');
       if (consultEl2) consultEl2.style.display = '';
-      // 用当前用户的 filter 覆盖 loadState 中残留的旧用户过滤状态
-      state.filterConsultant = d.displayName || d.username;
-      state.filterDept = null;
+      // 有 view_depts 的用户（部门级授权）默认看整个部门，不过滤到个人
+      // 无 view_depts 的用户默认过滤到本人
+      if (_currentUser.view_depts && _currentUser.view_depts.length > 0) {
+        state.filterConsultant = null;
+        state.filterDept = null;
+      } else {
+        state.filterConsultant = d.displayName || d.username;
+        state.filterDept = null;
+      }
     }
 
     buildPeriodPanels();
