@@ -191,16 +191,35 @@ function filterStateByUser(state, user) {
   // 先收集可见的 oppNo（来自过滤后的 applications）
   const visibleOppNos = new Set((s.applications || []).map(a => a.oppNo).filter(Boolean));
 
-  // contracts：通过 oppNo 关联到本人可见的申请
+  // contracts：通过 oppNo 关联到本人可见的申请 + 本人是客户经理的记录
   if (s.contracts) {
-    s.contracts = s.contracts.filter(c => visibleOppNos.has(c.oppNo));
+    s.contracts = s.contracts.filter(c =>
+      visibleOppNos.has(c.oppNo) || c.accountMgr === myName
+    );
   }
 
-  // salesQuestions / judgments / followUps / allocations：通过 oppNo 关联到可见的 applications
-  if (s.salesQuestions) s.salesQuestions = s.salesQuestions.filter(q => visibleOppNos.has(q.oppNo));
-  if (s.judgments)     s.judgments     = s.judgments    .filter(j => visibleOppNos.has(j.oppNo));
-  if (s.followUps)     s.followUps     = s.followUps    .filter(f => visibleOppNos.has(f.oppNo));
-  if (s.allocations)   s.allocations   = s.allocations  .filter(a => visibleOppNos.has(a.oppNo));
+  // salesQuestions / judgments / followUps / allocations：
+  // 通过 oppNo 关联到可见的 applications + 本人是顾问/客户经理的记录
+  if (s.salesQuestions) {
+    s.salesQuestions = s.salesQuestions.filter(q =>
+      visibleOppNos.has(q.oppNo) || q.consultant === myName || q.answerBy === myName
+    );
+  }
+  if (s.judgments) {
+    s.judgments = s.judgments.filter(j =>
+      visibleOppNos.has(j.oppNo) || j.consultant === myName
+    );
+  }
+  if (s.followUps) {
+    s.followUps = s.followUps.filter(f =>
+      visibleOppNos.has(f.oppNo) || f.consultant === myName
+    );
+  }
+  if (s.allocations) {
+    s.allocations = s.allocations.filter(a =>
+      visibleOppNos.has(a.oppNo) || a.consultant === myName
+    );
+  }
 
   return s;
 }
