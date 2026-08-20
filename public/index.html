@@ -1570,6 +1570,8 @@ function clearConsultantFilter() {
 function setConsultantFilter(name) {
   state.filterConsultant = name || null;
   state.selectedAppId = null;
+  // 切换顾问时同步清除部门过滤，避免叠加导致看不到该顾问数据
+  state.filterDept = null;
   closeAllDD();
   buildPeriodPanels();
   autoSave();
@@ -1839,6 +1841,11 @@ function saveConsultantProfile() {
   autoSave();
   renderHdrConsult();
   closeModal('consultantModal');
+  // 非管理员切换顾问时，同步清除部门过滤，避免叠加导致数据看不到
+  if (_currentUser && _currentUser.role !== 'admin') {
+    state.filterDept = null;
+    buildPeriodPanels();
+  }
 }
 
 /* ----- Quick Edit (经理/总监/总经理 参与信息) ----- */
@@ -3672,6 +3679,11 @@ function openAppModal(id) {
     document.querySelector('[name="applyDate"]').value = today();
     document.getElementById('appModalTitle').textContent = '新增售前申请';
   }
+  // 修复：openModal -> finishInit -> initCustomSelects 只初始化了 cs-native class，
+  // 但 panel 里是空的。需要对所有4个下拉都调用 rebuildCSPanel，确保面板有选项。
+  document.querySelectorAll('#appForm select.cs-native').forEach(function(sel) {
+    rebuildCSPanel(sel.closest('.cs-wrap'));
+  });
   openModal('appModal');
   // 初始化申请人下拉并同步显示文本（setFormData 只会设置 hidden 值，需手动同步显示）
   initApplicantSS();
