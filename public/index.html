@@ -5402,8 +5402,8 @@ var _currentUser = null;
     var d = await r.json();
     if (!d.loggedIn) { window.location.href = '/login.html'; return; }
     _currentUser = d;
-    // 解析 view_depts 供权限过滤使用
-    try { _currentUser.view_depts = JSON.parse(d.view_depts || '[]'); } catch(e) { _currentUser.view_depts = []; }
+    // 解析 view_depts 供权限过滤使用（API返回的viewDepts已是数组，不是字符串，无需JSON.parse）
+    _currentUser.view_depts = Array.isArray(d.viewDepts) ? d.viewDepts : [];
     // 头部显示用户名，admin角色显示「管理员」
     var nameEl = document.getElementById('hdrConsultName');
     if (nameEl) nameEl.textContent = d.displayName || d.username;
