@@ -344,7 +344,7 @@ app.get('/api/state/history/:id', requireAuth, (req, res) => {
 });
 
 // ---- 管理员接口 ----
-app.get('/api/admin/users', requireAdmin, (req, res) => {
+app.get('/api/admin/users', requireAuth, (req, res) => {
   const r = db.exec('SELECT id, username, display_name, role, department, view_depts, created_at FROM users ORDER BY id ASC');
   if (!r.length) return res.json({ users: [] });
   const cols = r[0].columns;
@@ -440,14 +440,14 @@ app.delete('/api/admin/users/:id', requireAdmin, (req, res) => {
 });
 
 // 部门列表（供前端渲染权限选择）
-app.get('/api/admin/departments', requireAdmin, (req, res) => {
+app.get('/api/admin/departments', requireAuth, (req, res) => {
   const result = getState();
   const depts = result && result.state && result.state.departments ? result.state.departments : [];
   res.json({ departments: depts });
 });
 
 
-app.get('/api/admin/employees', requireAdmin, (req, res) => {
+app.get('/api/admin/employees', requireAuth, (req, res) => {
   const result = getState();
   const employees = result && result.state && result.state.employees ? result.state.employees : [];
   const departments = result && result.state && result.state.departments ? result.state.departments : [];
