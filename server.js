@@ -616,7 +616,18 @@ const MODULE_KEYS = ['applications','contracts','judgments','salesQuestions','fo
 function checkModuleOwnership(record, session) {
   if (session.role === 'admin') return true;
   const myName = session.displayName || session.username;
-  return record.consultant === myName;
+  // 本人负责的记录可删
+  if (record.consultant === myName) return true;
+  // 部门级授权用户可删本部门所有顾问的记录
+  var viewDepts = [];
+  try { viewDepts = JSON.parse(session.viewDepts || '[]'); } catch(e) {}
+  if (viewDepts.length > 0) {
+    // 查询该顾问的归属部门是否在 viewDepts 中
+    var allState = getState().state;
+    var emp = (allState.employees || []).find(function(e) { return e.name === record.consultant; });
+    if (emp && emp.department && viewDepts.includes(emp.department)) return true;
+  }
+  return false;
 }
 
 function moduleOp(key, action, record, session) {
@@ -649,10 +660,32 @@ function moduleOp(key, action, record, session) {
     return { ok: true, record, updatedAt };
   }
   if (action === 'delete') {
-    const idx = arr.findIndex(r => r.id === record.id);
+    // id 可能是字符串或整数，统一转为字符串比较
+    var delId = String(record.id);
+    console.log('[delete] key=' + key + ' delId=' + delId + ' arr.length=' + arr.length + ' session=' + (session.username || '') + ' firstId=' + (arr.length > 0 ? String(arr[0].id) : 'none'));
+    if (!delId) return { error: '无效的记录ID' };
+    var idx = arr.findIndex(function(r) { return String(r.id) === delId; });
+    console.log('[delete] idx=' + idx + ' record.consultant=' + (idx >= 0 ? arr[idx].consultant : 'n/a'));
     if (idx < 0) return { error: '记录不存在' };
-    if (!checkModuleOwnership(arr[idx], session)) return { error: '无权限删除此记录' };
-    arr[idx] = { ...arr[idx], deleted: true, updatedAt: now };
+    var own = checkModuleOwnership(arr[idx], session);
+    console.log('[delete] checkModuleOwnership=' + own);
+    if (!own) return { error: '无权限删除此记录' };
+    // 级联删除：applications 删时同步删关联合同/业绩分配；contracts 删时同步删业绩分配；其他软删除
+    var oppNo = null;
+    if (key === 'applications' || key === 'contracts') {
+      var app = arr[idx];
+      oppNo = app.oppNo;
+    }
+    if (key === 'applications') {
+      state.contracts = (state.contracts || []).filter(function(c) { return c.oppNo !== oppNo; });
+      state.allocations = (state.allocations || []).filter(function(a) { return a.oppNo !== oppNo; });
+      arr.splice(idx, 1);
+    } else if (key === 'contracts') {
+      state.allocations = (state.allocations || []).filter(function(a) { return String(a.contractId) !== delId; });
+      arr.splice(idx, 1);
+    } else {
+      arr[idx] = { ...arr[idx], deleted: true, updatedAt: now };
+    }
     state[key] = arr;
     const updatedAt = saveState(state);
     return { ok: true, updatedAt };
@@ -671,7 +704,7 @@ app.post('/api/modules/:module', requireAuth, (req, res) => {
 
 app.put('/api/modules/:module/:id', requireAuth, (req, res) => {
   const key = req.params.module;
-  const id = parseInt(req.params.id);
+  const id = req.params.id;
   const record = req.body && typeof req.body === 'object' ? req.body : {};
   record.id = id;
   const result = moduleOp(key, 'update', record, req.session);
@@ -681,7 +714,7 @@ app.put('/api/modules/:module/:id', requireAuth, (req, res) => {
 
 app.delete('/api/modules/:module/:id', requireAuth, (req, res) => {
   const key = req.params.module;
-  const id = parseInt(req.params.id);
+  const id = req.params.id;
   const result = moduleOp(key, 'delete', { id }, req.session);
   if (result.error) return res.status(400).json({ error: result.error });
   res.json({ ok: true, updatedAt: result.updatedAt });

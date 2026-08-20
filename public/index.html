@@ -2884,8 +2884,8 @@ function renderCards() {
   const following = filtered.filter(a => a.status === '活跃').length;
   const lost = filtered.filter(a => a.status === '丢失').length;
   const won = filtered.filter(a => a.status === '签单').length;
-  // "金额"：预计口径（预计签单金额），签单口径（签单金额）分开显示，这里"金额"用预计口径
-  const totalAmount = filtered.reduce((s, a) => s + (a.status === '预计' ? (parseFloat(a.expectedSignAmount) || 0) : 0), 0);
+  // "金额"：签单=signAmount，预计=expectedSignAmount（口径与下方各状态一致）
+  const totalAmount = filtered.reduce(function(s, a) { var amt = a.status === '签单' ? parseFloat(a.signAmount) : a.status === '预计' ? parseFloat(a.expectedSignAmount) : 0; return s + (amt || 0); }, 0);
 
   document.getElementById('cardOverview').innerHTML =
     '<div class="overview-top" onclick="showDetail(\'overview\',\'all\')">' +
@@ -4533,42 +4533,22 @@ function updateAppSignStatusFromContract(oppNo) {
 
 /* ----- Delete ----- */
 async function deleteRecord(collection, id) {
-  // 删除售前申请：级联删除该商机下的所有关联数据
   if (collection === 'applications') {
-    const app = state.applications.find(a => a.id === id);
-    if (!app) return;
-    const oppNo = app.oppNo;
-    if (!confirm('确认删除此售前申请？将同步删除该商机关联的销售十二问、需求清单、顾问判断、项目跟进、合同签订、业绩分配数据，且不可恢复。')) return;
-    // 收集该商机下所有合同 ID，用于级联删除业绩分配
-    const contractIds = state.contracts.filter(c => c.oppNo === oppNo).map(c => c.id);
-    state.salesQuestions = state.salesQuestions.filter(r => r.oppNo !== oppNo);
-    state.requirements = state.requirements.filter(r => r.oppNo !== oppNo);
-    state.judgments = state.judgments.filter(r => r.oppNo !== oppNo);
-    state.followUps = state.followUps.filter(r => r.oppNo !== oppNo);
-    state.contracts = state.contracts.filter(c => c.oppNo !== oppNo);
-    state.allocations = state.allocations.filter(a => a.oppNo !== oppNo && !contractIds.includes(a.contractId));
-    state.applications = state.applications.filter(a => a.id !== id);
-    // 若当前选中的申请被删除，清空选中状态
+    if (!confirm('确认删除此售前申请？将同步删除该商机关联的所有数据，且不可恢复。')) return;
+  } else {
+    if (!confirm('确认删除此记录？')) return;
+  }
+  try {
+    var r = await fetch('/api/modules/' + collection + '/' + id, { method: 'DELETE', credentials: 'include' });
+    if (!r.ok) { var d = await r.json(); alert('删除失败：' + (d.error || r.status)); return; }
+    // 删除成功后重新加载服务端最新数据，强制刷新页面
+    var fresh = await apiGetState();
+    if (fresh) { state = Object.assign({}, state, fresh); try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {} }
     if (state.selectedAppId === id) state.selectedAppId = null;
-    await saveNow();
     render();
-    return;
+  } catch(e) {
+    alert('删除失败：' + e.message);
   }
-  if (!confirm('确认删除此记录？')) return;
-  // 删除合同前记录关联商机号，以便反向更新申请状态
-  let affectedOppNo = null;
-  if (collection === 'contracts') {
-    const c = state.contracts.find(r => r.id === id);
-    if (c) {
-      affectedOppNo = c.oppNo;
-      // 删除合同同步删除对应的业绩分配记录
-      state.allocations = state.allocations.filter(a => a.contractId !== id);
-    }
-  }
-  state[collection] = state[collection].filter(r => r.id !== id);
-  if (affectedOppNo) updateAppSignStatusFromContract(affectedOppNo);
-  await saveNow();
-  render();
 }
 
 /* ===== ALLOCATION (业绩分配) ===== */
@@ -4890,9 +4870,11 @@ function showDetail(card, type) {
     }));
   } else if (card === 'yearActual') {
     title = type + '年 实际完成明细';
-    var yAllocs = state.allocations.filter(function(a) {
+    // 以当前过滤条件下的申请为基础，筛选对应年度的业绩分配
+    var filteredOppNos = new Set((getFilteredApps() || []).map(function(a) { return a.oppNo; }));
+    var yAllocs = (state.allocations || []).filter(function(a) {
       var aYear = a.month ? parseInt(String(a.month).split('-')[0]) : null;
-      return aYear === parseInt(type);
+      return aYear === parseInt(type) && filteredOppNos.has(a.oppNo);
     });
     if (yAllocs.length > 0) {
       // 按合同ID分组，合并同一合同的多个顾问分配
@@ -4927,13 +4909,16 @@ function showDetail(card, type) {
           '支持顾问': g.consultants.join(', ')
         };
       });
+    } else {
+      rows = [];
     }
   } else if (card === 'quarter') {
     title = type + ' 完成明细（' + state.year + '年）';
-    var qAllocs = state.allocations.filter(function(a) {
+    var filteredOppNosQ = new Set((getFilteredApps() || []).map(function(a) { return a.oppNo; }));
+    var qAllocs = (state.allocations || []).filter(function(a) {
       if (a.quarter !== type) return false;
       var aYear = a.month ? parseInt(String(a.month).split('-')[0]) : null;
-      return aYear === state.year;
+      return aYear === state.year && filteredOppNosQ.has(a.oppNo);
     });
     if (qAllocs.length > 0) {
       // 按合同ID分组，合并同一合同的多个顾问分配
@@ -4967,6 +4952,8 @@ function showDetail(card, type) {
           '支持顾问': g.consultants.join(', ')
         };
       });
+    } else {
+      rows = [];
     }
   } else if (card === 'risk') {
     title = '风险项目明细';
@@ -5431,7 +5418,7 @@ var _currentUser = null;
     render();
     // 在 render() 之后设置顾问名称（render 内部的 buildPeriodPanels 不会覆盖 hdrConsultName）
     if (document.getElementById('hdrConsultName')) {
-      document.getElementById('hdrConsultName').textContent = state.consultant || d.displayName || d.username || '';
+      document.getElementById('hdrConsultName').textContent = d.displayName || d.username || '';
     }
   } catch (e) {
     window.location.href = '/login.html';
