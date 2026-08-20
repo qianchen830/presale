@@ -182,10 +182,17 @@ function filterStateByUser(state, user) {
   if (user.department) myDepts.add(user.department);
   const myName = user.displayName || user.username;
 
-  // applications：本人是顾问 OR 申请部门在授权部门中
+  // 收集 allocations 里本人作为支持顾问的所有 oppNo（不限部门）
+  const myAllocOppNos = new Set(
+    (s.allocations || [])
+      .filter(a => a.consultant === myName && a.oppNo)
+      .map(a => a.oppNo)
+  );
+
+  // applications：本人是顾问 OR 申请部门在授权部门中 OR 在本人参与的allocations中
   if (s.applications) {
     s.applications = s.applications.filter(a =>
-      a.consultant === myName || myDepts.has(a.department)
+      a.consultant === myName || myDepts.has(a.department) || myAllocOppNos.has(a.oppNo)
     );
   }
 
