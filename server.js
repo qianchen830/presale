@@ -51,10 +51,22 @@ async function initDb() {
       created_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_history_created ON app_state_history(created_at);
+    CREATE TABLE IF NOT EXISTS user_targets (
+      user_id INTEGER PRIMARY KEY,
+      annual_targets TEXT NOT NULL DEFAULT '{}',
+      annual_actuals TEXT NOT NULL DEFAULT '{}',
+      quarter_targets TEXT NOT NULL DEFAULT '{}',
+      quarter_pcts TEXT NOT NULL DEFAULT '{}',
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
   `);
 
   // 兼容旧数据库：view_depts 列不存在时添加
   try { db.run("ALTER TABLE users ADD COLUMN view_depts TEXT NOT NULL DEFAULT '[]'"); } catch(e) { /* 列已存在 */ }
+  // 兼容旧数据库：user_targets 表不存在时添加（首次启动已用 CREATE TABLE IF NOT EXISTS，这里只做兜底）
+  try { db.run("ALTER TABLE user_targets ADD COLUMN quarter_targets TEXT NOT NULL DEFAULT '{}'"); } catch(e) {}
+  try { db.run("ALTER TABLE user_targets ADD COLUMN quarter_pcts TEXT NOT NULL DEFAULT '{}'"); } catch(e) {}
 
   // 默认管理员
   const adminRow = db.exec("SELECT id FROM users WHERE username = 'admin'");
@@ -309,7 +321,29 @@ app.get('/api/state', requireAuth, (req, res) => {
     view_depts: req.session.viewDepts || '[]'
   };
   const filtered = filterStateByUser(result.state, user);
-  res.json({ state: filtered, updatedAt: result.updatedAt });
+
+  // 读取当前用户的个人指标（合并到 state 中返回）
+  let userTargets = { annualTargets: {}, annualActuals: {}, quarterTargets: {}, quarterPcts: {} };
+  try {
+    const ut = db.exec('SELECT annual_targets, annual_actuals, quarter_targets, quarter_pcts FROM user_targets WHERE user_id = ' + req.session.userId);
+    if (ut.length && ut[0].values.length) {
+      userTargets = {
+        annualTargets: JSON.parse(ut[0].values[0][0] || '{}'),
+        annualActuals: JSON.parse(ut[0].values[0][1] || '{}'),
+        quarterTargets: JSON.parse(ut[0].values[0][2] || '{}'),
+        quarterPcts: JSON.parse(ut[0].values[0][3] || '{}')
+      };
+    }
+  } catch(e) {}
+
+  // 用个人指标覆盖 state 中的全局指标（个人优先）
+  const merged = JSON.parse(JSON.stringify(filtered));
+  merged.annualTargets = userTargets.annualTargets;
+  merged.annualActuals = userTargets.annualActuals;
+  merged.quarterTargets = userTargets.quarterTargets;
+  merged.quarterPcts = userTargets.quarterPcts;
+
+  res.json({ state: merged, updatedAt: result.updatedAt });
 });
 
 app.put('/api/state', requireAuth, (req, res) => {
@@ -322,6 +356,36 @@ app.put('/api/state', requireAuth, (req, res) => {
     res.json({ ok: true, updatedAt });
   } catch (e) {
     console.error('保存失败:', e);
+    res.status(500).json({ error: '保存失败: ' + e.message });
+  }
+});
+
+// 保存当前用户的个人指标（年度指标/季度指标）
+app.put('/api/user/targets', requireAuth, (req, res) => {
+  const { annualTargets, annualActuals, quarterTargets, quarterPcts } = req.body || {};
+  const now = new Date().toISOString();
+  try {
+    db.run(`INSERT INTO user_targets (user_id, annual_targets, annual_actuals, quarter_targets, quarter_pcts, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(user_id) DO UPDATE SET
+        annual_targets = excluded.annual_targets,
+        annual_actuals = excluded.annual_actuals,
+        quarter_targets = excluded.quarter_targets,
+        quarter_pcts = excluded.quarter_pcts,
+        updated_at = excluded.updated_at`,
+      [
+        req.session.userId,
+        JSON.stringify(annualTargets || {}),
+        JSON.stringify(annualActuals || {}),
+        JSON.stringify(quarterTargets || {}),
+        JSON.stringify(quarterPcts || {}),
+        now
+      ]
+    );
+    saveDbs();
+    res.json({ ok: true, updatedAt: now });
+  } catch (e) {
+    console.error('保存用户指标失败:', e);
     res.status(500).json({ error: '保存失败: ' + e.message });
   }
 });
@@ -466,6 +530,159 @@ app.get('/api/admin/employees', requireAuth, (req, res) => {
   }));
   res.json({ employees: available });
 });
+
+
+// 各模块单条 CRUD 路由（实时保存）
+const MODULE_KEYS = ['applications','contracts','judgments','salesQuestions','followUps','allocations'];
+
+function checkModuleOwnership(record, session) {
+  if (session.role === 'admin') return true;
+  const myName = session.displayName || session.username;
+  return record.consultant === myName;
+}
+
+function moduleOp(key, action, record, session) {
+  if (!MODULE_KEYS.includes(key)) return { error: '不支持的模块: ' + key };
+  const state = getState().state;
+  const arr = state[key] || [];
+  const now = new Date().toISOString();
+  if (action === 'create') {
+    if (!record.id) record.id = Date.now();
+    record.consultant = record.consultant || session.displayName || session.username;
+    record.createdAt = now;
+    record.updatedAt = now;
+    while (arr.find(r => r.id === record.id)) record.id++;
+    arr.push(record);
+    state[key] = arr;
+    const updatedAt = saveState(state);
+    return { ok: true, record, updatedAt };
+  }
+  if (action === 'update') {
+    const idx = arr.findIndex(r => r.id === record.id);
+    if (idx < 0) return { error: '记录不存在' };
+    if (!checkModuleOwnership(arr[idx], session)) return { error: '无权限修改此记录' };
+    record.consultant = arr[idx].consultant;
+    record.id = arr[idx].id;
+    record.createdAt = arr[idx].createdAt;
+    record.updatedAt = now;
+    arr[idx] = record;
+    state[key] = arr;
+    const updatedAt = saveState(state);
+    return { ok: true, record, updatedAt };
+  }
+  if (action === 'delete') {
+    const idx = arr.findIndex(r => r.id === record.id);
+    if (idx < 0) return { error: '记录不存在' };
+    if (!checkModuleOwnership(arr[idx], session)) return { error: '无权限删除此记录' };
+    arr[idx] = { ...arr[idx], deleted: true, updatedAt: now };
+    state[key] = arr;
+    const updatedAt = saveState(state);
+    return { ok: true, updatedAt };
+  }
+  return { error: '未知操作: ' + action };
+}
+
+app.post('/api/modules/:module', requireAuth, (req, res) => {
+  const key = req.params.module;
+  const record = req.body && typeof req.body === 'object' ? req.body : {};
+  if (!record || !Object.keys(record).length) return res.status(400).json({ error: '需要 record 对象' });
+  const result = moduleOp(key, 'create', record, req.session);
+  if (result.error) return res.status(400).json({ error: result.error });
+  res.json({ ok: true, record: result.record, updatedAt: result.updatedAt });
+});
+
+app.put('/api/modules/:module/:id', requireAuth, (req, res) => {
+  const key = req.params.module;
+  const id = parseInt(req.params.id);
+  const record = req.body && typeof req.body === 'object' ? req.body : {};
+  record.id = id;
+  const result = moduleOp(key, 'update', record, req.session);
+  if (result.error) return res.status(400).json({ error: result.error });
+  res.json({ ok: true, record: result.record, updatedAt: result.updatedAt });
+});
+
+app.delete('/api/modules/:module/:id', requireAuth, (req, res) => {
+  const key = req.params.module;
+  const id = parseInt(req.params.id);
+  const result = moduleOp(key, 'delete', { id }, req.session);
+  if (result.error) return res.status(400).json({ error: result.error });
+  res.json({ ok: true, updatedAt: result.updatedAt });
+});
+
+// 部门 CRUD
+app.post('/api/admin/departments', requireAuth, (req, res) => {
+  const { name, pid } = req.body || {};
+  if (!name || !name.trim()) return res.status(400).json({ error: '部门名称不能为空' });
+  const state = getState().state;
+  state.departments = state.departments || [];
+  const newDept = { id: Date.now(), name: name.trim(), pid: pid || null };
+  state.departments.push(newDept);
+  const updatedAt = saveState(state);
+  res.json({ ok: true, record: newDept, updatedAt });
+});
+
+app.put('/api/admin/departments/:id', requireAuth, (req, res) => {
+  const id = parseInt(req.params.id);
+  const { name, pid } = req.body || {};
+  const state = getState().state;
+  const idx = (state.departments || []).findIndex(d => d.id === id);
+  if (idx < 0) return res.status(404).json({ error: '部门不存在' });
+  if (name) state.departments[idx].name = name.trim();
+  if (pid !== undefined) state.departments[idx].pid = pid;
+  const updatedAt = saveState(state);
+  res.json({ ok: true, record: state.departments[idx], updatedAt });
+});
+
+app.delete('/api/admin/departments/:id', requireAuth, (req, res) => {
+  const id = parseInt(req.params.id);
+  const state = getState().state;
+  state.departments = state.departments || [];
+  var toDel = [id];
+  var changed = true;
+  while (changed) {
+    changed = false;
+    state.departments.forEach(d => { if (toDel.indexOf(d.pid) >= 0 && toDel.indexOf(d.id) < 0) { toDel.push(d.id); changed = true; } });
+  }
+  state.departments = state.departments.filter(d => toDel.indexOf(d.id) < 0);
+  (state.employees || []).forEach(e => { if (toDel.indexOf(e.deptId) >= 0) e.deptId = null; });
+  const updatedAt = saveState(state);
+  res.json({ ok: true, updatedAt });
+});
+
+// 员工 CRUD
+app.post('/api/admin/employees', requireAuth, (req, res) => {
+  const { empNo, name, position, deptId } = req.body || {};
+  if (!empNo || !name) return res.status(400).json({ error: '工号和姓名不能为空' });
+  const state = getState().state;
+  state.employees = state.employees || [];
+  const newEmp = { id: Date.now(), empNo, name, position: position || '', deptId: deptId || null };
+  state.employees.push(newEmp);
+  const updatedAt = saveState(state);
+  res.json({ ok: true, record: newEmp, updatedAt });
+});
+
+app.put('/api/admin/employees/:id', requireAuth, (req, res) => {
+  const id = parseInt(req.params.id);
+  const { empNo, name, position, deptId } = req.body || {};
+  const state = getState().state;
+  const idx = (state.employees || []).findIndex(e => e.id === id);
+  if (idx < 0) return res.status(404).json({ error: '员工不存在' });
+  if (empNo) state.employees[idx].empNo = empNo;
+  if (name) state.employees[idx].name = name;
+  if (position !== undefined) state.employees[idx].position = position;
+  if (deptId !== undefined) state.employees[idx].deptId = deptId;
+  const updatedAt = saveState(state);
+  res.json({ ok: true, record: state.employees[idx], updatedAt });
+});
+
+app.delete('/api/admin/employees/:id', requireAuth, (req, res) => {
+  const id = parseInt(req.params.id);
+  const state = getState().state;
+  state.employees = (state.employees || []).filter(e => e.id !== id);
+  const updatedAt = saveState(state);
+  res.json({ ok: true, updatedAt });
+});
+
 
 // 错误处理
 app.use((err, req, res, next) => {

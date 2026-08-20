@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>售前管理 - 登录</title>
+<style>
+:root {
+  --blue: #0176d3;
+  --blue-dark: #005fb2;
+  --blue-light: #eaf5fe;
+  --text: #181818;
+  --text-secondary: #444;
+  --text-muted: #666;
+  --border: #e5e5e5;
+  --bg: #f3f3f3;
+  --white: #fff;
+  --danger: #ba0517;
+  --success: #04844b;
+  --radius: 6px;
+  --shadow: 0 4px 16px rgba(0,0,0,.12);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+  background: linear-gradient(135deg, #1e4d8c 0%, #1a759f 50%, #52b788 100%);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.login-card {
+  background: var(--white);
+  border-radius: 12px;
+  box-shadow: var(--shadow), 0 0 0 1px rgba(255,255,255,.1);
+  width: 100%;
+  max-width: 380px;
+  overflow: hidden;
+  animation: fadeIn .3s ease;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-12px); }
+  to { opacity: 1; transform: none; }
+}
+.login-hdr {
+  background: linear-gradient(135deg, #032d60 0%, #0176d3 100%);
+  padding: 28px 32px 24px;
+  text-align: center;
+}
+.login-logo {
+  width: 52px;
+  height: 52px;
+  background: rgba(255,255,255,.15);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 12px;
+  border: 1px solid rgba(255,255,255,.25);
+}
+.login-logo svg { width: 28px; height: 28px; color: #fff; }
+.login-hdr h1 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: .5px;
+}
+.login-hdr p {
+  font-size: .75rem;
+  color: rgba(255,255,255,.65);
+  margin-top: 4px;
+}
+.login-body { padding: 28px 32px 32px; }
+.fg { margin-bottom: 18px; }
+.fg label {
+  display: block;
+  font-size: .75rem;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.fi {
+  width: 100%;
+  height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: .875rem;
+  color: var(--text);
+  background: var(--white);
+  transition: border-color .15s, box-shadow .15s;
+  font-family: inherit;
+  outline: none;
+}
+.fi:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px var(--blue-light);
+}
+.fi::placeholder { color: #aaa; }
+.msg {
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  font-size: .8rem;
+  margin-bottom: 16px;
+  display: none;
+  align-items: center;
+  gap: 8px;
+}
+.msg.show { display: flex; }
+.msg.err { background: #fee2e2; color: var(--danger); border: 1px solid #fcc; }
+.msg.ok { background: #e6f4ee; color: var(--success); border: 1px solid #bdd8c4; }
+.msg svg { width: 15px; height: 15px; flex-shrink: 0; }
+.btn-login {
+  width: 100%;
+  height: 42px;
+  background: linear-gradient(135deg, #005fb2 0%, #0176d3 100%);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  font-size: .875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity .15s, transform .1s;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.btn-login:hover { opacity: .92; }
+.btn-login:active { transform: scale(.99); }
+.btn-login:disabled { opacity: .55; cursor: not-allowed; }
+.login-footer { text-align: center; font-size: .7rem; color: rgba(255,255,255,.5); padding: 12px 0 4px; }
+</style>
+</head>
+<body>
+
+<div class="login-card">
+  <div class="login-hdr">
+    <div class="login-logo">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5 5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z"/>
+      </svg>
+    </div>
+    <h1>售前管理系统</h1>
+    <p id="loginSubtitle">请登录以继续</p>
+  </div>
+
+  <div class="login-body">
+    <div id="msg" class="msg"></div>
+
+    <div class="fg">
+      <label>用户名</label>
+      <input id="username" class="fi" type="text" placeholder="请输入用户名" autocomplete="username" />
+    </div>
+
+    <div class="fg">
+      <label>密码</label>
+      <input id="password" class="fi" type="password" placeholder="请输入密码" autocomplete="current-password"
+             onkeydown="if(event.key==='Enter')doLogin()" />
+    </div>
+
+    <button class="btn-login" id="btnLogin" onclick="doLogin()">
+      <span id="btnText">登 录</span>
+    </button>
+  </div>
+</div>
+
+<div class="login-footer">售前管理系统 v1.0</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const msg = $('msg');
+
+function showMsg(text, type) {
+  msg.className = `msg show ${type}`;
+  msg.innerHTML = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      ${type === 'err'
+        ? '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>'
+        : '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>'}
+    </svg>${text}`;
+}
+
+// 检查是否已登录
+(async () => {
+  try {
+    const r = await fetch('/api/auth/me', { credentials: 'include' });
+    const d = await r.json();
+    if (d.loggedIn) goMain(d.role);
+  } catch {}
+})();
+
+async function doLogin() {
+  const username = $('username').value.trim();
+  const password = $('password').value;
+  if (!username || !password) { showMsg('请输入用户名和密码', 'err'); return; }
+
+  const btn = $('btnLogin');
+  const btnText = $('btnText');
+  btn.disabled = true;
+  btnText.textContent = '登录中…';
+
+  try {
+    const r = await fetch('/api/auth/login', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const d = await r.json();
+    if (!r.ok) { showMsg(d.error || '登录失败', 'err'); return; }
+    showMsg('登录成功，正在跳转…', 'ok');
+    setTimeout(() => goMain(d.role), 600);
+  } catch (e) {
+    showMsg('网络错误，请重试', 'err');
+  } finally {
+    btn.disabled = false;
+    btnText.textContent = '登 录';
+  }
+}
+
+function goMain(role) {
+  const subtitle = document.getElementById('loginSubtitle');
+  if (role === 'admin') subtitle.textContent = '系统管理，请登录';
+  window.location.href = '/index.html' + (role === 'admin' ? '?admin=1' : '');
+}
+</script>
+</body>
+</html>

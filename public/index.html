@@ -221,7 +221,7 @@ body{font-family:var(--font-sans);background:var(--sf-bg);color:var(--sf-text);f
 .tw{overflow-x:auto;flex:1;min-height:0;overflow-y:auto;}
 table.dt{width:100%;border-collapse:collapse;font-size:var(--text-sm);white-space:nowrap;}
 .dt thead{position:sticky;top:0;z-index:2;}
-.dt td{padding:5px 10px;border-bottom:1px solid var(--sf-border-light);color:var(--sf-text);max-width:200px;overflow:hidden;text-overflow:ellipsis;line-height:1.4;font-size:var(--text-2xs);white-space:nowrap;}
+.dt td{padding:5px 10px;border-bottom:1px solid var(--sf-border-light);color:var(--sf-text);max-width:200px;line-height:1.4;font-size:var(--text-2xs);word-break:break-all;}
 .dt th{position:relative;background:var(--sf-bg-soft);padding:5px 10px;text-align:left;font-weight:var(--weight-semibold);color:var(--sf-text-secondary);border-bottom:2px solid var(--sf-border);text-transform:uppercase;letter-spacing:.5px;font-size:var(--text-xs);}
 .dt th .th-wrap{display:inline-flex;align-items:center;gap:4px;}
 .dt th .th-info{display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border-radius:50%;background:var(--sf-text-muted);color:#fff;font-size:10px;line-height:1;cursor:help;font-style:normal;font-weight:var(--weight-semibold);margin-left:2px;position:relative;}
@@ -234,7 +234,7 @@ table.dt{width:100%;border-collapse:collapse;font-size:var(--text-sm);white-spac
 .dt th .th-edit svg{width:11px;height:11px;}
 .dt th:not(:last-child)::after{content:'';position:absolute;right:0;top:0;bottom:0;width:1px;background:var(--sf-border);}
 .dt td:not(:last-child){box-shadow:inset -1px 0 0 var(--sf-border-light);}
-.dt td.wrap{white-space:nowrap;max-width:none;overflow:hidden;text-overflow:ellipsis;word-break:normal;}
+.dt td.wrap{white-space:normal;max-width:none;overflow:visible;text-overflow:clip;word-break:break-all;}
 .dt td[contenteditable="true"]{cursor:text;transition:background .1s;}
 .dt td[contenteditable="true"]:hover{background:#f0f7ff;}
 .dt td[contenteditable="true"]:focus{background:#fff;outline:1px solid var(--sf-blue);box-shadow:inset 0 0 0 1px var(--sf-blue);}
@@ -288,7 +288,7 @@ input[type=number]{-moz-appearance:textfield;}
 .cs-trigger{display:flex;align-items:center;justify-content:space-between;width:100%;height:36px;padding:0 12px;border:1px solid var(--sf-border);border-radius:var(--sf-radius);font-size:var(--text-xs);color:var(--sf-text);background:var(--sf-white);cursor:pointer;transition:all .15s;}
 .cs-trigger:hover{border-color:var(--sf-gray-3);}
 .cs-wrap.open .cs-trigger{border-color:var(--sf-border-primary);box-shadow:0 0 0 2px var(--sf-blue-light);}
-.cs-val{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cs-val{flex:1;overflow:hidden;text-overflow:clip;white-space:normal;word-break:break-all;}
 .cs-val.ph{color:var(--sf-text-disabled);}
 .cs-arr{position:relative;width:16px;height:16px;margin-left:6px;flex-shrink:0;transition:transform .15s;}
 .cs-arr::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-60%);border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid var(--sf-text-muted);opacity:.6;}
@@ -307,7 +307,7 @@ input[type=number]{-moz-appearance:textfield;}
 .ss-trigger{display:flex;align-items:center;justify-content:space-between;width:100%;height:36px;padding:0 12px;border:1px solid var(--sf-border);border-radius:var(--sf-radius);font-size:var(--text-xs);color:var(--sf-text);background:var(--sf-white);cursor:pointer;transition:all .15s;}
 .ss-trigger:hover{border-color:var(--sf-gray-3);}
 .ss-wrap.open .ss-trigger{border-color:var(--sf-border-primary);box-shadow:0 0 0 2px var(--sf-blue-light);}
-.ss-val{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;}
+.ss-val{flex:1;overflow:hidden;text-overflow:clip;white-space:normal;word-break:break-all;text-align:left;}
 .ss-val.ph{color:var(--sf-text-disabled);}
 .ss-arr{position:relative;width:16px;height:16px;margin-left:6px;flex-shrink:0;transition:transform .15s;}
 .ss-arr::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-60%);border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid var(--sf-text-muted);opacity:.6;}
@@ -2219,7 +2219,8 @@ var sfDB = null;
 /* ===== 初始化 SQLite 数据库（异步） ===== */
 async function initDatabase() {
   try {
-    var SQL = await initSqlJs({ locateFile: f => 'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/' + f });
+    window.SQL = await initSqlJs({ locateFile: f => 'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/' + f });
+    var SQL = window.SQL; // 保持局部引用兼容
     // 尝试从嵌入的 Base64 数据加载数据库
     var b64 = readEmbeddedDB();
     if (b64) {
@@ -2274,14 +2275,42 @@ function loadStateFromDB() {
 }
 
 /* ===== 导出数据库为 Base64 ===== */
-function exportDBToBase64() {
-  if (!sfDB) return '';
+// 将 state 对象序列化为二进制（兼容 sql.js 的二进制数据库格式）
+async function fetchServerStateForExport() {
   try {
-    saveStateToDB();
-    var binary = sfDB.export();
+    var res = await fetch('/api/state');
+    if (!res.ok) return null;
+    var data = await res.json();
+    return data.state;
+  } catch(e) { return null; }
+}
+
+async function exportDBToBase64() {
+  // 优先使用浏览器本地 sql.js（已同步状态）
+  if (sfDB) {
+    try {
+      saveStateToDB();
+      return uint8ArrayToBase64(sfDB.export());
+    } catch(e) { console.warn('本地DB导出失败，改用服务器:', e); }
+  }
+  // 降级：从服务器拿最新 state
+  var serverState = await fetchServerStateForExport();
+  if (!serverState) { console.error('无法从服务器获取数据'); return ''; }
+  try {
+    if (!window.SQL) {
+      window.SQL = await initSqlJs({ locateFile: f => 'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/' + f });
+    }
+    var db = new window.SQL.Database();
+    db.run("CREATE TABLE IF NOT EXISTS app_state (id INTEGER PRIMARY KEY, data TEXT, updated_at TEXT)");
+    db.run("CREATE TABLE IF NOT EXISTS app_state_history (id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT, created_at TEXT)");
+    db.run("CREATE TABLE IF NOT EXISTS user_targets (user_id INTEGER PRIMARY KEY, annual_targets TEXT, annual_actuals TEXT, quarter_targets TEXT, quarter_pcts TEXT, updated_at TEXT)");
+    var now = new Date().toISOString();
+    db.run("INSERT INTO app_state (id, data, updated_at) VALUES (1, ?, ?)", [JSON.stringify(serverState), now]);
+    var binary = db.export();
+    db.close();
     return uint8ArrayToBase64(binary);
   } catch(e) {
-    console.error('导出数据库失败:', e);
+    console.error('导出失败:', e);
     return '';
   }
 }
@@ -2384,6 +2413,22 @@ function autoSave() {
       setSaveStatus('warn', '已保存本地 · 服务器未连接');
     }
   }, 600);
+}
+
+// 立即保存（无防抖，用于单元格编辑等关键操作）
+async function saveNow() {
+  clearTimeout(saveTimer);
+  setSaveStatus('sync', '保存中...');
+  try {
+    var result = await apiPutState(state);
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(_) {}
+    sessionStorage.removeItem(EXPORT_DIRTY_KEY);
+    var ts = result.updatedAt ? new Date(result.updatedAt).toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '';
+    setSaveStatus('saved', '已保存 ✓ ' + ts);
+  } catch (e) {
+    sessionStorage.setItem(EXPORT_DIRTY_KEY, '1');
+    setSaveStatus('warn', '已保存本地 · 服务器未连接');
+  }
 }
 
 /* ===== 手动保存：导出为 HTML 文件（选目录+改文件名） ===== */
@@ -2813,7 +2858,7 @@ function renderCards() {
       return '<div class="overview-cell" onclick="showDetail(\'overview\',\'' + s.type + '\')">' +
         '<div class="ovc-lbl" style="color:' + s.color + '">' + s.label + '</div>' +
         '<div class="ovc-main"><b>' + s.count + '</b><span>个</span></div>' +
-        '<div class="ovc-amt">' + fmtMoney(s.amount) + '</div>' +
+        (s.amount > 0 ? '<div class="ovc-amt">' + fmtMoney(s.amount) + '</div>' : '') +
         '</div>';
     }).join('') +
     '</div>';
@@ -2938,7 +2983,7 @@ function saveAnnualTarget(input, year) {
   var v = parseFloat(input.value);
   if (!isNaN(v) && v >= 0) state.annualTargets[year] = v;
   state.annualTarget = state.annualTargets[state.year] || state.annualTarget;
-  autoSave(); renderCards(); lucide.createIcons();
+  saveUserTargets(); autoSave(); renderCards(); lucide.createIcons();
 }
 function editYearActual(el, year) {
   var cur = state.annualActuals[year] != null ? state.annualActuals[year] : 0;
@@ -2949,7 +2994,21 @@ function editYearActual(el, year) {
 function saveYearActual(input, year) {
   var v = parseFloat(input.value);
   if (!isNaN(v) && v >= 0) state.annualActuals[year] = v;
-  autoSave(); renderCards(); lucide.createIcons();
+  saveUserTargets(); autoSave(); renderCards(); lucide.createIcons();
+}
+async function saveUserTargets() {
+  try {
+    await fetch('/api/user/targets', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        annualTargets: state.annualTargets,
+        annualActuals: state.annualActuals,
+        quarterTargets: state.quarterTargets,
+        quarterPcts: state.quarterPcts
+      })
+    });
+  } catch(e) { console.warn('saveUserTargets failed:', e); }
 }
 /* ----- APPLICATION TABLE ----- */
 function renderAppTable() {
@@ -3933,20 +3992,40 @@ function addReqRow() {
 /* ----- Judge Cell Update & Quick Add ----- */
 function updateJudgeCell(id, field, value) {
   const rec = state.judgments.find(r => r.id === id);
-  if (rec) { rec[field] = value; autoSave(); }
+  if (rec) {
+    rec[field] = value;
+    fetch('/api/modules/judgments/' + id, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(rec)
+    }).catch(() => {});
+  }
 }
 function addJudgeRow() {
   if (!state.selectedAppId) { alert('请先在「售前申请」列表中选择一条记录'); return; }
   const app = state.applications.find(a => a.id === state.selectedAppId);
-  state.judgments.push({ id: uid(), oppNo: app.oppNo, competitor: '', currentStage: '', compStrategy: '', contactPerson: '', contactPosition: '', counterStrategy: '', presaleStrategy: '', managerInv: [], directorInv: [], gmInv: [], isRisk: '否', riskDesc: '', countermeasure: '' });
-  autoSave(); renderSubTables();
+  const newRec = { id: uid(), oppNo: app.oppNo, competitor: '', currentStage: '', compStrategy: '', contactPerson: '', contactPosition: '', counterStrategy: '', presaleStrategy: '', managerInv: [], directorInv: [], gmInv: [], isRisk: '否', riskDesc: '', countermeasure: '' };
+  state.judgments.push(newRec);
+  renderSubTables();
+  fetch('/api/modules/judgments', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(newRec)
+  }).catch(() => {});
   setTimeout(() => { const rows = document.querySelectorAll('#tblJudgeLeft .dt tbody tr'); const last = rows[rows.length - 1]; if (last) { last.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); const inp = last.querySelector('[contenteditable="true"]'); if (inp) inp.focus(); } }, 50);
 }
 
 /* ----- Follow Cell Update & Quick Add ----- */
 function updateFollowCell(id, field, value) {
   const rec = state.followUps.find(r => r.id === id);
-  if (rec) { rec[field] = field === 'hours' ? parseFloat(value) || 0 : value; autoSave(); }
+  if (rec) {
+    rec[field] = field === 'hours' ? parseFloat(value) || 0 : value;
+    fetch('/api/modules/followUps/' + id, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(rec)
+    }).catch(() => {});
+  }
 }
 function addFollowRow() {
   if (!state.selectedAppId) { alert('请先在「售前申请」列表中选择一条记录'); return; }
@@ -4693,7 +4772,6 @@ function showDetail(card, type) {
   } else if (card === 'yearActual') {
     title = type + '年 实际完成明细';
     var yAllocs = state.allocations.filter(function(a) {
-      if (a.consultant !== state.consultant) return false;
       var aYear = a.month ? parseInt(String(a.month).split('-')[0]) : null;
       return aYear === parseInt(type);
     });
@@ -4733,7 +4811,6 @@ function showDetail(card, type) {
     } else {
       // 无分配记录，从合同中统计
       var yContracts = state.contracts.filter(function(c) {
-        if (c.accountMgr !== state.consultant) return false;
         var cYear = c.yearMonth ? parseInt(String(c.yearMonth).split('-')[0]) : null;
         return cYear === parseInt(type);
       });
