@@ -1251,7 +1251,7 @@ function getPeriodRange(periodKey) {
       const end = new Date(year, month + 1, 0, 23, 59, 59, 999);
       return { start, end };
     } else if (type === 'quarter') {
-      const year = parseInt(parts[1]), q = parseInt(parts[2]);
+      const year = parseInt(parts[1]), q = parseInt(parts[2].replace('Q', ''));
       const start = new Date(year, (q - 1) * 3, 1);
       const end = new Date(year, q * 3, 0, 23, 59, 59, 999);
       return { start, end };
