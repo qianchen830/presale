@@ -154,7 +154,7 @@ function saveState(newState) {
       }
     }
     // 全局配置字段：直接取新值
-    for (const key of ['annualTarget','annualTargets','annualActuals','quarterTargets','quarterPcts','activeTab','year','quarter','month','weekNum','weekYear','weekStart','weekEnd','departments','employees']) {
+    for (const key of ['annualTarget','annualTargets','annualActuals','quarterTargets','quarterPcts','activeTab','year','quarter','month','weekNum','weekYear','weekStart','weekEnd','departments','employees','consultant','consultantAvatar']) {
       if (newState[key] !== undefined) merged[key] = newState[key];
     }
   } else {
@@ -197,13 +197,31 @@ function filterStateByUser(state, user) {
     if (e.name) consultantDepts[e.name] = deptById[e.deptId] || '';
   });
 
-  // applications：本人是顾问 OR 本人参与的allocations OR 申请首席顾问属于授权部门
+  // applications：本人是顾问 OR 本人参与的allocations OR 申请记录的首席顾问归属部门在授权范围内
+  // view_depts 权限语义：能看到这些部门的顾问所负责的所有项目
+  // consultantDepts 来自 employees.deptId（顾问的真实归属部门），不用申请记录的 a.department
   if (s.applications) {
-    s.applications = s.applications.filter(a =>
-      a.consultant === myName ||
-      myAllocOppNos.has(a.oppNo) ||
-      (myDepts.size > 0 && myDepts.has(consultantDepts[a.consultant]))
-    );
+    s.applications = s.applications.filter(a => {
+      if (a.consultant === myName) return true;
+      if (myAllocOppNos.has(a.oppNo)) return true;
+      if (myDepts.size === 0) return false;
+      // 用顾问归属部门（来自 employees 表）判断，不依赖申请记录的 department 字段
+      const homeDept = consultantDepts[a.consultant] || '';
+      if (homeDept && myDepts.has(homeDept)) return true;
+      // 父部门覆盖子部门：若 view_depts 包含某父部门，则子部门下的顾问也放行
+      for (const vd of myDepts) {
+        // 找 homeDept 的所有祖先部门
+        let cur = homeDept;
+        while (cur) {
+          if (cur === vd) return true;
+          const parentId = Object.entries(deptById).find(([, name]) => name === cur)?.[0];
+          if (!parentId) break;
+          const parentEntry = (s.departments || []).find(d => d.id === parentId);
+          cur = parentEntry ? (deptById[parentEntry.pid] || '') : '';
+        }
+      }
+      return false;
+    });
   }
 
   // 先收集可见的 oppNo（来自过滤后的 applications）
@@ -569,6 +587,28 @@ app.get('/api/admin/employees', requireAuth, (req, res) => {
   res.json({ employees: available });
 });
 
+
+// ---- 顾问信息（个人配置）----
+app.put('/api/consultant', requireAuth, (req, res) => {
+  const { consultant, consultantAvatar } = req.body || {};
+  const existing = getStateRow();
+  let state = existing ? JSON.parse(existing.data) : {};
+  state.consultant = (consultant || '').trim();
+  state.consultantAvatar = consultantAvatar || '';
+  const updatedAt = saveState(state);
+  res.json({ ok: true, updatedAt });
+});
+
+app.get('/api/consultant', requireAuth, (req, res) => {
+  const existing = getStateRow();
+  if (!existing) return res.json({ consultant: '', consultantAvatar: '' });
+  try {
+    const state = JSON.parse(existing.data);
+    res.json({ consultant: state.consultant || '', consultantAvatar: state.consultantAvatar || '' });
+  } catch(e) {
+    res.json({ consultant: '', consultantAvatar: '' });
+  }
+});
 
 // 各模块单条 CRUD 路由（实时保存）
 const MODULE_KEYS = ['applications','contracts','judgments','salesQuestions','followUps','allocations'];
