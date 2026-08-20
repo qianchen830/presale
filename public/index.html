@@ -56,7 +56,7 @@ body{font-family:var(--font-sans);background:var(--sf-bg);color:var(--sf-text);f
 .sf-hdr-avatar img{width:100%;height:100%;object-fit:cover;display:block;}
 .sf-hdr-avatar .ini{font-size:13px;font-weight:var(--weight-semibold);color:#fff;line-height:1;margin:0!important;padding:0!important;display:block!important;width:100%!important;text-align:center!important;transform:none!important;text-indent:0!important;letter-spacing:0!important;}
 .sf-hdr-consult-txt{display:flex;flex-direction:column;line-height:1.15;margin:0;padding:0;min-width:64px;flex:0 0 auto;}
-.sf-hdr-consult-txt .lbl{font-size:10px;color:rgba(255,255,255,.6);line-height:1;margin:0;padding:0;white-space:nowrap;}
+.sf-hdr-consult-txt .lbl{font-size:10px;width:64px;display:inline-block;color:rgba(255,255,255,.6);line-height:1;height:13px;margin:0;padding:0;white-space:nowrap;}
 .sf-hdr-consult-txt .nm{font-size:var(--text-xs);color:#fff;font-weight:var(--weight-medium);margin:0;padding:0;line-height:1.2;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:auto;display:block;}
 .sf-hdr-consult-txt .nm.empty{color:rgba(255,255,255,.55);font-weight:var(--weight-regular);}
 .sf-hdr-period{display:flex;align-items:center;gap:8px;margin-left:8px;flex:1;min-width:0;justify-content:flex-end;}
@@ -3552,13 +3552,39 @@ function initCustomSelects() {
     syncCS(wrap);
   });
 
+  // 统一的事件委托：处理所有 cs-opt 的点击（静态 HTML 和 JS 动态创建的都能响应）
+  document.addEventListener('click', function(e) {
+    var opt = e.target.closest('.cs-opt');
+    if (opt) {
+      var wrap = opt.closest('.cs-wrap');
+      if (!wrap) return;
+      var sel = wrap.querySelector('select.cs-native');
+      if (!sel) return;
+      e.stopPropagation();
+      var val = opt.dataset.value;
+      sel.value = val;
+      // 同步高亮 + 显示文本
+      var valEl = wrap.querySelector('.cs-val');
+      if (valEl) {
+        valEl.textContent = opt.textContent;
+        valEl.classList.remove('ph');
+      }
+      wrap.querySelectorAll('.cs-opt').forEach(function(o) { o.classList.toggle('cur', o === opt); });
+      wrap.classList.remove('open');
+      // 触发原生 change 事件
+      sel.dispatchEvent(new Event('change'));
+      // 重新同步（确保 onchange 执行后的状态一致）
+      var newSel = wrap.querySelector('select.cs-native');
+      if (newSel) syncCS(wrap);
+      return;
+    }
+    if (!e.target.closest('.cs-wrap')) {
+      closeAllCS(null);
+    }
+  });
+
   if (!window._csOutsideInit) {
     window._csOutsideInit = true;
-    document.addEventListener('click', function(e) {
-      if (!e.target.isConnected || !e.target.closest('.cs-wrap')) {
-        closeAllCS(null);
-      }
-    });
   }
 }
 
