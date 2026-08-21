@@ -170,6 +170,7 @@ function saveState(newState) {
   // 清除本次记录
   for (const k in _deletedIds) delete _deletedIds[k];
 
+  console.log("[saveState] merged.applications count:", merged.applications.length, " deletedIds:", JSON.stringify([...(_deletedIds.applications||[])]));
   const dataStr = JSON.stringify(merged);
   db.run('INSERT INTO app_state_history (data, created_at) VALUES (?, ?)', [existing ? existing.data : '{}', now]);
   db.run("UPDATE app_state SET data = ?, updated_at = ? WHERE id = 1", [dataStr, now]);
@@ -716,8 +717,16 @@ function moduleOp(key, action, record, session) {
       arr.splice(idx, 1);
       if (!_deletedIds[key]) _deletedIds[key] = new Set();
       _deletedIds[key].add(delId);
+    } else if (key === 'allocations') {
+      // allocations 用 splice 真删
+      arr.splice(idx, 1);
+      if (!_deletedIds[key]) _deletedIds[key] = new Set();
+      _deletedIds[key].add(delId);
     } else {
+      // judgments/followUps/requirements/salesQuestions：软删，加到_deletedIds排除
       arr[idx] = { ...arr[idx], deleted: true, updatedAt: now };
+      if (!_deletedIds[key]) _deletedIds[key] = new Set();
+      _deletedIds[key].add(delId);
     }
     state[key] = arr;
     const updatedAt = saveState(state);

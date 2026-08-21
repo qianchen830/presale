@@ -791,7 +791,7 @@ input[type=number]{-moz-appearance:textfield;}
         <div class="fr">
           <div class="fg"><label>项目状态<span class="req">*</span></label><select class="fs cs-native" name="status" required="" onchange="toggleAppFields(this.value)" style="display: none;"><option value="">请选择</option><option>活跃</option><option>暂停</option><option>预计</option><option>丢失</option><option>关闭</option><option value="签单">签单（合同驱动）</option></select></div>
           <div class="fg" id="fg-expDate" style="display: none;"><label>预计签单时间<span class="req">*</span></label><input type="date" class="fi" name="expectedSignDate"></div>
-          <div class="fg" id="fg-expAmt" style="display: none;"><label>预计签单金额（万元）<span class="req">*</span></label><input type="number" class="fi" name="expectedSignAmount" step="0.01" min="0"></div>
+          <div class="fg" id="fg-expAmt" style="display: none;"><label>预计签单金额（元）<span class="req">*</span></label><input type="number" class="fi" name="expectedSignAmount" step="0.01" min="0"></div>
         </div>
         <div class="fg"><label>核心需求<span class="req">*</span></label><textarea class="fta" name="coreRequirement" required=""></textarea></div>
       </form>
@@ -1215,7 +1215,7 @@ function fmtMoney2(v) { var n = parseFloat(v); return isNaN(n) ? '0.00' : n.toLo
 function fmtMoneyInputFocus(el) { var raw = (el.value || '').replace(/[,，\s]/g, ''); var n = parseFloat(raw); el.value = isNaN(n) ? '' : String(n); }
 function fmtMoneyInputBlur(el) { var raw = (el.value || '').replace(/[,，\s]/g, ''); var n = parseFloat(raw); if (isNaN(n)) n = 0; el.value = fmtMoney2(n); }
 function fmtDate(d) { return d || '—'; }
-function amtOf(a) { return parseFloat(a.status === '签单' ? a.signAmount : a.status === '预计' ? a.expectedSignAmount : 0) || 0; }
+function amtOf(a) { return a.status === '签单' ? (parseFloat(a.signAmount) || 0) / 10000 : a.status === '预计' ? (parseFloat(a.expectedSignAmount) || 0) : 0; }
 function today() { return new Date().toISOString().slice(0, 10); }
 
 function getISOWeekInfo(d) {
@@ -2647,7 +2647,20 @@ function applyStateObj(obj, keepExistingData) {
         state[key] = obj[key];
       }
     });
-    Object.assign(state, obj);
+    // 全局配置字段：用服务器的值覆盖本地，但空对象 {} 不覆盖本地非空默认值
+    ['annualTargets','annualActuals','quarterTargets','quarterPcts','annualTarget','year','quarter','month','weekNum','weekYear','weekStart','weekEnd','activeTab'].forEach(function(key) {
+      if (obj[key] !== undefined && obj[key] !== null) {
+        if (typeof obj[key] === 'object' && obj[key] !== null && Object.keys(obj[key]).length === 0) {
+          // 服务器是空对象 {}：仅当本地也是空对象或无值时才用服务器空值覆盖
+          if (typeof state[key] !== 'object' || state[key] === null || Object.keys(state[key] || {}).length === 0) {
+            state[key] = obj[key];
+          }
+          // 否则保留本地非空默认值，什么都不做
+        } else {
+          state[key] = obj[key];
+        }
+      }
+    });
   } else {
     Object.assign(state, obj);
   }
@@ -2858,47 +2871,66 @@ function getCardsContracts(filteredApps) {
 
 // 按过滤条件统计年度实际（实际执行，单位：元→万元）
 function getCardsAnnualActual(year, filteredApps) {
-  // 按过滤条件的合同统计 presalePerformance
+  // 按过滤条件的合同统计 presalePerformance，按合同签订日期（mainSignDate/signOpDate）判断年份
   var contracts = getCardsContracts(filteredApps).filter(function(c) {
-    var cYear = c.yearMonth ? parseInt(String(c.yearMonth).split('-')[0]) : null;
-    return cYear === year;
+    if (c.mainSignDate) { var d = new Date(c.mainSignDate); if (d.getFullYear() === year) return true; }
+    if (c.signOpDate) { var d2 = new Date(c.signOpDate); if (d2.getFullYear() === year) return true; }
+    if (c.yearMonth) { var y = parseInt(String(c.yearMonth).split('-')[0]); if (y === year) return true; }
+    return false;
   });
   return contracts.reduce(function(s, c) { return s + (parseFloat(c.presalePerformance) || 0); }, 0) / 10000;
 }
 
-// 按过滤条件统计季度实际
+// 按过滤条件统计季度实际（按合同签订日期 mainSignDate/signOpDate 判断季度）
 function getCardsQuarterActual(year, quarter, filteredApps) {
   var contracts = getCardsContracts(filteredApps).filter(function(c) {
-    var cYear = c.yearMonth ? parseInt(String(c.yearMonth).split('-')[0]) : null;
-    return cYear === year && c.quarter === quarter;
+    var d, y, m;
+    if (c.mainSignDate) {
+      d = new Date(c.mainSignDate); y = d.getFullYear(); m = d.getMonth() + 1;
+      if (y === year && Math.floor((m - 1) / 3) + 1 === quarter) return true;
+    }
+    if (c.signOpDate) {
+      d = new Date(c.signOpDate); y = d.getFullYear(); m = d.getMonth() + 1;
+      if (y === year && Math.floor((m - 1) / 3) + 1 === quarter) return true;
+    }
+    if (c.yearMonth) {
+      y = parseInt(String(c.yearMonth).split('-')[0]); m = parseInt(String(c.yearMonth).split('-')[1]);
+      if (y === year && Math.floor((m - 1) / 3) + 1 === quarter) return true;
+    }
+    return false;
   });
   return contracts.reduce(function(s, c) { return s + (parseFloat(c.presalePerformance) || 0); }, 0) / 10000;
 }
 
 function renderCards() {
   const filtered = getFilteredApps();
-  const all = getAllApps();
+  const all = getFilteredApps();
 
-  const total = filtered.length;
-  const newCount = filtered.filter(a => inRange(a.applyDate, getPeriodRange(getPeriodKey()))).length;
-  const following = filtered.filter(a => a.status === '活跃').length;
-  const lost = filtered.filter(a => a.status === '丢失').length;
-  const won = filtered.filter(a => a.status === '签单').length;
-  // "金额"：签单=signAmount，预计=expectedSignAmount（口径与下方各状态一致）
-  const totalAmount = filtered.reduce(function(s, a) { var amt = a.status === '签单' ? parseFloat(a.signAmount) : a.status === '预计' ? parseFloat(a.expectedSignAmount) : 0; return s + (amt || 0); }, 0);
+  // 按 oppNo 去重
+  var seen = {};
+  var uniqueFiltered = [];
+  filtered.forEach(function(a) { if (a.oppNo && !seen[a.oppNo]) { seen[a.oppNo] = true; uniqueFiltered.push(a); } });
+
+  const total = uniqueFiltered.length;
+  const newCount = uniqueFiltered.filter(a => inRange(a.applyDate, getPeriodRange(getPeriodKey()))).length;
+  const following = uniqueFiltered.filter(a => a.status === '活跃').length;
+  const lost = uniqueFiltered.filter(a => a.status === '丢失').length;
+  const won = uniqueFiltered.filter(a => a.status === '签单').length;
+  // "金额"：签单=signAmount（存元），预计=expectedSignAmount（存万元），统一转为万元
+  const totalAmount = uniqueFiltered.reduce(function(s, a) { var amt = a.status === '签单' ? parseFloat(a.signAmount) / 10000 : a.status === '预计' ? parseFloat(a.expectedSignAmount) / 10000 : 0; return s + (amt || 0); }, 0);
 
   document.getElementById('cardOverview').innerHTML =
     '<div class="overview-top" onclick="showDetail(\'overview\',\'all\')">' +
     '<span class="ov-num">' + total + '<b>个</b></span>' +
     '<span class="ov-split"></span>' +
-    '<span class="ov-amt">金额：' + fmtMoney(totalAmount) + '</span>' +
+    '<span class="ov-amt">金额：' + fmtMoney(totalAmount) + '万</span>' +
     '</div>';
 
-  const riskApps = filtered.filter(a => state.judgments.some(j => j.oppNo === a.oppNo && j.isRisk === '是'));
-  const newApps = filtered.filter(a => inRange(a.applyDate, getPeriodRange(getPeriodKey())));
-  const followApps = filtered.filter(a => a.status === '活跃');
-  const lostApps = filtered.filter(a => a.status === '丢失');
-  // 用 contracts 口径算当前期间的签单金额（与年度实际执行口径一致）
+  const riskApps = uniqueFiltered.filter(a => state.judgments.some(j => j.oppNo === a.oppNo && j.isRisk === '是'));
+  const newApps = uniqueFiltered.filter(a => inRange(a.applyDate, getPeriodRange(getPeriodKey())));
+  const followApps = uniqueFiltered.filter(a => a.status === '活跃');
+  const lostApps = uniqueFiltered.filter(a => a.status === '丢失');
+  // 用 contracts 口径算当前期间的签单金额（与年度实际执行口径一致），单位万元
   var range = getPeriodRange(getPeriodKey());
   var signedContracts = state.contracts.filter(function(c) {
     if (c.mainSignDate && inRange(c.mainSignDate, range)) return true;
@@ -2906,20 +2938,20 @@ function renderCards() {
     if (c.yearMonth) { var ym = c.yearMonth + '-01'; if (inRange(ym, range)) return true; }
     return false;
   });
-  var signedContractAmount = signedContracts.reduce(function(s, c) { return s + (parseFloat(c.presalePerformance) || 0); }, 0);
-  const wonApps = filtered.filter(a => a.status === '签单');
+  var signedContractAmount = signedContracts.reduce(function(s, c) { return s + (parseFloat(c.presalePerformance) || 0); }, 0) / 10000;
+  const wonApps = uniqueFiltered.filter(a => a.status === '签单');
 
-  const expectedApps = filtered.filter(a => a.status === '预计');
+  const expectedApps = uniqueFiltered.filter(a => a.status === '预计');
 
-  // 各状态金额口径：预计/新增用expectedSignAmount，签单用signAmount
-  const amtOfApp = (a) => ((a.status === '签单' ? parseFloat(a.signAmount) : a.status === '预计' ? parseFloat(a.expectedSignAmount) : 0) || 0);
+  // 各状态金额口径：预计/新增用expectedSignAmount（万元），签单用signAmount（存元转万元）
+  const amtOfApp = (a) => (a.status === '签单' ? (parseFloat(a.signAmount) || 0) / 10000 : a.status === '预计' ? (parseFloat(a.expectedSignAmount) || 0) / 10000 : 0);
   const statusGroups = [
     { label: '风险', count: riskApps.length, amount: riskApps.reduce((s, a) => s + amtOfApp(a), 0), color: 'var(--sf-text-danger)', type: 'risk' },
     { label: '新增', count: newApps.length, amount: newApps.reduce((s, a) => s + amtOfApp(a), 0), color: 'var(--sf-blue)', type: 'new' },
     { label: '跟进', count: followApps.length, amount: followApps.reduce((s, a) => s + amtOfApp(a), 0), color: 'var(--sf-warning-text)', type: 'active' },
     { label: '丢失', count: lostApps.length, amount: lostApps.reduce((s, a) => s + amtOfApp(a), 0), color: '#9e9e9e', type: 'lost' },
     { label: '预计', count: expectedApps.length, amount: expectedApps.reduce((s, a) => s + amtOfApp(a), 0), color: '#8b5cf6', type: 'expected' },
-    { label: '签单', count: wonApps.length, amount: wonApps.reduce((s, a) => s + (parseFloat(a.signAmount) || 0), 0), color: 'var(--sf-success-text)', type: 'won' },
+    { label: '签单', count: wonApps.length, amount: wonApps.reduce((s, a) => s + ((parseFloat(a.signAmount) || 0) / 10000), 0), color: 'var(--sf-success-text)', type: 'won' },
   ];
   document.getElementById('cardOverviewRisk').innerHTML =
     '<div class="overview-grid">' +
@@ -2927,7 +2959,7 @@ function renderCards() {
       return '<div class="overview-cell" onclick="showDetail(\'overview\',\'' + s.type + '\')">' +
         '<div class="ovc-lbl" style="color:' + s.color + '">' + s.label + '</div>' +
         '<div class="ovc-main"><b>' + s.count + '</b><span>个</span></div>' +
-        (s.amount > 0 ? '<div class="ovc-amt">' + fmtMoney(s.amount) + '</div>' : '') +
+        (s.amount > 0 ? '<div class="ovc-amt">' + fmtMoney(s.amount) + '万</div>' : '') +
         '</div>';
     }).join('') +
     '</div>';
@@ -2978,12 +3010,12 @@ function renderCards() {
   document.getElementById('cardQuarter').innerHTML =
     '<table class="q-tbl"><thead><tr><th>季度</th><th>比例</th><th>指标(万)</th><th>实际(万)</th><th>完成率</th></tr></thead><tbody>' + qRows + '</tbody></table>';
 
-  const totalApps = filtered.length;
-  const signedCount = filtered.filter(a => a.status === '签单').length;
-  const lostCount = filtered.filter(a => a.status === '丢失').length;
+  const totalApps = uniqueFiltered.length;
+  const signedCount = uniqueFiltered.filter(a => a.status === '签单').length;
+  const lostCount = uniqueFiltered.filter(a => a.status === '丢失').length;
   const wr = totalApps > 0 ? (signedCount / totalApps * 100).toFixed(1) : '0.0';
 
-  const signedApps = filtered.filter(a => a.status === '签单' && a.signDate && a.applyDate);
+  const signedApps = uniqueFiltered.filter(a => a.status === '签单' && a.signDate && a.applyDate);
   let avgDays = 0;
   if (signedApps.length > 0) {
     const totalDays = signedApps.reduce((s, a) => {
@@ -3099,7 +3131,7 @@ function renderAppTable() {
     '</tr></thead><tbody>';
   paged.forEach(a => {
     const sel = a.id === state.selectedAppId ? ' sel' : '';
-    const amt = a.status === '签单' ? fmtMoney(a.signAmount) : (a.status === '预计' ? fmtMoney(a.expectedSignAmount) : '—');
+    const amt = a.status === '签单' ? fmtMoney((parseFloat(a.signAmount) || 0) / 10000) + '万' : (a.status === '预计' ? fmtMoney((parseFloat(a.expectedSignAmount) || 0) / 10000) + '万' : '—');
     html += '<tr class="clickable' + sel + '" onclick="selectApp(\'' + a.id + '\')">' +
       '<td>' + fmtDate(a.applyDate) + '</td>' +
       '<td>' + (a.applicant || '—') + '</td>' +
@@ -4541,10 +4573,17 @@ async function deleteRecord(collection, id) {
   try {
     var r = await fetch('/api/modules/' + collection + '/' + id, { method: 'DELETE', credentials: 'include' });
     if (!r.ok) { var d = await r.json(); alert('删除失败：' + (d.error || r.status)); return; }
-    // 删除成功后重新加载服务端最新数据，强制刷新页面
-    // 删除成功后强制刷新页面，从服务器重新加载最新数据
-    window.location.reload();
-    return;
+    // 删除成功后从服务器重新拉数据再渲染
+    var fresh = await apiGetState();
+    if (fresh) {
+      state = Object.assign({}, state, fresh);
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
+    } else {
+      window.location.reload();
+      return;
+    }
+    if (state.selectedAppId === id) state.selectedAppId = null;
+    render();
   } catch(e) {
     alert('删除失败：' + e.message);
   }
@@ -4565,8 +4604,18 @@ function openAllocationModal(presetContractId) {
   // 合同信息（只读回显）
   document.getElementById('allocContractInfo').value =
     (c.mainContractNo || '') + ' | ' + (c.signCustomerName || c.signCustomer || '') + ' | ' + fmtMoney2(c.presalePerformance) + '元';
-  document.getElementById('allocMonth').value = c.yearMonth || '';
-  document.getElementById('allocQuarter').value = c.quarter || '';
+  // 根据合同签订日期计算月份和季度
+  var signDate = c.mainSignDate || c.signOpDate || '';
+  var allocYM = '', allocQ = '';
+  if (signDate) {
+    var d = new Date(signDate);
+    if (!isNaN(d.getTime())) {
+      allocYM = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+      allocQ = 'Q' + (Math.floor(d.getMonth() / 3) + 1);
+    }
+  }
+  document.getElementById('allocMonth').value = allocYM;
+  document.getElementById('allocQuarter').value = allocQ;
   document.getElementById('allocContractPerf').value = fmtMoney2(c.presalePerformance);
   document.getElementById('allocSubPerf').value = fmtMoney2(c.subPerformance);
   document.getElementById('allocSalesDept').value = c.salesDept || '';
@@ -4751,13 +4800,23 @@ function saveAllocation() {
 
   // 删除该合同原有的分配记录，再写入新的
   state.allocations = state.allocations.filter(a => a.contractId !== _allocCurContractId);
+  // 根据合同签订日期计算月份和季度
+  var allocSignDate = c.mainSignDate || c.signOpDate || '';
+  var allocYM = '', allocQ = '';
+  if (allocSignDate) {
+    var ad = new Date(allocSignDate);
+    if (!isNaN(ad.getTime())) {
+      allocYM = ad.getFullYear() + '-' + String(ad.getMonth() + 1).padStart(2, '0');
+      allocQ = 'Q' + (Math.floor(ad.getMonth() / 3) + 1);
+    }
+  }
   rows.forEach(r => {
     state.allocations.push({
       id: uid(),
       contractId: _allocCurContractId,
       oppNo: c.oppNo,
-      month: c.yearMonth || '',
-      quarter: c.quarter || '',
+      month: allocYM,
+      quarter: allocQ,
       contractPerformance: contractPerf,
       subscriptionPerformance: parseFloat(c.subPerformance) || 0,
       consultantPerformance: (parseFloat(r.amount) || 0).toFixed(2),
@@ -4857,7 +4916,7 @@ function showDetail(card, type) {
         '申请日期': a.applyDate, '客户': a.customer, '项目名称': a.projectName,
         '商机号': a.oppNo, '销售部门': a.department || '—', '客户经理': a.applicant || '—',
         '支持顾问': consultantStr,
-        '金额(万)': a.status === '签单' ? fmtMoney(a.signAmount) : (a.status === '预计' ? fmtMoney(a.expectedSignAmount) : '—')
+        '金额(万)': a.status === '签单' ? fmtMoney((parseFloat(a.signAmount) || 0) / 10000) : (a.status === '预计' ? fmtMoney((parseFloat(a.expectedSignAmount) || 0) / 10000) : '—')
       };
     });
   } else if (card === 'target') {
@@ -5115,16 +5174,23 @@ function finishInit() {
   // 渲染概览数字（动态）
   function renderOverviewNums() {
     var apps = state.applications || [];
-    var total = apps.length;
+    // 按 oppNo 去重
+    var seen = {};
+    var uniqueApps = [];
+    apps.forEach(function(a) { if (a.oppNo && !seen[a.oppNo]) { seen[a.oppNo] = true; uniqueApps.push(a); } });
+    var total = uniqueApps.length;
     var amt = 0;
-    apps.forEach(function(a) {
-      var n = parseFloat((a.expectedSignAmount || a.signAmount || '0').toString().replace(/,/g,''));
-      if (!isNaN(n)) amt += n;
+    uniqueApps.forEach(function(a) {
+      // signAmount 存元，expectedSignAmount 存万元
+      var n = 0;
+      if (a.status === '签单') n = (parseFloat(a.signAmount) || 0) / 10000;
+      else if (a.status === '预计') n = (parseFloat(a.expectedSignAmount) || 0) / 10000;
+      amt += n;
     });
     var ovCount = document.getElementById('ovCount');
     var ovAmount = document.getElementById('ovAmount');
     if (ovCount) ovCount.textContent = total;
-    if (ovAmount) ovAmount.textContent = '金额：' + amt.toLocaleString('zh-CN', {minimumFractionDigits:0, maximumFractionDigits:0});
+    if (ovAmount) ovAmount.textContent = '金额：' + amt.toLocaleString('zh-CN', {minimumFractionDigits:0, maximumFractionDigits:2}) + '万';
   }
   renderOverviewNums();
 
