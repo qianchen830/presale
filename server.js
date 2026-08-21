@@ -407,8 +407,51 @@ app.get('/api/state', requireAuth, (req, res) => {
   const merged = JSON.parse(JSON.stringify(filtered));
   merged.annualTargets = userTargets.annualTargets;
   merged.annualActuals = userTargets.annualActuals;
-  merged.quarterTargets = userTargets.quarterTargets;
   merged.quarterPcts = userTargets.quarterPcts;
+
+  // 动态计算 quarterTargets：annualTargets[year] × quarterPcts[pct]
+  const year = merged.year || new Date().getFullYear();
+  const annualTarget = parseFloat(merged.annualTargets && merged.annualTargets[year]) || parseFloat(merged.annualTarget) || 0;
+  const quarterPcts = (merged.quarterPcts && Object.keys(merged.quarterPcts).length > 0) ? merged.quarterPcts : { Q1: 25, Q2: 25, Q3: 25, Q4: 25 };
+  const computedQuarterTargets = {};
+  ['Q1','Q2','Q3','Q4'].forEach(function(q) {
+    computedQuarterTargets[q] = Math.round(annualTarget * (parseFloat(quarterPcts[q]) || 0) / 100 * 100) / 100;
+  });
+  // 优先用个人存储的 quarterTargets（允许用户手动覆盖），否则用动态计算值
+  merged.quarterTargets = userTargets.quarterTargets && Object.keys(userTargets.quarterTargets).length > 0
+    ? userTargets.quarterTargets
+    : computedQuarterTargets;
+
+  // 动态计算 quarterActuals：从 contracts 按季度汇总 presalePerformance
+  const qMonths = { Q1: [1,2,3], Q2: [4,5,6], Q3: [7,8,9], Q4: [10,11,12] };
+  const computedQuarterActuals = { Q1: 0, Q2: 0, Q3: 0, Q4: 0 };
+  (merged.contracts || []).forEach(function(c) {
+    const sd = c.mainSignDate ? new Date(c.mainSignDate) : (c.signDate ? new Date(c.signDate) : null);
+    if (!sd || isNaN(sd.getTime())) return;
+    if (sd.getFullYear() !== year) return;
+    const m = sd.getMonth() + 1;
+    const q = Object.keys(qMonths).find(function(q) { return qMonths[q].includes(m); });
+    if (q) {
+      computedQuarterActuals[q] += (parseFloat(c.presalePerformance) || 0);
+    }
+  });
+  Object.keys(computedQuarterActuals).forEach(function(q) {
+    computedQuarterActuals[q] = Math.round(computedQuarterActuals[q] / 10000 * 100) / 100;
+  });
+  merged.quarterActuals = computedQuarterActuals;
+
+  // 动态计算 deptSupportTargets（各部门的签单+支撑业绩汇总）
+  const computedDeptSupport = {};
+  (merged.allocations || []).forEach(function(al) {
+    var did = al.deptId;
+    var deptName = al.department || '未知部门';
+    if (!computedDeptSupport[did]) {
+      computedDeptSupport[did] = { deptId: did, department: deptName, newSignAmount: 0, subAmount: 0, presalePerf: 0 };
+    }
+    computedDeptSupport[did].presalePerf += (parseFloat(al.presalePerformance) || 0);
+    computedDeptSupport[did].subAmount += (parseFloat(al.subscriptionPerformance) || 0);
+  });
+  merged.deptSupportTargets = computedDeptSupport;
 
   res.json({ state: merged, updatedAt: result.updatedAt });
 });
@@ -707,12 +750,18 @@ function moduleOp(key, action, record, session) {
       oppNo = app.oppNo;
     }
     if (key === 'applications') {
+      // 级联删除：合同、业绩分配、销售十二条、顾问判断、项目跟进
       state.contracts = (state.contracts || []).filter(function(c) { return c.oppNo !== oppNo; });
       state.allocations = (state.allocations || []).filter(function(a) { return a.oppNo !== oppNo; });
+      state.salesQuestions = (state.salesQuestions || []).filter(function(q) { return q.oppNo !== oppNo; });
+      state.judgments = (state.judgments || []).filter(function(j) { return j.oppNo !== oppNo; });
+      state.followUps = (state.followUps || []).filter(function(f) { return f.oppNo !== oppNo; });
       arr.splice(idx, 1);
       if (!_deletedIds[key]) _deletedIds[key] = new Set();
       _deletedIds[key].add(delId);
     } else if (key === 'contracts') {
+      // 级联删除：业绩分配（通过 contractId）
+      state.allocations = (state.allocations || []).filter(function(a) { return String(a.contractId) !== delId; });
       state.allocations = (state.allocations || []).filter(function(a) { return String(a.contractId) !== delId; });
       arr.splice(idx, 1);
       if (!_deletedIds[key]) _deletedIds[key] = new Set();
@@ -838,6 +887,232 @@ app.delete('/api/admin/employees/:id', requireAuth, (req, res) => {
   res.json({ ok: true, updatedAt });
 });
 
+
+// ---- 看板 Dashboard API (admin only) ----
+
+// Helper: get quarter from month (1-based)
+function getQuarter(month) {
+  if (month <= 3) return 'Q1';
+  if (month <= 6) return 'Q2';
+  if (month <= 9) return 'Q3';
+  return 'Q4';
+}
+
+// GET /api/dashboard/stats - top-level project stats
+app.get('/api/dashboard/stats', requireAdmin, (req, res) => {
+  const result = getState();
+  if (!result) return res.json({ total: 0, won: 0, lost: 0, totalAmount: 0, wonAmount: 0 });
+  const state = result.state;
+  const now = new Date();
+  const year = parseInt(req.query.year) || now.getFullYear();
+  const quarter = req.query.quarter || null; // 'Q1'-'Q4' or null for full year
+  const month = req.query.month !== undefined ? parseInt(req.query.month) : null;
+
+  let apps = state.applications || [];
+  let contracts = state.contracts || [];
+
+  // Filter by period
+  if (year) {
+    apps = apps.filter(a => {
+      const d = new Date(a.applyDate);
+      return d.getFullYear() === year;
+    });
+    const yearContracts = (state.contracts || []).filter(c => {
+      const sd = new Date(c.mainSignDate || c.signDate || 0);
+      return sd.getFullYear() === year;
+    });
+    if (quarter) {
+      const qNum = parseInt(quarter[1]);
+      apps = apps.filter(a => {
+        const d = new Date(a.applyDate);
+        const q = getQuarter(d.getMonth() + 1);
+        return q === quarter;
+      });
+      const qMonths = { Q1: [1,2,3], Q2: [4,5,6], Q3: [7,8,9], Q4: [10,11,12] }[quarter] || [];
+      contracts = yearContracts.filter(c => {
+        const sd = new Date(c.mainSignDate || c.signDate || 0);
+        return qMonths.includes(sd.getMonth() + 1);
+      });
+    } else if (month !== null) {
+      apps = apps.filter(a => new Date(a.applyDate).getMonth() + 1 === month);
+      contracts = yearContracts.filter(c => {
+        const sd = new Date(c.mainSignDate || c.signDate || 0);
+        return sd.getMonth() + 1 === month;
+      });
+    } else {
+      contracts = yearContracts;
+    }
+  }
+
+  const won = apps.filter(a => a.status === '签单').length;
+  const lost = apps.filter(a => a.status === '丢失').length;
+  const totalAmount = contracts.reduce((s, c) => s + (parseFloat(c.subAmount) || 0), 0) / 10000;
+  const wonAmount = contracts.reduce((s, c) => s + (parseFloat(c.presalePerformance) || 0), 0) / 10000;
+
+  res.json({
+    total: apps.length,
+    won,
+    lost,
+    totalAmount: Math.round(totalAmount * 100) / 100,
+    wonAmount: Math.round(wonAmount * 100) / 100
+  });
+});
+
+// GET /api/dashboard/annual - annual targets vs actuals (2023-2026)
+app.get('/api/dashboard/annual', requireAdmin, (req, res) => {
+  const result = getState();
+  if (!result) return res.json({ years: [] });
+  const state = result.state;
+  const contracts = state.contracts || [];
+  const years = [2023, 2024, 2025, 2026];
+  const currentYear = new Date().getFullYear();
+
+  const data = years.map(year => {
+    const yearContracts = contracts.filter(c => {
+      const sd = new Date(c.mainSignDate || c.signDate || 0);
+      return sd.getFullYear() === year;
+    });
+    const actual = yearContracts.reduce((s, c) => s + (parseFloat(c.presalePerformance) || 0), 0) / 10000;
+    const target = parseFloat(state.annualTargets && state.annualTargets[year]) || 0;
+    const completion = target > 0 ? Math.round(actual / target * 1000) / 10 : 0;
+    return {
+      year,
+      target: Math.round(target * 100) / 100,
+      actual: Math.round(actual * 100) / 100,
+      completion: Math.round(completion * 10) / 10
+    };
+  });
+
+  res.json({ years: data, currentYear });
+});
+
+// GET /api/dashboard/quarter - quarterly breakdown for a given year (default current year)
+app.get('/api/dashboard/quarter', requireAdmin, (req, res) => {
+  const result = getState();
+  if (!result) return res.json({ quarters: [] });
+  const state = result.state;
+  const contracts = state.contracts || [];
+  const year = parseInt(req.query.year) || new Date().getFullYear();
+  const annualTarget = parseFloat(state.annualTargets && state.annualTargets[year]) || 0;
+  const quarterPcts = state.quarterPcts || { Q1: 16, Q2: 27, Q3: 23, Q4: 34 };
+  const currentQuarter = getQuarter(new Date().getMonth() + 1);
+
+  const quarters = ['Q1', 'Q2', 'Q3', 'Q4'].map(q => {
+    const qNum = parseInt(q[1]);
+    const qMonths = { Q1: [1,2,3], Q2: [4,5,6], Q3: [7,8,9], Q4: [10,11,12] }[q];
+    const qContracts = contracts.filter(c => {
+      const sd = new Date(c.mainSignDate || c.signDate || 0);
+      return sd.getFullYear() === year && qMonths.includes(sd.getMonth() + 1);
+    });
+    const actual = qContracts.reduce((s, c) => s + (parseFloat(c.presalePerformance) || 0), 0) / 10000;
+    const pct = parseFloat(quarterPcts[q]) || 0;
+    const target = annualTarget * pct / 100;
+    const completion = target > 0 ? Math.round(actual / target * 1000) / 10 : 0;
+    return {
+      quarter: q,
+      pct,
+      target: Math.round(target * 100) / 100,
+      actual: Math.round(actual * 100) / 100,
+      completion: Math.round(completion * 10) / 10
+    };
+  });
+
+  res.json({ year, quarters, currentQuarter });
+});
+
+// GET /api/dashboard/cycles - win rate and sales cycle stats
+app.get('/api/dashboard/cycles', requireAdmin, (req, res) => {
+  const result = getState();
+  if (!result) return res.json({ winRate: 0, avgCycle: 0, fastCount: 0, slowCount: 0, won: 0, lost: 0, total: 0 });
+  const state = result.state;
+  const apps = state.applications || [];
+  const contracts = state.contracts || [];
+  const year = parseInt(req.query.year) || new Date().getFullYear();
+
+  // Filter apps by year
+  const yearApps = apps.filter(a => {
+    const d = new Date(a.applyDate);
+    return d.getFullYear() === year;
+  });
+
+  const wonApps = yearApps.filter(a => a.status === '签单');
+  const lostApps = yearApps.filter(a => a.status === '丢失');
+  const total = wonApps.length + lostApps.length;
+  const winRate = total > 0 ? Math.round(wonApps.length / total * 1000) / 10 : 0;
+
+  // Find won contracts to calculate cycle
+  // Build a map of oppNo → app for quick lookup (split multi-oppNos)
+  const appMap = {};
+  wonApps.forEach(a => {
+    if (!a.oppNo) return;
+    a.oppNo.split('、').forEach(n => { appMap[n.trim()] = a; });
+  });
+  // Match contracts where any of their oppNo appears in wonApps
+  const wonSignedContracts = contracts.filter(c => {
+    if (!c.oppNo) return false;
+    return c.oppNo.split('、').some(n => appMap[n.trim()]);
+  });
+
+  let avgCycle = 0, fastCount = 0, slowCount = 0;
+  if (wonSignedContracts.length > 0) {
+    let totalDays = 0;
+    let fast = 0, slow = 0;
+    wonSignedContracts.forEach(c => {
+      // Find any matching app (try each oppNo in the contract)
+      const appOppNos = c.oppNo ? c.oppNo.split('、').map(n => n.trim()) : [];
+      let app = null;
+      for (const n of appOppNos) { if (appMap[n]) { app = appMap[n]; break; } }
+      if (!app || !app.applyDate || (!c.mainSignDate && !c.signDate)) return;
+      const days = Math.round((new Date(c.mainSignDate || c.signDate) - new Date(app.applyDate)) / 86400000);
+      totalDays += days;
+      if (days <= 30) fast++;
+      if (days > 90) slow++;
+    });
+    avgCycle = wonSignedContracts.length > 0 ? Math.round(totalDays / wonSignedContracts.length * 10) / 10 : 0;
+    fastCount = fast;
+    slowCount = slow;
+  }
+
+  res.json({
+    winRate,
+    avgCycle,
+    fastCount,
+    slowCount,
+    won: wonApps.length,
+    lost: lostApps.length,
+    total
+  });
+});
+
+// GET /api/dashboard/products - product dimension stats
+app.get('/api/dashboard/products', requireAdmin, (req, res) => {
+  const result = getState();
+  if (!result) return res.json({ products: [] });
+  const state = result.state;
+  const contracts = state.contracts || [];
+  const year = parseInt(req.query.year) || new Date().getFullYear();
+
+  const yearContracts = contracts.filter(c => {
+    const sd = new Date(c.mainSignDate || c.signDate || 0);
+    return sd.getFullYear() === year;
+  });
+
+  const productMap = {};
+  yearContracts.forEach(c => {
+    const product = c.product || '未知';
+    if (!productMap[product]) productMap[product] = { count: 0, amount: 0 };
+    productMap[product].count++;
+    productMap[product].amount += (parseFloat(c.subAmount) || 0) / 10000;
+  });
+
+  const products = Object.entries(productMap).map(([name, data]) => ({
+    name,
+    count: data.count,
+    amount: Math.round(data.amount * 100) / 100
+  })).sort((a, b) => b.amount - a.amount);
+
+  res.json({ products });
+});
 
 // 错误处理
 app.use((err, req, res, next) => {

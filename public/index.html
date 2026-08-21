@@ -298,7 +298,7 @@ input[type=number]{-moz-appearance:textfield;}
 .cs-panel::-webkit-scrollbar-track{background:transparent;border-radius:3px;}
 .cs-panel::-webkit-scrollbar-thumb{background:var(--sf-gray-4);border-radius:3px;}
 .cs-panel::-webkit-scrollbar-thumb:hover{background:var(--sf-gray-5);}
-.cs-wrap.open .cs-panel{display:block;}
+.cs-wrap.open .cs-panel{display:block!important;}
 .cs-opt{padding:8px 12px;font-size:var(--text-xs);color:var(--sf-text);cursor:pointer;border-radius:var(--sf-radius);transition:background .08s;}
 .cs-opt:hover{background:var(--sf-blue-light);color:var(--sf-blue);}
 .cs-opt.cur{background:var(--sf-blue-light);color:var(--sf-blue);font-weight:var(--weight-semibold);}
@@ -509,6 +509,7 @@ input[type=number]{-moz-appearance:textfield;}
   <div class="sf-hdr-r">
     <button class="btn" onclick="openOrgModal()" style="color:#fff;background:transparent;border-color:rgba(255,255,255,.3);font-size:var(--text-xs)"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="users" aria-hidden="true" class="lucide lucide-users"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><path d="M16 3.128a4 4 0 0 1 0 7.744"></path><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><circle cx="9" cy="7" r="4"></circle></svg> 部门人员</button>
     <button class="btn" onclick="openAdminPanel()" id="adminUserBtn" style="color:#fff;background:transparent;border-color:rgba(255,255,255,.3);font-size:var(--text-xs);display:none"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="settings" aria-hidden="true" class="lucide lucide-settings"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg> 用户管理</button>
+    <button class="btn" onclick="location.href='dashboard.html'" id="dashboardBtn" style="color:#fff;background:transparent;border-color:rgba(255,255,255,.3);font-size:var(--text-xs);display:none"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="bar-chart-2" aria-hidden="true"><path d="M5 21v-6"></path><path d="M12 21V3"></path><path d="M19 21V9"></path></svg> 看板</button>
     <button class="btn" onclick="doLogout()" id="logoutBtn" style="color:#fff;background:transparent;border-color:rgba(255,255,255,.3);font-size:var(--text-xs)"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="log-out" aria-hidden="true" class="lucide lucide-log-out"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> 退出</button>
     <button class="btn" onclick="manualSaveToFile()" style="color:#fff;background:transparent;border-color:rgba(255,255,255,.3);font-size:var(--text-xs)"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="download" aria-hidden="true" class="lucide lucide-download"><path d="M12 15V3"></path><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m7 10 5 5 5-5"></path></svg> 导出</button>
     <div class="save-st" id="saveStatus" title="数据自动保存到文件"><span class="save-dot warn" id="saveDot"></span><span id="saveText" style="color: rgb(254, 215, 170);">已保存 · 点「保存」按钮可跨电脑使用</span></div>
@@ -2883,41 +2884,48 @@ function getCardsAnnualActual(year, filteredApps) {
 
 // 按过滤条件统计季度实际（按合同签订日期 mainSignDate/signOpDate 判断季度）
 function getCardsQuarterActual(year, quarter, filteredApps) {
-  var contracts = getCardsContracts(filteredApps).filter(function(c) {
-    var d, y, m;
-    if (c.mainSignDate) {
-      d = new Date(c.mainSignDate); y = d.getFullYear(); m = d.getMonth() + 1;
-      if (y === year && Math.floor((m - 1) / 3) + 1 === quarter) return true;
-    }
-    if (c.signOpDate) {
-      d = new Date(c.signOpDate); y = d.getFullYear(); m = d.getMonth() + 1;
-      if (y === year && Math.floor((m - 1) / 3) + 1 === quarter) return true;
-    }
-    if (c.yearMonth) {
-      y = parseInt(String(c.yearMonth).split('-')[0]); m = parseInt(String(c.yearMonth).split('-')[1]);
-      if (y === year && Math.floor((m - 1) / 3) + 1 === quarter) return true;
-    }
-    return false;
+  // 从绩效分配列表（allocations）取数，按month字段（格式2026-01）判断季度
+  // 仅统计当前用户有权限查看的合同（filteredApps 的 oppNo 范围）
+  var appOppNos = {};
+  (filteredApps||[]).forEach(function(a){ if(a.oppNo) appOppNos[a.oppNo]=true; });
+  var qidx = parseInt(quarter[1]);
+  var allocs = (state.allocations||[]).filter(function(a) {
+    if (!appOppNos[a.oppNo]) return false;
+    var m = a.month; // 格式 2026-01
+    if (!m) return false;
+    var parts = m.split('-');
+    if (parts.length < 2) return false;
+    var y = parseInt(parts[0]);
+    var mo = parseInt(parts[1]);
+    if (y !== year) return false;
+    if (Math.floor((mo - 1) / 3) + 1 !== qidx) return false;
+    return true;
   });
-  return contracts.reduce(function(s, c) { return s + (parseFloat(c.presalePerformance) || 0); }, 0) / 10000;
+  // consultantPerformance 单位是元，转万元
+  var result = allocs.reduce(function(s, a) { return s + (parseFloat(a.consultantPerformance) || 0); }, 0) / 10000;
+  console.log('[QACTUAL] year=' + year + ' quarter=' + quarter + ' filteredApps=' + (filteredApps||[]).length + ' allocsMatched=' + allocs.length + ' totalAllocs=' + (state.allocations||[]).length + ' result=' + result);
+  return result;
 }
 
 function renderCards() {
   const filtered = getFilteredApps();
-  const all = getFilteredApps();
 
-  // 按 oppNo 去重
-  var seen = {};
-  var uniqueFiltered = [];
-  filtered.forEach(function(a) { if (a.oppNo && !seen[a.oppNo]) { seen[a.oppNo] = true; uniqueFiltered.push(a); } });
+  // 个人视图（无view_depts）：不去重，按原始申请记录条数统计
+  // 部门/admin视图（有view_depts）：按oppNo去重，避免多人支持同一项目被重复计算
+  var hasDeptScope = _currentUser && _currentUser.view_depts && _currentUser.view_depts.length > 0;
+  var baseApps = filtered;
+  if (hasDeptScope) {
+    var seen = {};
+    baseApps = filtered.filter(function(a) { if (a.oppNo && !seen[a.oppNo]) { seen[a.oppNo] = true; return true; } return false; });
+  }
 
-  const total = uniqueFiltered.length;
-  const newCount = uniqueFiltered.filter(a => inRange(a.applyDate, getPeriodRange(getPeriodKey()))).length;
-  const following = uniqueFiltered.filter(a => a.status === '活跃').length;
-  const lost = uniqueFiltered.filter(a => a.status === '丢失').length;
-  const won = uniqueFiltered.filter(a => a.status === '签单').length;
+  const total = baseApps.length;
+  const newCount = baseApps.filter(a => inRange(a.applyDate, getPeriodRange(getPeriodKey()))).length;
+  const following = baseApps.filter(a => a.status === '活跃').length;
+  const lost = baseApps.filter(a => a.status === '丢失').length;
+  const won = baseApps.filter(a => a.status === '签单').length;
   // "金额"：签单=signAmount（存元），预计=expectedSignAmount（存万元），统一转为万元
-  const totalAmount = uniqueFiltered.reduce(function(s, a) { var amt = a.status === '签单' ? parseFloat(a.signAmount) / 10000 : a.status === '预计' ? parseFloat(a.expectedSignAmount) / 10000 : 0; return s + (amt || 0); }, 0);
+  const totalAmount = baseApps.reduce(function(s, a) { var amt = a.status === '签单' ? parseFloat(a.signAmount) / 10000 : a.status === '预计' ? parseFloat(a.expectedSignAmount) / 10000 : 0; return s + (amt || 0); }, 0);
 
   document.getElementById('cardOverview').innerHTML =
     '<div class="overview-top" onclick="showDetail(\'overview\',\'all\')">' +
@@ -2926,10 +2934,10 @@ function renderCards() {
     '<span class="ov-amt">金额：' + fmtMoney(totalAmount) + '万</span>' +
     '</div>';
 
-  const riskApps = uniqueFiltered.filter(a => state.judgments.some(j => j.oppNo === a.oppNo && j.isRisk === '是'));
-  const newApps = uniqueFiltered.filter(a => inRange(a.applyDate, getPeriodRange(getPeriodKey())));
-  const followApps = uniqueFiltered.filter(a => a.status === '活跃');
-  const lostApps = uniqueFiltered.filter(a => a.status === '丢失');
+  const riskApps = baseApps.filter(a => state.judgments.some(j => j.oppNo === a.oppNo && j.isRisk === '是'));
+  const newApps = baseApps.filter(a => inRange(a.applyDate, getPeriodRange(getPeriodKey())));
+  const followApps = baseApps.filter(a => a.status === '活跃');
+  const lostApps = baseApps.filter(a => a.status === '丢失');
   // 用 contracts 口径算当前期间的签单金额（与年度实际执行口径一致），单位万元
   var range = getPeriodRange(getPeriodKey());
   var signedContracts = state.contracts.filter(function(c) {
@@ -2939,12 +2947,17 @@ function renderCards() {
     return false;
   });
   var signedContractAmount = signedContracts.reduce(function(s, c) { return s + (parseFloat(c.presalePerformance) || 0); }, 0) / 10000;
-  const wonApps = uniqueFiltered.filter(a => a.status === '签单');
+  const wonApps = baseApps.filter(a => a.status === '签单');
 
-  const expectedApps = uniqueFiltered.filter(a => a.status === '预计');
+  const expectedApps = baseApps.filter(a => a.status === '预计');
 
-  // 各状态金额口径：预计/新增用expectedSignAmount（万元），签单用signAmount（存元转万元）
-  const amtOfApp = (a) => (a.status === '签单' ? (parseFloat(a.signAmount) || 0) / 10000 : a.status === '预计' ? (parseFloat(a.expectedSignAmount) || 0) / 10000 : 0);
+  // 各状态金额口径：签单/预计/跟进/丢失/风险统一用expectedSignAmount（存元，除10000转万元），无值显示-
+  const amtOfApp = function(a) {
+    if (a.status === '签单') return (parseFloat(a.signAmount) || 0) / 10000;
+    if (a.status === '预计' || a.status === '活跃' || a.status === '丢失' || a.status === '暂停') return (parseFloat(a.expectedSignAmount) || 0) / 10000;
+    return 0;
+  };
+  const fmtAmt = function(v) { return v > 0 ? fmtMoney(v) + '万' : '-'; };
   const statusGroups = [
     { label: '风险', count: riskApps.length, amount: riskApps.reduce((s, a) => s + amtOfApp(a), 0), color: 'var(--sf-text-danger)', type: 'risk' },
     { label: '新增', count: newApps.length, amount: newApps.reduce((s, a) => s + amtOfApp(a), 0), color: 'var(--sf-blue)', type: 'new' },
@@ -2959,7 +2972,7 @@ function renderCards() {
       return '<div class="overview-cell" onclick="showDetail(\'overview\',\'' + s.type + '\')">' +
         '<div class="ovc-lbl" style="color:' + s.color + '">' + s.label + '</div>' +
         '<div class="ovc-main"><b>' + s.count + '</b><span>个</span></div>' +
-        (s.amount > 0 ? '<div class="ovc-amt">' + fmtMoney(s.amount) + '万</div>' : '') +
+        (s.amount > 0 ? '<div class="ovc-amt">' + fmtAmt(s.amount) + '</div>' : '') +
         '</div>';
     }).join('') +
     '</div>';
@@ -3010,12 +3023,12 @@ function renderCards() {
   document.getElementById('cardQuarter').innerHTML =
     '<table class="q-tbl"><thead><tr><th>季度</th><th>比例</th><th>指标(万)</th><th>实际(万)</th><th>完成率</th></tr></thead><tbody>' + qRows + '</tbody></table>';
 
-  const totalApps = uniqueFiltered.length;
-  const signedCount = uniqueFiltered.filter(a => a.status === '签单').length;
-  const lostCount = uniqueFiltered.filter(a => a.status === '丢失').length;
+  const totalApps = baseApps.length;
+  const signedCount = baseApps.filter(a => a.status === '签单').length;
+  const lostCount = baseApps.filter(a => a.status === '丢失').length;
   const wr = totalApps > 0 ? (signedCount / totalApps * 100).toFixed(1) : '0.0';
 
-  const signedApps = uniqueFiltered.filter(a => a.status === '签单' && a.signDate && a.applyDate);
+  const signedApps = baseApps.filter(a => a.status === '签单' && a.signDate && a.applyDate);
   let avgDays = 0;
   if (signedApps.length > 0) {
     const totalDays = signedApps.reduce((s, a) => {
@@ -3659,6 +3672,7 @@ function initCustomSelects() {
 
 // 重建自定义下拉面板的选项（当 select.innerHTML 被 JS 动态修改时调用）
 function rebuildCSPanel(wrap) {
+  if (!wrap) return;
   var sel = wrap.querySelector('select.cs-native');
   var panel = wrap.querySelector('.cs-panel');
   if (!sel || !panel) return;
@@ -3755,8 +3769,9 @@ function openAppModal(id) {
   resetForm('appForm');
   const statusSel = document.querySelector('[name="status"]');
   // 1. 先还原为不含"签单"的标准选项（签单由合同驱动，新增/普通编辑不可手动选择）
+  // 注意：此时 cs-wrap 还不存在（initCustomSelects 在下面才调用），
+  // 不能调用 rebuildCSPanel，否则会因找不到 cs-wrap 而无效。
   statusSel.innerHTML = '<option value="">请选择</option><option>活跃</option><option>暂停</option><option>预计</option><option>丢失</option><option>关闭</option>';
-  rebuildCSPanel(statusSel.closest('.cs-wrap'));
   if (id) {
     const rec = state.applications.find(r => r.id === id);
     if (rec) {
@@ -3773,8 +3788,9 @@ function openAppModal(id) {
     document.querySelector('[name="applyDate"]').value = today();
     document.getElementById('appModalTitle').textContent = '新增售前申请';
   }
-  // 修复：openModal -> finishInit -> initCustomSelects 只初始化了 cs-native class，
-  // 但 panel 里是空的。需要对所有4个下拉都调用 rebuildCSPanel，确保面板有选项。
+  // openModal 内部才会调用 initCustomSelects() 创建 cs-wrap，
+  // 所以必须先调用 initCustomSelects() 确保 cs-wrap 存在，再 rebuildCSPanel。
+  initCustomSelects();
   document.querySelectorAll('#appForm select.cs-native').forEach(function(sel) {
     rebuildCSPanel(sel.closest('.cs-wrap'));
   });
@@ -5453,6 +5469,9 @@ var _currentUser = null;
     // 所有用户右上角显示用户管理按钮
     var btn = document.getElementById('adminUserBtn');
     if (btn) btn.style.display = '';
+    // admin 角色额外显示看板入口
+    var dashBtn = document.getElementById('dashboardBtn');
+    if (dashBtn) dashBtn.style.display = '';
 
     // 恢复数据
     await loadState();
