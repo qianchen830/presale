@@ -188,17 +188,13 @@ function filterStateByUser(state, user) {
   let viewDepts = [];
   try { viewDepts = JSON.parse(user.view_depts || '[]'); } catch {}
 
-  // 自己的部门 + 被授权的部门（去重合并）
+  // 自己被授权的部门（仅 viewDepts 生效；本人部门不自动获得全部门可见权限）
   const myDepts = new Set(viewDepts);
-  if (user.department) myDepts.add(user.department);
   const myName = user.displayName || user.username;
 
-  // 收集 allocations 里本人作为支持顾问的所有 oppNo（不限部门）
-  const myAllocOppNos = new Set(
-    (s.allocations || [])
-      .filter(a => a.consultant === myName && a.oppNo)
-      .map(a => a.oppNo)
-  );
+  // 收集 allocations 里本人作为支持顾问的所有 oppNo（不再用于扩充申请可见性：
+  // 按需求，普通用户只能看到售前顾问=自己的申请；但本人的分配记录本身仍对其可见，
+  // 以保证个人实际业绩取数完整）
 
   // 建立 consultant → 归属部门 映射（只用 employees.deptId，不从 applications 表覆盖）
   const deptById = {};
@@ -208,31 +204,33 @@ function filterStateByUser(state, user) {
     if (e.name) consultantDepts[e.name] = deptById[e.deptId] || '';
   });
 
-  // applications：本人是顾问 OR 本人参与的allocations OR 申请记录的首席顾问归属部门在授权范围内
-  // view_depts 权限语义：能看到这些部门的顾问所负责的所有项目
-  // consultantDepts 来自 employees.deptId（顾问的真实归属部门），不用申请记录的 a.department
+  // 权限规则：
+  // - admin：看所有数据
+  // - 普通顾问（无部门授权）：只看售前顾问=自己的申请（与单机版文件一致）
+  // - 部门授权用户（viewDepts 非空）：额外可见授权部门（含子部门）顾问名下的全部申请
   if (s.applications) {
-    s.applications = s.applications.filter(a => {
-      if (a.consultant === myName) return true;
-      if (myAllocOppNos.has(a.oppNo)) return true;
-      if (myDepts.size === 0) return false;
-      // 用顾问归属部门（来自 employees 表）判断，不依赖申请记录的 department 字段
-      const homeDept = consultantDepts[a.consultant] || '';
-      if (homeDept && myDepts.has(homeDept)) return true;
-      // 父部门覆盖子部门：若 view_depts 包含某父部门，则子部门下的顾问也放行
-      for (const vd of myDepts) {
-        // 找 homeDept 的所有祖先部门
-        let cur = homeDept;
-        while (cur) {
-          if (cur === vd) return true;
-          const parentId = Object.entries(deptById).find(([, name]) => name === cur)?.[0];
-          if (!parentId) break;
-          const parentEntry = (s.departments || []).find(d => d.id === parentId);
-          cur = parentEntry ? (deptById[parentEntry.pid] || '') : '';
+    if (myDepts.size === 0) {
+      s.applications = s.applications.filter(a => a.consultant === myName);
+    } else {
+      s.applications = s.applications.filter(a => {
+        if (a.consultant === myName) return true;
+        // 按顾问归属部门（employees.deptId）判断，支持父部门覆盖子部门
+        const homeDept = consultantDepts[a.consultant] || '';
+        if (homeDept && myDepts.has(homeDept)) return true;
+        for (const vd of myDepts) {
+          // 找 homeDept 的所有祖先部门：若授权部门包含某祖先，则放行
+          let cur = homeDept;
+          while (cur) {
+            if (cur === vd) return true;
+            const parentId = Object.entries(deptById).find(([, name]) => name === cur)?.[0];
+            if (!parentId) break;
+            const parentEntry = (s.departments || []).find(d => d.id === parentId);
+            cur = parentEntry ? (deptById[parentEntry.pid] || '') : '';
+          }
         }
-      }
-      return false;
-    });
+        return false;
+      });
+    }
   }
 
   // 先收集可见的 oppNo（来自过滤后的 applications）
@@ -422,23 +420,9 @@ app.get('/api/state', requireAuth, (req, res) => {
     ? userTargets.quarterTargets
     : computedQuarterTargets;
 
-  // 动态计算 quarterActuals：从 contracts 按季度汇总 presalePerformance
-  const qMonths = { Q1: [1,2,3], Q2: [4,5,6], Q3: [7,8,9], Q4: [10,11,12] };
-  const computedQuarterActuals = { Q1: 0, Q2: 0, Q3: 0, Q4: 0 };
-  (merged.contracts || []).forEach(function(c) {
-    const sd = c.mainSignDate ? new Date(c.mainSignDate) : (c.signDate ? new Date(c.signDate) : null);
-    if (!sd || isNaN(sd.getTime())) return;
-    if (sd.getFullYear() !== year) return;
-    const m = sd.getMonth() + 1;
-    const q = Object.keys(qMonths).find(function(q) { return qMonths[q].includes(m); });
-    if (q) {
-      computedQuarterActuals[q] += (parseFloat(c.presalePerformance) || 0);
-    }
-  });
-  Object.keys(computedQuarterActuals).forEach(function(q) {
-    computedQuarterActuals[q] = Math.round(computedQuarterActuals[q] / 10000 * 100) / 100;
-  });
-  merged.quarterActuals = computedQuarterActuals;
+  // quarterActuals 不再由服务端预算（旧口径从合同取全额，合个人实际不一致）。
+  // 前端统一用 getScopeActualWan 实时取数：业绩分配优先，无分配时从合同取。
+  merged.quarterActuals = { Q1: 0, Q2: 0, Q3: 0, Q4: 0 };
 
   // 动态计算 deptSupportTargets（各部门的签单+支撑业绩汇总）
   const computedDeptSupport = {};
