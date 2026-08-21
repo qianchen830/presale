@@ -2302,39 +2302,7 @@ async function verifySavedHtml(htmlText) {
   }
 }
 
-function autoSave() {
-  clearTimeout(saveTimer);
-  setSaveStatus('sync', '保存中...');
-  // 立即写入 localStorage（同步）：避免防抖期间（600ms）刷新/关闭页面导致刚导入/编辑的数据丢失
-  try {
-    state._savedAt = Date.now(); // 记录最近编辑时间，刷新/跨电脑时用于选择较新的数据源
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch (e) {}
-  saveTimer = setTimeout(function() {
-    try {
-      // 同步写入 SQLite 数据库（内存中，导出时使用）
-      saveStateToDB();
-      // 持久化数据库快照到 IndexedDB：刷新后直接从该快照重建数据库，
-      // 导入/录入的数据（如合同清单）不会因刷新回到文件旧快照而丢失
-      try {
-        if (sfDB) {
-          var snapBuf = sfDB.export();
-          idbSet('dbSnapshot', { buf: snapBuf, ts: Date.now() }).catch(function() {});
-        }
-      } catch (e) {}
-      // 标记需要导出（数据未写入磁盘文件）
-      sessionStorage.setItem(EXPORT_DIRTY_KEY, '1');
-    } catch (e) {
-      setSaveStatus('err', '本地保存失败');
-      return;
-    }
-    // 自动写回文件：首次会弹一次保存位置选择（记忆后静默），之后每次编辑自动写入文件
-    autoWriteToFile().then(function(ok) {
-      if (ok) { setSaveStatus('saved', '已保存 ✓'); }
-      else { setSaveStatus('warn', '已保存 · 点「保存」按钮可跨电脑使用'); }
-    });
-  }, 600);
-}
+function autoSave() { /* 数据来自API，无需本地保存 */ }
 
 /* ===== 手动保存：导出为 HTML 文件（选目录+改文件名） ===== */
 async function manualSaveToFile() { /* DISABLED: data from API */ }
