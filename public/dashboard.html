@@ -56,6 +56,7 @@ body{font-family:var(--font-sans);background:var(--sf-bg);color:var(--sf-text);f
 .sf-hdr-period .cur-label{font-size:var(--text-xs);color:rgba(255,255,255,.7);margin-left:6px;display:flex;align-items:center;gap:5px;white-space:nowrap;}
 .sf-hdr-period .cur-label b{color:#fff;font-weight:var(--weight-semibold);}
 .sf-hdr-r{display:flex;align-items:center;gap:10px;}
+@keyframes sfSpin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
 .save-st{font-size:var(--text-xs);color:rgba(255,255,255,.7);display:flex;align-items:center;gap:5px;cursor:pointer;transition:opacity .15s;padding:2px 4px;border-radius:4px;}
 .save-st:hover{background:rgba(255,255,255,.08);}
 .save-dot{width:7px;height:7px;border-radius:50%;background:#4bce7a;transition:background .2s;animation:blink 1.2s infinite;}
@@ -505,8 +506,8 @@ input[type=number]{-moz-appearance:textfield;}
   </div>
   <div class="sf-hdr-r">
     <button class="btn" onclick="window.location.href='/'" style="color:#fff;background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.35);font-size:var(--text-xs)"><i data-lucide="arrow-left"></i> 返回</button>
-    <button class="btn" onclick="doRefresh()" style="color:#fff;background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.35);font-size:var(--text-xs)"><i data-lucide="refresh-cw"></i> 刷新</button>
-    <div class="save-st" id="saveStatus" style="display:none"><span class="save-dot sync" id="saveDot"></span><span id="saveText" style="color:rgba(255,255,255,.85)">正在加载...</span></div>
+    <button class="btn" id="btnRefresh" onclick="doRefresh()" style="color:#fff;background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.35);font-size:var(--text-xs)"><i data-lucide="refresh-cw"></i> 刷新</button>
+    <div class="save-st" id="saveStatus"><span class="save-dot sync" id="saveDot"></span><span id="saveText" style="color:rgba(255,255,255,.85)">—</span></div>
   </div>
 </header>
 
@@ -7192,17 +7193,35 @@ function finishInit() {
 }
 
 async function doRefresh() {
+  var btn = document.getElementById('btnRefresh');
+  if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.innerHTML = '<i data-lucide="refresh-cw" style="animation:sfSpin 1s linear infinite"></i> 取数中…'; lucide.createIcons(); }
+  setSaveStatus('sync', '正在取数...');
+  // 保留用户当前 UI 状态（页签/期间选择），不被服务端存储的状态覆盖
+  var keep = {
+    activeMainTab: state.activeMainTab, activeTab: state.activeTab,
+    year: state.year, quarter: state.quarter, month: state.month,
+    weekNum: state.weekNum, weekYear: state.weekYear, selectedAppId: state.selectedAppId
+  };
   try {
     var ok = await loadState();
     if (ok) {
+      Object.keys(keep).forEach(function(k) { if (keep[k] !== undefined && keep[k] !== null) state[k] = keep[k]; });
+      buildPeriodPanels();
       render();
       renderCards();
+      refreshIcons();
       lucide.createIcons();
-      setSaveStatus('ok', '已刷新');
+      setSaveStatus('ok', '已刷新 ' + new Date().toLocaleTimeString('zh-CN', { hour12: false }));
     } else {
-      setSaveStatus('err', '加载失败');
+      setSaveStatus('err', '取数失败');
+      if (confirm('取数失败：可能是登录已过期。\n是否跳转到登录页？')) window.location.href = '/';
     }
-  } catch(e) { setSaveStatus('err', '加载失败'); }
+  } catch(e) {
+    setSaveStatus('err', '取数失败');
+    console.error('doRefresh failed:', e);
+  } finally {
+    if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.innerHTML = '<i data-lucide="refresh-cw"></i> 刷新'; lucide.createIcons(); }
+  }
 }
 
 (async function init() {
