@@ -1658,6 +1658,24 @@ function getFilteredContracts() {
 function getAllApps() { return state.applications; }
 
 function statusBadge(s) {
+function getContractsByAppDate() {
+  var range = getPeriodRange(getPeriodKey());
+  var appRange = (state.applications || []).filter(function(a) { return inRange(a.applyDate, range); });
+  var oppSet = {};
+  appRange.forEach(function(a) { if (a.oppNo) oppSet[a.oppNo] = true; });
+  var list = (state.contracts || []).filter(function(con) {
+    if (con.oppNo && oppSet[con.oppNo]) return true;
+    return false;
+  });
+  var seen = {};
+  return list.filter(function(con) {
+    var k = con.mainContractNo || con.id;
+    if (seen[k]) return false;
+    seen[k] = true;
+    return true;
+  });
+}
+
   const map = { '活跃': 'b-active', '暂停': 'b-paused', '预计': 'b-expect', '签单': 'b-won', '丢失': 'b-lost', '关闭': 'b-closed' };
   const label = s === '丢失' ? '丢单' : s;
   return '<span class="badge ' + (map[s] || '') + '">' + (label || '—') + '</span>';
@@ -2524,7 +2542,7 @@ function renderCards() {
   const tgtPct = tgtVal > 0 ? (_perfActual / tgtVal * 100) : 0;
   const tgtBarW = Math.min(Math.max(tgtPct, 0), 100);
 
-  var showTarget = !_isPersonalDash(); // 非个人视角（admin/部门）才显示年度目标
+  var showTarget = false; // 年度目标栏永久隐藏
   var targetHtml = '';
   if (showTarget) {
     targetHtml = '<div style="margin-top:8px;padding:8px 10px;background:var(--sf-gray-1);border-radius:var(--sf-radius);cursor:pointer" onclick="showDetail(\'target\',\'target\')" title="点击查看签单合同明细">' +
@@ -2671,7 +2689,7 @@ function renderCards() {
 
   // Product metrics - 从当前筛选期间的合同签订记录统计（合同金额单位为元，转为万元显示）
   const productMap = {};
-  getFilteredContracts().forEach(c => {
+  getContractsByAppDate().forEach(c => {
     const p = c.product || '未指定';
     if (!productMap[p]) productMap[p] = { count: 0, amount: 0 };
     productMap[p].count++;
@@ -3313,6 +3331,16 @@ function renderConsultantAnalysis() {
     p.contractPerf += parseFloat(a.contractPerformance) || 0;
     p.subPerf += parseFloat(a.subscriptionPerformance) || 0;
     p.consPerf += parseFloat(a.consultantPerformance) || 0;
+    // 补充：有售前申请记录但无业绩分配的顾问（显示为0业绩）
+  var allocConsSet = {};
+  allocList.forEach(function(a){ if(a.consultant) allocConsSet[a.consultant] = true; });
+  (state.applications || []).forEach(function(a){
+    var n = (a.consultant || '').trim();
+    if(n && !allocConsSet[n] && !personMap[n]) {
+      personMap[n] = { name:n, depts:{}, opps:{}, count:0, contractPerf:0, subPerf:0, consPerf:0, details:[] };
+    }
+  });
+
     // 主合同编号 / 签约客户：优先按 contractId，其次按 oppNo，客户再回退到售前申请
     var c0 = null;
     if (a.contractId && conNoMap[a.contractId]) c0 = { no: conNoMap[a.contractId], cust: conCustMap[a.contractId] || '' };
@@ -3596,7 +3624,7 @@ function selectCons(name) { state._consSel = name; state._consDetailPage = 1; re
 function renderSalesAnalysis() {
   var container = document.getElementById('tblSalesAnalysis');
   if (!container) return;
-  var contracts = getFilteredContracts(); // 按当前筛选期间取数
+  var contracts = getContractsByAppDate(); // 按售前申请日期关联合同
 
   var isPersonalSales = _isPersonalDash(); // 个人视角：普通账号只显示本人支持的合同关联的销售人员
   var myConsName = isPersonalSales ? (state.consultant || (window._dashUser && (window._dashUser.displayName || window._dashUser.username))) : null;
