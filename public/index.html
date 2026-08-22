@@ -1216,60 +1216,7 @@ function fmtMoney2(v) { var n = parseFloat(v); return isNaN(n) ? '0.00' : n.toLo
 function fmtMoneyInputFocus(el) { var raw = (el.value || '').replace(/[,，\s]/g, ''); var n = parseFloat(raw); el.value = isNaN(n) ? '' : String(n); }
 function fmtMoneyInputBlur(el) { var raw = (el.value || '').replace(/[,，\s]/g, ''); var n = parseFloat(raw); if (isNaN(n)) n = 0; el.value = fmtMoney2(n); }
 function fmtDate(d) { return d || '—'; }
-// ===== 业绩取数口径（与单机版源文件一致） =====
-// 当前用户可见的顾问范围：null=admin看全部；Set=具体顾问集合（个人=本人；部门授权=本人+授权部门下所有顾问）
-function getScopeConsultants() {
-  if (_currentUser && _currentUser.role === 'admin') return null;
-  var myName = _currentUser ? (_currentUser.displayName || _currentUser.username) : (state.consultant || '');
-  if (_currentUser && _currentUser.view_depts && _currentUser.view_depts.length > 0) {
-    var deptById = {};
-    (state.departments || []).forEach(function(d) { if (d.id && d.name) deptById[d.id] = d.name; });
-    var scope = new Set([myName]);
-    (state.employees || []).forEach(function(e) {
-      if (!e.name || !e.deptId) return;
-      var dname = deptById[e.deptId];
-      if (!dname) return;
-      if (_currentUser.view_depts.indexOf(dname) >= 0) { scope.add(e.name); return; }
-      // 父部门覆盖子部门：授权部门包含某父部门时，其子部门顾问也纳入
-      var selfDept = (state.departments || []).filter(function(d) { return d.name === dname && d.pid; })[0];
-      if (selfDept) {
-        var parent = (state.departments || []).filter(function(d) { return d.id === selfDept.pid; })[0];
-        if (parent && _currentUser.view_depts.indexOf(parent.name) >= 0) scope.add(e.name);
-      }
-    });
-    return scope;
-  }
-  return new Set([myName]);
-}
-// 商机的顾问个人业绩（元）：个人视图只算本人分配，部门/admin视图算范围内所有顾问分配
-function consultantPerfOf(oppNo) {
-  if (!oppNo) return 0;
-  var scope = getScopeConsultants();
-  return (state.allocations || [])
-    .filter(function(al) { return al.oppNo === oppNo && (!scope || scope.has(al.consultant)); })
-    .reduce(function(s, al) { return s + (parseFloat(al.consultantPerformance) || 0); }, 0);
-}
-// 金额口径（万元）：签单=个人视图按个人业绩分配、汇总视图(admin/部门授权)按合同签订金额；
-// 预计/活跃/丢失/暂停=预计签单金额；其余不计
-function amtOf(a) {
-  // 10万门槛：合同金额<10万不计
-  if (a.status === '签单') {
-    // 签单金额=签单合同的subAmount之和（10万门槛），用signAmount兜底
-    var wonContracts = (state.contracts || []).filter(function(c) { return c.oppNo === a.oppNo && (parseFloat(c.subAmount) || 0) >= 100000; });
-    if (wonContracts.length > 0) return wonContracts.reduce(function(s, c) { return s + (parseFloat(c.subAmount) || 0); }, 0) / 10000;
-    return (parseFloat(a.signAmount) || 0) / 10000;
-  }
-  if (a.status === '预计' || a.status === '活跃' || a.status === '丢失' || a.status === '暂停') return (parseFloat(a.expectedSignAmount) || 0) / 10000;
-  return 0;
-}
-// 模块实时保存失败时给出可见提示（避免静默失败让人以为"保存没反应"）
-function moduleSaveFail(op) {
-  return function(err) {
-    console.warn('[module-save]', op, err);
-    setSaveStatus('err', '保存失败');
-    setTimeout(function() { setSaveStatus('warn', '部分修改未保存，请重试'); }, 2500);
-  };
-}
+function amtOf(a) { return a.status === '签单' ? (parseFloat(a.signAmount) || 0) / 10000 : a.status === '预计' ? (parseFloat(a.expectedSignAmount) || 0) : 0; }
 function today() { return new Date().toISOString().slice(0, 10); }
 
 function getISOWeekInfo(d) {
@@ -1756,6 +1703,8 @@ function getFilteredApps() {
         }
         return false;
       });
+    } else if (_currentUser.department) {
+      apps = apps.filter(function(a) { return a.consultant === myName || a.department === _currentUser.department; });
     } else {
       apps = apps.filter(function(a) { return a.consultant === myName; });
     }
@@ -2877,36 +2826,41 @@ function render() {
 
 /* ----- CARDS ----- */
 /* 按顾问统计业绩分配中的顾问业绩（年度/季度实际数） */
-// 实际执行取数（与单机版源文件口径一致，万元）：
-// 1) 优先从业绩分配取：范围内顾问的 consultantPerformance（元）合计/10000
-// 2) 无分配时从合同取：accountMgr 在范围内的 presalePerformance（元）合计/10000
-function getScopeActualWan(year, quarter) {
-  var scope = getScopeConsultants();
-  var allocs = (state.allocations || []).filter(function(a) {
-    if (scope && !scope.has(a.consultant)) return false;
-    if (year != null) {
-      var ay = a.month ? parseInt(String(a.month).split('-')[0], 10) : null;
-      if (ay !== year) return false;
-    }
-    if (quarter != null) {
-      var aq = a.quarter;
-      if (!aq && a.month) aq = 'Q' + (Math.floor((parseInt(String(a.month).split('-')[1], 10) - 1) / 3) + 1);
-      if (aq !== quarter) return false;
-    }
-    return true;
-  });
-  var allocTotal = allocs.reduce(function(s, a) { return s + (parseFloat(a.consultantPerformance) || 0); }, 0);
+function getConsultantActual(year, quarter) {
+  var consultant = state.consultant;
+  if (!consultant) return 0;
+
+  // 1) 优先从业绩分配中统计（consultantPerformance 单位：元）
+  var allocTotal = state.allocations
+    .filter(function(a) {
+      if (a.consultant !== consultant) return false;
+      if (year != null) {
+        var aYear = a.month ? parseInt(String(a.month).split('-')[0]) : null;
+        if (aYear !== year) return false;
+      }
+      if (quarter != null && a.quarter !== quarter) return false;
+      return true;
+    })
+    .reduce(function(s, a) { return s + (parseFloat(a.consultantPerformance) || 0); }, 0);
+
+  // 2) 如果有业绩分配，直接返回（元 → 万元）
   if (allocTotal > 0) return allocTotal / 10000;
-  var cons = (state.contracts || []).filter(function(c) {
-    if (scope && c.accountMgr && !scope.has(c.accountMgr)) return false;
-    if (year != null) {
-      var cy = c.yearMonth ? parseInt(String(c.yearMonth).split('-')[0], 10) : null;
-      if (cy !== year) return false;
-    }
-    if (quarter != null && c.quarter !== quarter) return false;
-    return true;
-  });
-  return cons.reduce(function(s, c) { return s + (parseFloat(c.presalePerformance) || 0); }, 0) / 10000;
+
+  // 3) 无业绩分配时，从合同中统计（presalePerformance 单位：元）
+  var contractTotal = state.contracts
+    .filter(function(c) {
+      if (c.accountMgr !== consultant) return false;
+      if (year != null) {
+        var cYear = c.yearMonth ? parseInt(String(c.yearMonth).split('-')[0]) : null;
+        if (cYear !== year) return false;
+      }
+      if (quarter != null && c.quarter !== quarter) return false;
+      return true;
+    })
+    .reduce(function(s, c) { return s + (parseFloat(c.presalePerformance) || 0); }, 0);
+
+  // 元 → 万元
+  return contractTotal / 10000;
 }
 
 // 按过滤条件（顾问/部门）筛选合同
@@ -2918,22 +2872,49 @@ function getCardsContracts(filteredApps) {
 
 // 按过滤条件统计年度实际（实际执行，单位：元→万元）
 function getCardsAnnualActual(year, filteredApps) {
-  // 实际执行统一取数：业绩分配优先，无分配时从合同取（与源文件getConsultantActual口径一致）
-  return getScopeActualWan(year);
+  // 按过滤条件的合同统计 presalePerformance，按合同签订日期（mainSignDate/signOpDate）判断年份，10万门槛
+  var THRESHOLD = 100000;
+  var contracts = getCardsContracts(filteredApps).filter(function(c) {
+    if ((parseFloat(c.subAmount) || 0) < THRESHOLD) return false;
+    if (c.mainSignDate) { var d = new Date(c.mainSignDate); if (d.getFullYear() === year) return true; }
+    if (c.signOpDate) { var d2 = new Date(c.signOpDate); if (d2.getFullYear() === year) return true; }
+    if (c.yearMonth) { var y = parseInt(String(c.yearMonth).split('-')[0]); if (y === year) return true; }
+    return false;
+  });
+  return contracts.reduce(function(s, c) { return s + (parseFloat(c.presalePerformance) || 0); }, 0) / 10000;
 }
 
 // 按过滤条件统计季度实际（按合同签订日期 mainSignDate/signOpDate 判断季度）
 function getCardsQuarterActual(year, quarter, filteredApps) {
-  // 季度实际统一取数：范围内顾问的业绩分配优先，无分配时从合同取（与源文件getConsultantActual口径一致）
-  return getScopeActualWan(year, quarter);
+  // 从绩效分配列表（allocations）取数，按month字段（格式2026-01）判断季度
+  // 仅统计当前用户有权限查看的合同（filteredApps 的 oppNo 范围）
+  var appOppNos = {};
+  (filteredApps||[]).forEach(function(a){ if(a.oppNo) appOppNos[a.oppNo]=true; });
+  var qidx = parseInt(quarter[1]);
+  var allocs = (state.allocations||[]).filter(function(a) {
+    if (!appOppNos[a.oppNo]) return false;
+    var m = a.month; // 格式 2026-01
+    if (!m) return false;
+    var parts = m.split('-');
+    if (parts.length < 2) return false;
+    var y = parseInt(parts[0]);
+    var mo = parseInt(parts[1]);
+    if (y !== year) return false;
+    if (Math.floor((mo - 1) / 3) + 1 !== qidx) return false;
+    return true;
+  });
+  // consultantPerformance 单位是元，转万元
+  var result = allocs.reduce(function(s, a) { return s + (parseFloat(a.consultantPerformance) || 0); }, 0) / 10000;
+  console.log('[QACTUAL] year=' + year + ' quarter=' + quarter + ' filteredApps=' + (filteredApps||[]).length + ' allocsMatched=' + allocs.length + ' totalAllocs=' + (state.allocations||[]).length + ' result=' + result);
+  return result;
 }
 
 function renderCards() {
   const filtered = getFilteredApps();
 
-  // 汇总视图按项目(oppNo)去重：商机号允许重复录入，但部门/admin汇总统计只计一次；
-  // 个人视图保持原始记录条数
-  var hasDeptScope = _currentUser && (_currentUser.role === 'admin' || (_currentUser.view_depts && _currentUser.view_depts.length > 0));
+  // 个人视图（无view_depts）：不去重，按原始申请记录条数统计
+  // 部门/admin视图（有view_depts）：按oppNo去重，避免多人支持同一项目被重复计算
+  var hasDeptScope = _currentUser && _currentUser.view_depts && _currentUser.view_depts.length > 0;
   var baseApps = filtered;
   if (hasDeptScope) {
     var seen = {};
@@ -2945,45 +2926,60 @@ function renderCards() {
   const following = baseApps.filter(a => a.status === '活跃').length;
   const lost = baseApps.filter(a => a.status === '丢失').length;
   const won = baseApps.filter(a => a.status === '签单').length;
-  // "金额"：签单=顾问个人业绩分配，预计=预计签单金额（统一万元，与源文件amtOf一致）
-  const totalAmount = baseApps.reduce(function(s, a) { return s + amtOf(a); }, 0);
+  // "金额"：签单=signAmount（存元），预计=expectedSignAmount（存万元），统一转为万元
+  const totalAmount = baseApps.reduce(function(s, a) { var amt = a.status === '签单' ? parseFloat(a.signAmount) / 10000 : a.status === '预计' ? parseFloat(a.expectedSignAmount) / 10000 : 0; return s + (amt || 0); }, 0);
 
   document.getElementById('cardOverview').innerHTML =
     '<div class="overview-top" onclick="showDetail(\'overview\',\'all\')">' +
     '<span class="ov-num">' + total + '<b>个</b></span>' +
     '<span class="ov-split"></span>' +
-    '<span class="ov-amt">金额：' + fmtMoney(totalAmount) + '万</span>' +
+    '<span class="ov-amt">金额：' + fmtMoney2(wonAmt + expectedAmt) + '万</span>' +
     '</div>';
 
   const riskApps = baseApps.filter(a => state.judgments.some(j => j.oppNo === a.oppNo && j.isRisk === '是'));
   const newApps = baseApps.filter(a => inRange(a.applyDate, getPeriodRange(getPeriodKey())));
   const followApps = baseApps.filter(a => a.status === '活跃');
   const lostApps = baseApps.filter(a => a.status === '丢失');
+  // 用合同 subAmount（10万门槛）算当前期间的签单金额，单位万元
+  var range = getPeriodRange(getPeriodKey());
+  var THRESHOLD = 100000;
+  var signedContracts = state.contracts.filter(function(c) {
+    if ((parseFloat(c.subAmount) || 0) < THRESHOLD) return false;
+    if (c.mainSignDate && inRange(c.mainSignDate, range)) return true;
+    if (c.signOpDate && inRange(c.signOpDate, range)) return true;
+    if (c.yearMonth) { var ym = c.yearMonth + '-01'; if (inRange(ym, range)) return true; }
+    return false;
+  });
+  // signedContractAmount 单位万元
+  var signedContractAmount = signedContracts.reduce(function(s, c) { return s + (parseFloat(c.subAmount) || 0); }, 0) / 10000;
   const wonApps = baseApps.filter(a => a.status === '签单');
 
   const expectedApps = baseApps.filter(a => a.status === '预计');
 
-  // 停滞项目：活跃状态但超14天无跟进（暂停/停滞口径）
-  const stalledApps = baseApps.filter(a => {
-    if (a.status !== '活跃') return false;
-    const follows = (state.followUps || []).filter(f => f.oppNo === a.oppNo);
-    if (!follows.length) return true;
-    const latest = follows.reduce((m, f) => { const d = f.followDate ? new Date(f.followDate) : null; return d && (!m || d > m) ? d : m; }, null);
-    if (!latest) return true;
-    return (Date.now() - latest.getTime()) / 86400000 > 14;
-  });
+  // wonAmt/expectedAmt 单位万元（用于主卡片总金额和状态组金额口径统一）
+  const wonAmt = wonApps.reduce(function(s, a) { return s + amtOfApp(a); }, 0);
+  const expectedAmt = expectedApps.reduce(function(s, a) { return s + amtOfApp(a); }, 0);
 
-  // 金额口径：签单=签单合同subAmount（10万门槛）；预计=预计签单金额；其余状态不计金额
+  // 各状态金额口径（单位万元）：签单=合同subAmount（10万门槛），预计=expectedSignAmount（已是万），其余显示-
+  const amtOfApp = function(a) {
+    if (a.status === '签单') {
+      var wonCon = state.contracts.filter(function(c) { return c.oppNo === a.oppNo && (parseFloat(c.subAmount) || 0) >= THRESHOLD; });
+      if (wonCon.length > 0) return wonCon.reduce(function(s, c) { return s + (parseFloat(c.subAmount) || 0); }, 0) / 10000;
+      return (parseFloat(a.signAmount) || 0) / 10000;
+    }
+    if (a.status === '预计') return (parseFloat(a.expectedSignAmount) || 0);
+    return 0;
+  };
+  // fmtAmt 直接显示万元值（已除万）
+  const fmtAmt = function(v) { return v > 0 ? fmtMoney2(v) + '万' : '-'; };
   const statusGroups = [
-    { label: '风险', count: riskApps.length, amount: riskApps.reduce((s, a) => s + amtOf(a), 0), color: 'var(--sf-text-danger)', type: 'risk' },
-    { label: '新增', count: newApps.length, amount: newApps.reduce((s, a) => s + amtOf(a), 0), color: 'var(--sf-blue)', type: 'new' },
-    { label: '跟进', count: followApps.length, amount: followApps.reduce((s, a) => s + amtOf(a), 0), color: 'var(--sf-warning-text)', type: 'active' },
-    { label: '丢失', count: lostApps.length, amount: lostApps.reduce((s, a) => s + amtOf(a), 0), color: '#9e9e9e', type: 'lost' },
-    { label: '预计', count: expectedApps.length, amount: expectedApps.reduce((s, a) => s + amtOf(a), 0), color: '#8b5cf6', type: 'expected' },
-    { label: '签单', count: wonApps.length, amount: wonApps.reduce((s, a) => s + amtOf(a), 0), color: 'var(--sf-success-text)', type: 'won' },
-    { label: '暂停/停滞', count: stalledApps.length, amount: stalledApps.reduce((s, a) => s + amtOf(a), 0), color: '#6b7280', type: 'stalled' },
+    { label: '风险', count: riskApps.length, amount: riskApps.reduce((s, a) => s + amtOfApp(a), 0), color: 'var(--sf-text-danger)', type: 'risk' },
+    { label: '新增', count: newApps.length, amount: newApps.reduce((s, a) => s + amtOfApp(a), 0), color: 'var(--sf-blue)', type: 'new' },
+    { label: '跟进', count: followApps.length, amount: followApps.reduce((s, a) => s + amtOfApp(a), 0), color: 'var(--sf-warning-text)', type: 'active' },
+    { label: '丢失', count: lostApps.length, amount: lostApps.reduce((s, a) => s + amtOfApp(a), 0), color: '#9e9e9e', type: 'lost' },
+    { label: '预计', count: expectedApps.length, amount: expectedApps.reduce((s, a) => s + amtOfApp(a), 0), color: '#8b5cf6', type: 'expected' },
+    { label: '签单', count: wonApps.length, amount: wonAmt, color: 'var(--sf-success-text)', type: 'won' },
   ];
-  const fmtAmt = function(v) { return v > 0 ? fmtMoney(v) + '万' : (v === 0 ? '0万' : '—'); };
   document.getElementById('cardOverviewRisk').innerHTML =
     '<div class="overview-grid">' +
     statusGroups.map(function(s) {
@@ -3003,20 +2999,22 @@ function renderCards() {
     var isCurrent = y === currentYear;
     var yActual;
     if (isCurrent) {
-      // 当年实际：取数（业绩分配优先，无分配从合同取）
+      // 当年实际：按过滤条件统计合同 presalePerformance
       yActual = getCardsAnnualActual(y, filtered);
     } else {
-      // 往年实际：取个人存储的历史实际值（导入自源文件，不可编辑），无值则取数
+      // 往年实际：优先取手动编辑值，否则按过滤条件统计
       yActual = state.annualActuals[y] != null ? state.annualActuals[y] : getCardsAnnualActual(y, filtered);
     }
-    const yTarget = state.annualTargets[y] || 0;
+    // 年度指标：当年用 annualTarget（主字段），往年用 annualTargets[y]（历史编辑值）
+    var yTarget = isCurrent ? (parseFloat(state.annualTarget) || 0) : (parseFloat(state.annualTargets && state.annualTargets[y]) || 0);
     const yPct = yTarget > 0 ? Math.min((yActual / yTarget * 100), 100).toFixed(1) : '0.0';
     const yPctColor = yPct >= 80 ? 'var(--sf-success-text)' : yPct >= 50 ? 'var(--sf-warning-text)' : 'var(--sf-text-danger)';
     targetRows += '<tr' + (isCurrent ? ' style="background:var(--sf-blue-light)"' : '') + '>'
       + '<td style="font-weight:600">' + y + '年</td>'
-      + '<td class="q-tgt" onclick="editAnnualTarget(this,' + y + ')" style="cursor:pointer" title="点击编辑指标">' + fmtMoney(yTarget) + ' <i data-lucide="pencil" style="width:10px;height:10px;opacity:.35;vertical-align:-1px"></i></td>'
-      // 实际数一律取数展示，不可编辑，点击可查明细
-      + '<td class="q-val" onclick="showDetail(\'yearActual\',\'' + y + '\')" style="cursor:pointer" title="点击查看明细">' + fmtMoney(yActual) + '</td>'
+      + '<td class="q-tgt" onclick="editAnnualTarget(this,' + y + ')" style="cursor:pointer" title="点击编辑指标">' + fmtMoney2(yTarget) + ' <i data-lucide="pencil" style="width:10px;height:10px;opacity:.35;vertical-align:-1px"></i></td>'
+      + (isCurrent
+        ? '<td class="q-val" onclick="showDetail(\'yearActual\',\'' + y + '\')" style="cursor:pointer">' + fmtMoney2(yActual) + '</td>'
+        : '<td class="q-val" onclick="editYearActual(this,' + y + ')" style="cursor:pointer" title="点击编辑实际">' + fmtMoney2(yActual) + ' <i data-lucide="pencil" style="width:10px;height:10px;opacity:.35;vertical-align:-1px"></i></td>')
       + '<td class="q-val" style="color:' + yPctColor + ';font-weight:600">' + yPct + '%</td></tr>';
   });
   document.getElementById('cardTarget').innerHTML =
@@ -3033,8 +3031,8 @@ function renderCards() {
     const qPctColor = qPct >= 80 ? 'var(--sf-success-text)' : qPct >= 50 ? 'var(--sf-warning-text)' : 'var(--sf-text-danger)';
     qRows += '<tr><td style="font-weight:600">' + q + '</td>'
       + '<td class="q-pct" style="color:var(--sf-text-muted)">' + qPctVal + '%</td>'
-      + '<td class="q-tgt" style="color:var(--sf-text-muted)">' + fmtMoney(qTarget) + '</td>'
-      + '<td class="q-val" onclick="showDetail(\'quarter\',\'' + q + '\')" style="cursor:pointer">' + fmtMoney(qActual) + '</td>'
+      + '<td class="q-tgt" style="color:var(--sf-text-muted)">' + fmtMoney2(qTarget) + '</td>'
+      + '<td class="q-val" onclick="showDetail(\'quarter\',\'' + q + '\')" style="cursor:pointer">' + fmtMoney2(qActual) + '</td>'
       + '<td class="q-val" style="color:' + qPctColor + ';font-weight:600">' + qPct + '%</td></tr>';
   });
   document.getElementById('cardQuarter').innerHTML =
@@ -3116,9 +3114,16 @@ function saveAnnualTarget(input, year) {
   state.annualTarget = state.annualTargets[state.year] || state.annualTarget;
   saveUserTargets(); autoSave(); renderCards(); lucide.createIcons();
 }
-// 实际执行数据一律取数展示，不可编辑；保留函数名兼容静态HTML里的onclick
 function editYearActual(el, year) {
-  showDetail('yearActual', String(year));
+  var cur = state.annualActuals[year] != null ? state.annualActuals[year] : 0;
+  el.innerHTML = '<input type="number" step="any" value="' + cur + '" style="width:80px;padding:3px 5px;font-size:14px;font-weight:700;border:1px solid var(--sf-border-primary);border-radius:var(--sf-radius);outline:none;text-align:center;background:var(--sf-blue-light)" onkeydown="if(event.key===\'Enter\')this.blur()" onblur="saveYearActual(this,' + year + ')">';
+  el.querySelector('input').focus();
+  el.querySelector('input').select();
+}
+function saveYearActual(input, year) {
+  var v = parseFloat(input.value);
+  if (!isNaN(v) && v >= 0) state.annualActuals[year] = v;
+  saveUserTargets(); autoSave(); renderCards(); lucide.createIcons();
 }
 async function saveUserTargets() {
   try {
@@ -4150,7 +4155,7 @@ function saveApp() {
 /* ----- Requirement Cell Update & Quick Add ----- */
 function updateReqCell(id, field, value) {
   const rec = state.requirements.find(r => r.id === id);
-  if (rec) { rec[field] = value; fetch('/api/modules/requirements/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) }).catch(moduleSaveFail('requirements')); }
+  if (rec) { rec[field] = value; fetch('/api/modules/requirements/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) }).catch(() => {}); }
 }
 function addReqRow() {
   if (!state.selectedAppId) { alert('请先在「售前申请」列表中选择一条记录'); return; }
@@ -4158,7 +4163,7 @@ function addReqRow() {
   const newRec2 = { id: uid(), oppNo: app.oppNo, rawRequirement: '', domainAnalysis: '', businessAnalysis: '', itAnalysis: '', pendingQuestions: '', expectedGoal: '', needDev: '' };
   state.requirements.push(newRec2);
   renderSubTables();
-  fetch('/api/modules/requirements', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newRec2) }).catch(moduleSaveFail('requirements'));
+  fetch('/api/modules/requirements', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newRec2) }).catch(() => {});
   setTimeout(() => { const rows = document.querySelectorAll('#tblReq .dt tbody tr'); const last = rows[rows.length - 1]; if (last) { last.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); const inp = last.querySelector('[contenteditable="true"]'); if (inp) inp.focus(); } }, 50);
 }
 
@@ -4171,7 +4176,7 @@ function updateJudgeCell(id, field, value) {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(rec)
-    }).catch(moduleSaveFail('judgments'));
+    }).catch(() => {});
   }
 }
 function addJudgeRow() {
@@ -4184,7 +4189,7 @@ function addJudgeRow() {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(newRec)
-  }).catch(moduleSaveFail('judgments'));
+  }).catch(() => {});
   setTimeout(() => { const rows = document.querySelectorAll('#tblJudgeLeft .dt tbody tr'); const last = rows[rows.length - 1]; if (last) { last.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); const inp = last.querySelector('[contenteditable="true"]'); if (inp) inp.focus(); } }, 50);
 }
 
@@ -4197,7 +4202,7 @@ function updateFollowCell(id, field, value) {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(rec)
-    }).catch(moduleSaveFail('followUps'));
+    }).catch(() => {});
   }
 }
 function addFollowRow() {
@@ -4207,7 +4212,7 @@ function addFollowRow() {
   const newRec = { id: uid(), oppNo: app.oppNo, followDate: today, workItem: '', hours: 0, summary: '', nextWork: '', nextDate: today };
   state.followUps.push(newRec);
   renderSubTables();
-  fetch('/api/modules/followUps', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newRec) }).catch(moduleSaveFail('followUps'));
+  fetch('/api/modules/followUps', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newRec) }).catch(() => {});
   setTimeout(() => { const rows = document.querySelectorAll('#tblFollow .dt tbody tr'); const last = rows[rows.length - 1]; if (last) { last.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); const inp = last.querySelector('[contenteditable="true"]'); if (inp) inp.focus(); } }, 50);
 }
 
@@ -4217,7 +4222,7 @@ function updateMoneyCell(el, id, field) {
   var n = parseFloat(raw);
   if (isNaN(n)) n = 0;
   var rec = state.contracts.find(r => r.id === id);
-  if (rec) { rec[field] = n; fetch('/api/modules/contracts/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) }).catch(moduleSaveFail('contracts')); }
+  if (rec) { rec[field] = n; fetch('/api/modules/contracts/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) }).catch(() => {}); }
   el.textContent = fmtMoney2(n);
 }
 
@@ -4229,7 +4234,7 @@ function updateContractCell(id, field, value) {
     } else {
       rec[field] = value;
     }
-    fetch('/api/modules/contracts/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) }).catch(moduleSaveFail('contracts'));
+    fetch('/api/modules/contracts/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) }).catch(() => {});
   }
 }
 function addContractRow() {
@@ -4238,7 +4243,7 @@ function addContractRow() {
   const newRec = { id: uid(), oppNo: app ? (app.oppNo || '') : '', signOppNo: '', workOrderNo: '', mainContractNo: '', signCustomer: app ? (app.customer || '') : '', signCustomerName: '', subAmount: 0, actualCost: 0, subPerformance: 0, presalePerformance: 0, salesDept: app ? (app.department || '') : '', accountMgr: app ? (app.applicant || '') : '', mainSignDate: today, product: app ? (app.product || '') : '', isCloudSub: '否', signOpDate: today, partnerSettle: '未结算', yearMonth: '', quarter: '', remarks: '' };
   state.contracts.push(newRec);
   renderSubTables();
-  fetch('/api/modules/contracts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newRec) }).catch(moduleSaveFail('contracts'));
+  fetch('/api/modules/contracts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newRec) }).catch(() => {});
   setTimeout(() => { const rows = document.querySelectorAll('#tblContract .dt tbody tr'); const last = rows[rows.length - 1]; if (last) { last.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); const inp = last.querySelector('[contenteditable="true"]'); if (inp) inp.focus(); } }, 50);
 }
 
@@ -4247,7 +4252,7 @@ function updateQ12Cell(id, field, value) {
   const rec = state.salesQuestions.find(r => r.id === id);
   if (rec) {
     rec[field] = value;
-    fetch('/api/modules/salesQuestions/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) }).catch(moduleSaveFail('salesQuestions'));
+    fetch('/api/modules/salesQuestions/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) }).catch(() => {});
   }
 }
 
@@ -4266,7 +4271,7 @@ function addQ12Row() {
   };
   state.salesQuestions.push(newRow);
   renderSubTables();
-  fetch('/api/modules/salesQuestions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newRow) }).catch(moduleSaveFail('salesQuestions'));
+  fetch('/api/modules/salesQuestions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newRow) }).catch(() => {});
   // Scroll to bottom and focus the new row's first editable cell
   setTimeout(() => {
     const rows = document.querySelectorAll('#tblQ12 .dt tbody tr');
@@ -4923,21 +4928,21 @@ function showDetail(card, type) {
     } else if (type !== 'all' && type !== 'new') {
       apps = filtered.filter(a => a.status === statusMap[type]);
     }
-    // 签单明细按金额降序（大到小）；其余按申请日期升序（早的在前）
+    // 签单明细按合同subAmount降序（10万门槛），其余按申请日期升序
     if (type === 'won') {
-      apps.sort(function(x, y) {
-        var ax = x.status === '签单' ? (parseFloat(x.signAmount) || 0) : 0;
-        var ay = y.status === '签单' ? (parseFloat(y.signAmount) || 0) : 0;
-        return ay - ax;
+      apps.sort(function(a, b) {
+        var wonA = (state.contracts || []).filter(function(c) { return c.oppNo === a.oppNo && (parseFloat(c.subAmount) || 0) >= 100000; });
+        var wonB = (state.contracts || []).filter(function(c) { return c.oppNo === b.oppNo && (parseFloat(c.subAmount) || 0) >= 100000; });
+        var amtA = wonA.length > 0 ? wonA.reduce(function(s, c) { return s + (parseFloat(c.subAmount) || 0); }, 0) : (parseFloat(a.signAmount) || 0);
+        var amtB = wonB.length > 0 ? wonB.reduce(function(s, c) { return s + (parseFloat(c.subAmount) || 0); }, 0) : (parseFloat(b.signAmount) || 0);
+        return amtB - amtA;
       });
-    } else {
-      apps.sort(function(x, y) {
-        var dx = x.applyDate ? new Date(x.applyDate) : null;
-        var dy = y.applyDate ? new Date(y.applyDate) : null;
-        if (!dx && !dy) return 0;
-        if (!dx) return -1;
-        if (!dy) return 1;
-        return dx - dy;
+    } else if (type !== 'all' && type !== 'new') {
+      apps.sort(function(a, b) {
+        var da = a.applyDate ? new Date(a.applyDate) : null;
+        var db = b.applyDate ? new Date(b.applyDate) : null;
+        if (!da && !db) return 0; if (!da) return -1; if (!db) return 1;
+        return da - db;
       });
     }
     rows = apps.map(a => {
@@ -4955,20 +4960,24 @@ function showDetail(card, type) {
           return name + '(' + consultantMap[name] + '%)';
         }).join(', ');
       }
+      // 金额(万)：签单=合同subAmount（10万门槛），预计=expectedSignAmount（已是万），其余显示-
+      var amtW = 0;
+      if (a.status === '签单') {
+        var wc = (state.contracts || []).filter(function(c) { return c.oppNo === a.oppNo && (parseFloat(c.subAmount) || 0) >= 100000; });
+        amtW = wc.length > 0 ? wc.reduce(function(s, c) { return s + (parseFloat(c.subAmount) || 0); }, 0) / 10000 : (parseFloat(a.signAmount) || 0) / 10000;
+      } else if (a.status === '预计') {
+        amtW = (parseFloat(a.expectedSignAmount) || 0);
+      }
       return {
         '申请日期': a.applyDate, '客户': a.customer, '项目名称': a.projectName,
         '商机号': a.oppNo, '销售部门': a.department || '—', '客户经理': a.applicant || '—',
         '支持顾问': consultantStr,
-        '金额(万)': a.status === '签单' ? fmtMoney((parseFloat(a.signAmount) || 0) / 10000) : (a.status === '预计' ? fmtMoney((parseFloat(a.expectedSignAmount) || 0) / 10000) : '—')
+        '金额(万)': amtW > 0 ? fmtMoney2(amtW) : '—'
       };
     });
   } else if (card === 'target') {
     title = type === 'target' ? '年度指标明细' : '实际完成明细';
-    const signedContracts = getFilteredContracts().slice().sort(function(a, b) {
-      var va = parseFloat(a.presalePerformance) || 0;
-      var vb = parseFloat(b.presalePerformance) || 0;
-      return vb - va;
-    });
+    const signedContracts = getFilteredContracts();
     rows = signedContracts.map(c => ({
       '签单时间': c.signDate || c.month, '客户': c.signCustomerName || c.signCustomer || '—', '项目名称': c.projectName || '—',
       '商机号': c.oppNo || '—', '签单金额(万)': fmtMoney((parseFloat(c.presalePerformance) || 0) / 10000), '产品': c.product || '—'
@@ -5226,13 +5235,11 @@ function finishInit() {
     var uniqueApps = [];
     apps.forEach(function(a) { if (a.oppNo && !seen[a.oppNo]) { seen[a.oppNo] = true; uniqueApps.push(a); } });
     var total = uniqueApps.length;
+    // signAmount 存元，expectedSignAmount 存万元；amtOfApp 已统一口径
     var amt = 0;
     uniqueApps.forEach(function(a) {
-      // signAmount 存元，expectedSignAmount 存万元
-      var n = 0;
-      if (a.status === '签单') n = (parseFloat(a.signAmount) || 0) / 10000;
-      else if (a.status === '预计') n = (parseFloat(a.expectedSignAmount) || 0) / 10000;
-      amt += n;
+      if (a.status === '签单') amt += (parseFloat(a.signAmount) || 0) / 10000;
+      else if (a.status === '预计') amt += (parseFloat(a.expectedSignAmount) || 0);
     });
     var ovCount = document.getElementById('ovCount');
     var ovAmount = document.getElementById('ovAmount');
@@ -5240,7 +5247,6 @@ function finishInit() {
     if (ovAmount) ovAmount.textContent = '金额：' + amt.toLocaleString('zh-CN', {minimumFractionDigits:0, maximumFractionDigits:2}) + '万';
   }
   renderOverviewNums();
-  renderCards();
 
   setSaveStatus('saved', '已连接服务器 ✓');
 
@@ -5536,12 +5542,8 @@ var _currentUser = null;
     buildPeriodPanels();
     render();
     // 在 render() 之后设置顾问名称（使用 state.consultant，即登录时已写入的用户名）
-    // 注意：必须同步清理 empty 类，否则全局 .empty{text-align:center} 会让名字居中、与上方「顾问」标签错位
-    var nameEl2 = document.getElementById('hdrConsultName');
-    if (nameEl2) {
-      var nm2 = state.consultant || d.displayName || d.username || '';
-      nameEl2.textContent = nm2;
-      nameEl2.classList.toggle('empty', !nm2);
+    if (document.getElementById('hdrConsultName')) {
+      document.getElementById('hdrConsultName').textContent = state.consultant || d.displayName || d.username || '';
     }
   } catch (e) {
     window.location.href = '/login.html';

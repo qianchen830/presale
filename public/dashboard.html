@@ -2458,12 +2458,12 @@ function renderCards() {
   const won = dd.filter(a => a.status === '签单').length;
   const totalAmount = dd.reduce((s, a) => s + amtOf(a), 0);
 
-  // 期间业绩目标进度（随年/季/月/周筛选联动；实际数从筛选后合同取）
-  const _yearWon = getFilteredContracts();
-  const _perfActual = _yearWon.reduce((s, c) => s + (parseFloat(c.presalePerformance) || 0), 0) / 10000;
+  // 期间业绩目标进度（随年/季/月/周筛选联动；实际数从筛选后合同取，10万门槛）
+  const _yearWon = getFilteredContracts().filter(function(c) { return (parseFloat(c.subAmount) || 0) >= 100000; });
+  const _perfActual = _yearWon.reduce(function(s, c) { return s + (parseFloat(c.presalePerformance) || 0); }, 0) / 10000;
   const _pk = getPeriodKey().split('_');
   let tgtLabel = '年度目标';
-  let tgtVal = parseFloat(state.annualTargets && state.annualTargets[state.year]) || parseFloat(state.annualTarget) || 0;
+  let tgtVal = parseFloat(state.annualTarget) || 0;
   if (_pk[0] === 'quarter') {
     const qn = 'Q' + _pk[2];
     tgtLabel = qn + '目标';
@@ -2483,7 +2483,7 @@ function renderCards() {
     '<div class="overview-top" onclick="showDetail(\'overview\',\'all\')">' +
     '<span class="ov-num">' + total + '<b>个</b></span>' +
     '<span class="ov-split"></span>' +
-    '<span class="ov-amt">金额：' + fmtWan(totalAmount) + '</span>' +
+    '<span class="ov-amt">金额：' + fmtMoney2(totalAmount) + '</span>' +
     '</div>' +
     '<div style="margin-top:8px;padding:8px 10px;background:var(--sf-gray-1);border-radius:var(--sf-radius);cursor:pointer" onclick="showDetail(\'target\',\'target\')" title="点击查看签单合同明细">' +
       '<div style="display:flex;justify-content:space-between;font-size:var(--text-2xs);color:var(--sf-text-secondary);margin-bottom:4px">' +
@@ -2528,7 +2528,7 @@ function renderCards() {
       return '<div class="overview-cell" onclick="showDetail(\'overview\',\'' + s.type + '\')">' +
         '<div class="ovc-lbl" style="color:' + s.color + '">' + s.label + '</div>' +
         '<div class="ovc-main"><b>' + s.count + '</b><span>个</span></div>' +
-        '<div class="ovc-amt">' + fmtWan(s.amount) + '</div>' +
+        '<div class="ovc-amt">' + fmtMoney2(s.amount) + '</div>' +
         '</div>';
     }).join('') +
     '</div>';
@@ -2639,7 +2639,7 @@ function renderCards() {
         var pct = productTotalAmount > 0 ? (p[1].amount / productTotalAmount * 100).toFixed(1) : '0.0';
         return '<tr><td style="text-align:left">' + p[0] + '</td>'
           + '<td class="q-val">' + p[1].count + '</td>'
-          + '<td class="q-val">' + fmtWan(p[1].amount) + '</td>'
+          + '<td class="q-val">' + fmtMoney2(p[1].amount) + '</td>'
           + '<td class="q-val" style="color:var(--sf-blue)">' + pct + '%</td></tr>';
       }).join('') +
       '</tbody></table></div>';
@@ -3545,19 +3545,22 @@ function renderSalesAnalysis() {
 
   var personMap = {};
   contracts.forEach(function(c) {
+    // 10万门槛：合同金额<10万不计入
+    var subAmt = parseFloat(c.subAmount) || 0;
+    if (subAmt < 100000) return;
     var name = (c.accountMgr || '').trim() || '未指定';
     var dept = (c.salesDept || '').trim() || '—';
     if (!personMap[name]) personMap[name] = { name: name, dept: dept, count: 0, amount: 0, custs: {}, details: [] };
     var p = personMap[name];
     p.count++;
-    p.amount += parseFloat(c.presalePerformance) || 0;
+    p.amount += subAmt;
     var cust = c.signCustomerName || c.signCustomer || '';
     if (cust) p.custs[cust] = true;
     p.details.push({
       contractNo: c.mainContractNo || '—',
       customer: cust || '—',
       signDate: c.mainSignDate || '—',
-      amount: parseFloat(c.presalePerformance) || 0
+      amount: subAmt
     });
   });
 

@@ -11,16 +11,6 @@ const SESSION_SECRET = process.env.SESSION_SECRET || 'presale-secret-2026-change
 const DATA_DIR = path.join(__dirname, 'data');
 const DB_PATH = process.env.DB_PATH || path.join(DATA_DIR, 'presale.db');
 
-// ---- 10万门槛常量：合同金额小于此值不计入售前绩效 ----
-const PERFORMANCE_THRESHOLD = 100000; // 元
-function presalePerfOrZero(c) {
-  const sa = parseFloat(c.subAmount) || 0;
-  return sa >= PERFORMANCE_THRESHOLD ? (parseFloat(c.presalePerformance) || 0) : 0;
-}
-function contractHasPerformance(c) {
-  return (parseFloat(c.subAmount) || 0) >= PERFORMANCE_THRESHOLD;
-}
-
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
 // ---- sql.js 数据库 ----
@@ -67,12 +57,6 @@ async function initDb() {
       annual_actuals TEXT NOT NULL DEFAULT '{}',
       quarter_targets TEXT NOT NULL DEFAULT '{}',
       quarter_pcts TEXT NOT NULL DEFAULT '{}',
-      updated_at TEXT NOT NULL,
-      FOREIGN KEY (user_id) REFERENCES users(id)
-    );
-    CREATE TABLE IF NOT EXISTS user_prefs (
-      user_id INTEGER PRIMARY KEY,
-      prefs TEXT NOT NULL DEFAULT '{}',
       updated_at TEXT NOT NULL,
       FOREIGN KEY (user_id) REFERENCES users(id)
     );
@@ -124,9 +108,13 @@ function saveDb() {
   fs.writeFileSync(DB_PATH, bufArr);
 }
 
-// 同步落盘：模块CRUD/状态保存后立即写盘。
-// （此前的100ms防抖存在丢数据窗口：崩4盘或外部读库会拿到未落盘的旧快照）
-const saveDbs = () => { saveDb(); };
+const saveDbs = (() => {
+  let timer;
+  return () => {
+    clearTimeout(timer);
+    timer = setTimeout(saveDb, 100);
+  };
+})();
 
 function getStateRow() {
   const r = db.exec('SELECT data, updated_at FROM app_state WHERE id = 1');
@@ -164,8 +152,8 @@ function saveState(newState) {
         merged[key] = mergeById(merged[key] || [], newState[key] || []);
       }
     }
-    // 全局配置字段：直接取新值（个人偏好/指标字段已在上游剥离，不进全局）
-    for (const key of ['departments','employees','dataVersion']) {
+    // 全局配置字段：直接取新值
+    for (const key of ['annualTarget','annualTargets','annualActuals','quarterTargets','quarterPcts','activeTab','year','quarter','month','weekNum','weekYear','weekStart','weekEnd','departments','employees','consultant','consultantAvatar']) {
       if (newState[key] !== undefined) merged[key] = newState[key];
     }
   } else {
@@ -190,51 +178,6 @@ function saveState(newState) {
   return now;
 }
 
-// ---- 个人偏好（避免全局字段被最后保存者覆盖导致串扰） ----
-// 这些字段以前存在全局 app_state 里，任何人的保存都会覆盖所有人的值（串头像/串期间）
-const PER_USER_PREF_KEYS = ['consultant','consultantAvatar','year','quarter','month','weekNum','weekYear','weekStart','weekEnd','activeTab','filterDept','filterConsultant','selectedAppId'];
-// 这些指标字段已迁移到 user_targets 表，全局 app_state 里不再保留
-const PER_USER_TARGET_KEYS = ['annualTarget','annualTargets','annualActuals','quarterTargets','quarterPcts'];
-
-function getUserPrefs(userId) {
-  try {
-    const r = db.exec('SELECT prefs FROM user_prefs WHERE user_id = ' + parseInt(userId));
-    if (r.length && r[0].values.length) return JSON.parse(r[0].values[0][0] || '{}');
-  } catch(e) {}
-  return {};
-}
-function saveUserPrefs(userId, patch) {
-  const cur = getUserPrefs(userId);
-  const next = Object.assign({}, cur, patch);
-  db.run(`INSERT INTO user_prefs (user_id, prefs, updated_at) VALUES (?, ?, ?)
-    ON CONFLICT(user_id) DO UPDATE SET prefs = excluded.prefs, updated_at = excluded.updated_at`,
-    [parseInt(userId), JSON.stringify(next), new Date().toISOString()]);
-  return next;
-}
-
-// ---- 签单状态服务端同步：合同增/改/删时自动翻转申请状态（与前端 updateAppSignStatusFromContract 同口径） ----
-function syncAppSignStatus(state, oppNo) {
-  if (!oppNo) return;
-  const apps = (state.applications || []).filter(a => a.oppNo === oppNo);
-  if (!apps.length) return;
-  const cons = (state.contracts || []).filter(c => c.oppNo === oppNo);
-  apps.forEach(a => {
-    if (cons.length === 0) {
-      if (a.status === '签单') { a.status = '活跃'; a.signDate = ''; a.signAmount = ''; }
-    } else {
-      const totalAmt = cons.reduce((s, c) => s + (parseFloat(c.subAmount) || 0), 0);
-      const dates = cons.map(c => c.mainSignDate).filter(Boolean).sort();
-      a.status = '签单';
-      a.signAmount = totalAmt.toFixed(2);
-      if (dates[0]) a.signDate = dates[0];
-    }
-  });
-  // 10万门槛：确保合同presalePerformance不计入不达标准的合同
-  cons.forEach(c => {
-    if (!contractHasPerformance(c)) c.presalePerformance = 0;
-  });
-}
-
 // ---- 数据权限过滤 ----
 // admin：看所有数据；其他用户：按部门过滤
 function filterStateByUser(state, user) {
@@ -245,13 +188,17 @@ function filterStateByUser(state, user) {
   let viewDepts = [];
   try { viewDepts = JSON.parse(user.view_depts || '[]'); } catch {}
 
-  // 自己被授权的部门（仅 viewDepts 生效；本人部门不自动获得全部门可见权限）
+  // 自己的部门 + 被授权的部门（去重合并）
   const myDepts = new Set(viewDepts);
+  if (user.department) myDepts.add(user.department);
   const myName = user.displayName || user.username;
 
-  // 收集 allocations 里本人作为支持顾问的所有 oppNo（不再用于扩充申请可见性：
-  // 按需求，普通用户只能看到售前顾问=自己的申请；但本人的分配记录本身仍对其可见，
-  // 以保证个人实际业绩取数完整）
+  // 收集 allocations 里本人作为支持顾问的所有 oppNo（不限部门）
+  const myAllocOppNos = new Set(
+    (s.allocations || [])
+      .filter(a => a.consultant === myName && a.oppNo)
+      .map(a => a.oppNo)
+  );
 
   // 建立 consultant → 归属部门 映射（只用 employees.deptId，不从 applications 表覆盖）
   const deptById = {};
@@ -261,33 +208,31 @@ function filterStateByUser(state, user) {
     if (e.name) consultantDepts[e.name] = deptById[e.deptId] || '';
   });
 
-  // 权限规则：
-  // - admin：看所有数据
-  // - 普通顾问（无部门授权）：只看售前顾问=自己的申请（与单机版文件一致）
-  // - 部门授权用户（viewDepts 非空）：额外可见授权部门（含子部门）顾问名下的全部申请
+  // applications：本人是顾问 OR 本人参与的allocations OR 申请记录的首席顾问归属部门在授权范围内
+  // view_depts 权限语义：能看到这些部门的顾问所负责的所有项目
+  // consultantDepts 来自 employees.deptId（顾问的真实归属部门），不用申请记录的 a.department
   if (s.applications) {
-    if (myDepts.size === 0) {
-      s.applications = s.applications.filter(a => a.consultant === myName);
-    } else {
-      s.applications = s.applications.filter(a => {
-        if (a.consultant === myName) return true;
-        // 按顾问归属部门（employees.deptId）判断，支持父部门覆盖子部门
-        const homeDept = consultantDepts[a.consultant] || '';
-        if (homeDept && myDepts.has(homeDept)) return true;
-        for (const vd of myDepts) {
-          // 找 homeDept 的所有祖先部门：若授权部门包含某祖先，则放行
-          let cur = homeDept;
-          while (cur) {
-            if (cur === vd) return true;
-            const parentId = Object.entries(deptById).find(([, name]) => name === cur)?.[0];
-            if (!parentId) break;
-            const parentEntry = (s.departments || []).find(d => d.id === parentId);
-            cur = parentEntry ? (deptById[parentEntry.pid] || '') : '';
-          }
+    s.applications = s.applications.filter(a => {
+      if (a.consultant === myName) return true;
+      if (myAllocOppNos.has(a.oppNo)) return true;
+      if (myDepts.size === 0) return false;
+      // 用顾问归属部门（来自 employees 表）判断，不依赖申请记录的 department 字段
+      const homeDept = consultantDepts[a.consultant] || '';
+      if (homeDept && myDepts.has(homeDept)) return true;
+      // 父部门覆盖子部门：若 view_depts 包含某父部门，则子部门下的顾问也放行
+      for (const vd of myDepts) {
+        // 找 homeDept 的所有祖先部门
+        let cur = homeDept;
+        while (cur) {
+          if (cur === vd) return true;
+          const parentId = Object.entries(deptById).find(([, name]) => name === cur)?.[0];
+          if (!parentId) break;
+          const parentEntry = (s.departments || []).find(d => d.id === parentId);
+          cur = parentEntry ? (deptById[parentEntry.pid] || '') : '';
         }
-        return false;
-      });
-    }
+      }
+      return false;
+    });
   }
 
   // 先收集可见的 oppNo（来自过滤后的 applications）
@@ -462,64 +407,8 @@ app.get('/api/state', requireAuth, (req, res) => {
   const merged = JSON.parse(JSON.stringify(filtered));
   merged.annualTargets = userTargets.annualTargets;
   merged.annualActuals = userTargets.annualActuals;
+  merged.quarterTargets = userTargets.quarterTargets;
   merged.quarterPcts = userTargets.quarterPcts;
-
-  // 注入个人偏好（头像/期间/页签等），彻底隔离全局字段串扰；
-  // 无论全局 state 里残留什么旧值，这里一律用本人 prefs 或默认值覆盖
-  const prefs = getUserPrefs(req.session.userId);
-  merged.consultant = prefs.consultant || req.session.displayName || req.session.username || '';
-  merged.consultantAvatar = prefs.consultantAvatar || '';
-  merged.year = prefs.year || new Date().getFullYear();
-  merged.quarter = prefs.quarter != null ? prefs.quarter : null;
-  merged.month = prefs.month != null ? prefs.month : null;
-  merged.weekNum = prefs.weekNum != null ? prefs.weekNum : null;
-  merged.weekYear = prefs.weekYear != null ? prefs.weekYear : null;
-  merged.weekStart = prefs.weekStart || '';
-  merged.weekEnd = prefs.weekEnd || '';
-  merged.activeTab = prefs.activeTab || 'q12';
-  merged.filterDept = prefs.filterDept != null ? prefs.filterDept : null;
-  merged.filterConsultant = prefs.filterConsultant != null ? prefs.filterConsultant : null;
-  merged.selectedAppId = prefs.selectedAppId != null ? prefs.selectedAppId : null;
-
-  // admin 视图为公司级：指标用全员个人指标合计（admin 个人无业务数据）
-  if (req.session.role === 'admin') {
-    const company = getCompanyTargets();
-    merged.annualTargets = company;
-    merged.annualTarget = parseFloat(company[merged.year]) || 0;
-    merged.annualActuals = {}; // 公司实际由前端按全部业绩分配实时汇总
-  } else {
-    merged.annualTarget = parseFloat(userTargets.annualTargets && userTargets.annualTargets[merged.year]) || 0;
-  }
-
-  // 动态计算 quarterTargets：annualTargets[year] × quarterPcts[pct]
-  const year = merged.year || new Date().getFullYear();
-  const annualTarget = parseFloat(merged.annualTargets && merged.annualTargets[year]) || parseFloat(merged.annualTarget) || 0;
-  const quarterPcts = (merged.quarterPcts && Object.keys(merged.quarterPcts).length > 0) ? merged.quarterPcts : { Q1: 25, Q2: 25, Q3: 25, Q4: 25 };
-  const computedQuarterTargets = {};
-  ['Q1','Q2','Q3','Q4'].forEach(function(q) {
-    computedQuarterTargets[q] = Math.round(annualTarget * (parseFloat(quarterPcts[q]) || 0) / 100 * 100) / 100;
-  });
-  // 优先用个人存储的 quarterTargets（允许用户手动覆盖），否则用动态计算值
-  merged.quarterTargets = userTargets.quarterTargets && Object.keys(userTargets.quarterTargets).length > 0
-    ? userTargets.quarterTargets
-    : computedQuarterTargets;
-
-  // quarterActuals 不再由服务端预算（旧口径从合同取全额，合个人实际不一致）。
-  // 前端统一用 getScopeActualWan 实时取数：业绩分配优先，无分配时从合同取。
-  merged.quarterActuals = { Q1: 0, Q2: 0, Q3: 0, Q4: 0 };
-
-  // 动态计算 deptSupportTargets（各部门的签单+支撑业绩汇总）
-  const computedDeptSupport = {};
-  (merged.allocations || []).forEach(function(al) {
-    var did = al.deptId;
-    var deptName = al.department || '未知部门';
-    if (!computedDeptSupport[did]) {
-      computedDeptSupport[did] = { deptId: did, department: deptName, newSignAmount: 0, subAmount: 0, presalePerf: 0 };
-    }
-    computedDeptSupport[did].presalePerf += (parseFloat(al.presalePerformance) || 0);
-    computedDeptSupport[did].subAmount += (parseFloat(al.subscriptionPerformance) || 0);
-  });
-  merged.deptSupportTargets = computedDeptSupport;
 
   res.json({ state: merged, updatedAt: result.updatedAt });
 });
@@ -530,13 +419,6 @@ app.put('/api/state', requireAuth, (req, res) => {
   if (!body || typeof body !== 'object' || !body.state) return res.status(400).json({ error: '请求体需要包含 state 对象' });
   // injectCreatedBy 在此处只补 createdBy，不做全量序列化
   const enriched = injectCreatedBy(body.state, req.session.displayName);
-  // 个人偏好字段 → 存到 user_prefs（不再写入全局，防止串头像/串期间）
-  const prefsPatch = {};
-  PER_USER_PREF_KEYS.forEach(k => { if (enriched[k] !== undefined) prefsPatch[k] = enriched[k]; });
-  if (Object.keys(prefsPatch).length) saveUserPrefs(req.session.userId, prefsPatch);
-  // 指标字段已在 /api/user/targets 按人保存，从全局提交中剔除，防止覆盖他人
-  PER_USER_TARGET_KEYS.forEach(k => { delete enriched[k]; });
-  PER_USER_PREF_KEYS.forEach(k => { delete enriched[k]; });
   try {
     const updatedAt = saveState(enriched);
     res.json({ ok: true, updatedAt });
@@ -718,57 +600,44 @@ app.get('/api/admin/employees', requireAuth, (req, res) => {
 });
 
 
-// ---- 顾问信息（个人配置，存 user_prefs，不再写全局） ----
+// ---- 顾问信息（个人配置）----
 app.put('/api/consultant', requireAuth, (req, res) => {
   const { consultant, consultantAvatar } = req.body || {};
-  saveUserPrefs(req.session.userId, { consultant: (consultant || '').trim(), consultantAvatar: consultantAvatar || '' });
-  saveDbs();
-  res.json({ ok: true });
+  const existing = getStateRow();
+  let state = existing ? JSON.parse(existing.data) : {};
+  state.consultant = (consultant || '').trim();
+  state.consultantAvatar = consultantAvatar || '';
+  const updatedAt = saveState(state);
+  res.json({ ok: true, updatedAt });
 });
 
 app.get('/api/consultant', requireAuth, (req, res) => {
-  const prefs = getUserPrefs(req.session.userId);
-  res.json({ consultant: prefs.consultant || '', consultantAvatar: prefs.consultantAvatar || '' });
+  const existing = getStateRow();
+  if (!existing) return res.json({ consultant: '', consultantAvatar: '' });
+  try {
+    const state = JSON.parse(existing.data);
+    res.json({ consultant: state.consultant || '', consultantAvatar: state.consultantAvatar || '' });
+  } catch(e) {
+    res.json({ consultant: '', consultantAvatar: '' });
+  }
 });
 
 // 各模块单条 CRUD 路由（实时保存）
 const MODULE_KEYS = ['applications','contracts','judgments','salesQuestions','followUps','allocations'];
 
-function checkModuleOwnership(record, session, state, key) {
+function checkModuleOwnership(record, session) {
   if (session.role === 'admin') return true;
   const myName = session.displayName || session.username;
-  // 本人负责的记录可改/可删（applications、新建记录、allocations 的业绩归属人）
+  // 本人负责的记录可删
   if (record.consultant === myName) return true;
-  var oppNoStr = record.oppNo || '';
-  // 业绩分配：仅支持的售前顾问本人（consultant字段）、admin、部门授权用户可改；
-  // 项目首席顾问（oppNo归属）不能改分配给别人的业绩
-  if (key !== 'allocations' && oppNoStr) {
-    // 导入的旧数据（contracts/judgments/followUps 等）无 consultant 字段：
-    // 通过 oppNo 找对应申请的顾问判断归属（oppNo 可能是多个、用、分隔，取第一个）
-    var firstOpp = oppNoStr.split('、')[0].trim();
-    var app = (state.applications || []).find(function(a) { return a.oppNo === firstOpp; });
-    if (app && app.consultant === myName) return true;
-  }
-  // 部门级授权用户可改/可删授权部门所有顾问的记录（含分配：归属顾问在其授权部门内）
+  // 部门级授权用户可删本部门所有顾问的记录
   var viewDepts = [];
-  try { viewDepts = JSON.parse(session.view_depts || '[]'); } catch(e) {}
+  try { viewDepts = JSON.parse(session.viewDepts || '[]'); } catch(e) {}
   if (viewDepts.length > 0) {
-    // 注意：employees 存的是 deptId（部门id），需经 departments 映射为部门名后再比对授权部门名
-    var deptById = {};
-    (state.departments || []).forEach(function(d) { if (d.id && d.name) deptById[d.id] = d.name; });
-    var targetName = record.consultant;
-    if (!targetName && oppNoStr && key !== 'allocations') {
-      var fo = oppNoStr.split('、')[0].trim();
-      var fa = (state.applications || []).find(function(a) { return a.oppNo === fo; });
-      if (fa) targetName = fa.consultant;
-    }
-    if (targetName) {
-      var emp = (state.employees || []).find(function(e) { return e.name === targetName; });
-      if (emp && emp.deptId) {
-        var deptName = deptById[emp.deptId];
-        if (deptName && viewDepts.includes(deptName)) return true;
-      }
-    }
+    // 查询该顾问的归属部门是否在 viewDepts 中
+    var allState = getState().state;
+    var emp = (allState.employees || []).find(function(e) { return e.name === record.consultant; });
+    if (emp && emp.department && viewDepts.includes(emp.department)) return true;
   }
   return false;
 }
@@ -789,25 +658,19 @@ function moduleOp(key, action, record, session) {
     while (arr.find(r => r.id === record.id)) record.id++;
     arr.push(record);
     state[key] = arr;
-    // 合同新增：服务端同步翻转申请签单状态（防止绕过页面直接调API时状态不一致）
-    if (key === 'contracts') syncAppSignStatus(state, record.oppNo);
     const updatedAt = saveState(state);
     return { ok: true, record, updatedAt };
   }
   if (action === 'update') {
-    // id 可能是字符串或数字（URL参数恒为字符串），统一按字符串比较
-    const idx = arr.findIndex(r => String(r.id) === String(record.id));
+    const idx = arr.findIndex(r => r.id === record.id);
     if (idx < 0) return { error: '记录不存在' };
-    if (!checkModuleOwnership(arr[idx], session, state, key)) return { error: '无权限修改此记录' };
-    var oldOppNo = key === 'contracts' ? arr[idx].oppNo : null;
+    if (!checkModuleOwnership(arr[idx], session)) return { error: '无权限修改此记录' };
     record.consultant = arr[idx].consultant;
     record.id = arr[idx].id;
     record.createdAt = arr[idx].createdAt;
     record.updatedAt = now;
     arr[idx] = record;
     state[key] = arr;
-    // 合同修改：新旧商机号都重新同步（商机号/金额/签订日期可能变化）
-    if (key === 'contracts') { syncAppSignStatus(state, oldOppNo); syncAppSignStatus(state, record.oppNo); }
     const updatedAt = saveState(state);
     return { ok: true, record, updatedAt };
   }
@@ -819,8 +682,24 @@ function moduleOp(key, action, record, session) {
     var idx = arr.findIndex(function(r) { return String(r.id) === delId; });
     console.log('[delete] idx=' + idx + ' record.consultant=' + (idx >= 0 ? arr[idx].consultant : 'n/a'));
     if (idx < 0) return { error: '记录不存在' };
-    // 归属校验：consultant 直配 + oppNo→申请归属 + 部门授权，与 update 同一套规则
-    if (!checkModuleOwnership(arr[idx], session, state, key)) return { error: '无权限删除此记录' };
+    var own = checkModuleOwnership(arr[idx], session);
+    // contracts/allocations 没有 consultant 字段，通过 oppNo 找对应 application 的顾问来判断
+    if (!own) {
+      var myName = session.displayName || session.username;
+      // allocations 有自己的 consultant 字段，直接比对
+      if (key === 'allocations' && arr[idx].consultant === myName) {
+        own = true;
+      }
+      // 其他模块（judgments/followUps/contracts/allocations）通过 oppNo 找对应 application 的顾问
+      if (!own) {
+        var oppNoStr = arr[idx].oppNo || '';
+        var firstOpp = oppNoStr.split('、')[0].trim();
+        var app = state.applications.find(function(a) { return a.oppNo === firstOpp; });
+        if (app && app.consultant === myName) own = true;
+      }
+    }
+    console.log('[delete] checkModuleOwnership=' + own);
+    if (!own) return { error: '无权限删除此记录' };
     // 级联删除：applications 删时同步删关联合同/业绩分配；contracts 删时同步删业绩分配；其他软删除
     var oppNo = null;
     if (key === 'applications' || key === 'contracts') {
@@ -829,38 +708,21 @@ function moduleOp(key, action, record, session) {
     }
     if (key === 'applications') {
       // 级联删除：合同、业绩分配、销售十二条、顾问判断、项目跟进
-      // 重要：被级联删除的记录id必须登记到 _deletedIds，否则 saveState 的按id合并会从库副本中"复活"它们
-      var cascaded = { contracts: [], allocations: [], salesQuestions: [], judgments: [], followUps: [] };
-      state.contracts = (state.contracts || []).filter(function(c) { if (c.oppNo === oppNo) { cascaded.contracts.push(String(c.id)); return false; } return true; });
-      state.allocations = (state.allocations || []).filter(function(a) { if (a.oppNo === oppNo) { cascaded.allocations.push(String(a.id)); return false; } return true; });
-      state.salesQuestions = (state.salesQuestions || []).filter(function(q) { if (q.oppNo === oppNo) { cascaded.salesQuestions.push(String(q.id)); return false; } return true; });
-      state.judgments = (state.judgments || []).filter(function(j) { if (j.oppNo === oppNo) { cascaded.judgments.push(String(j.id)); return false; } return true; });
-      state.followUps = (state.followUps || []).filter(function(f) { if (f.oppNo === oppNo) { cascaded.followUps.push(String(f.id)); return false; } return true; });
-      for (var ck in cascaded) {
-        if (cascaded[ck].length) {
-          if (!_deletedIds[ck]) _deletedIds[ck] = new Set();
-          cascaded[ck].forEach(function(cid) { _deletedIds[ck].add(cid); });
-        }
-      }
+      state.contracts = (state.contracts || []).filter(function(c) { return c.oppNo !== oppNo; });
+      state.allocations = (state.allocations || []).filter(function(a) { return a.oppNo !== oppNo; });
+      state.salesQuestions = (state.salesQuestions || []).filter(function(q) { return q.oppNo !== oppNo; });
+      state.judgments = (state.judgments || []).filter(function(j) { return j.oppNo !== oppNo; });
+      state.followUps = (state.followUps || []).filter(function(f) { return f.oppNo !== oppNo; });
       arr.splice(idx, 1);
       if (!_deletedIds[key]) _deletedIds[key] = new Set();
       _deletedIds[key].add(delId);
     } else if (key === 'contracts') {
-      // 级联删除：业绩分配（通过 contractId）；同样登记 _deletedIds 防止合并复活
-      var cascadedAllocIds = [];
-      state.allocations = (state.allocations || []).filter(function(a) {
-        if (String(a.contractId) === delId) { cascadedAllocIds.push(String(a.id)); return false; }
-        return true;
-      });
-      if (cascadedAllocIds.length) {
-        if (!_deletedIds.allocations) _deletedIds.allocations = new Set();
-        cascadedAllocIds.forEach(function(cid) { _deletedIds.allocations.add(cid); });
-      }
+      // 级联删除：业绩分配（通过 contractId）
+      state.allocations = (state.allocations || []).filter(function(a) { return String(a.contractId) !== delId; });
+      state.allocations = (state.allocations || []).filter(function(a) { return String(a.contractId) !== delId; });
       arr.splice(idx, 1);
       if (!_deletedIds[key]) _deletedIds[key] = new Set();
       _deletedIds[key].add(delId);
-      // 合同删除：重新同步申请签单状态（无合同则回退活跃）
-      syncAppSignStatus(state, oppNo);
     } else if (key === 'allocations') {
       // allocations 用 splice 真删
       arr.splice(idx, 1);
@@ -985,45 +847,6 @@ app.delete('/api/admin/employees/:id', requireAuth, (req, res) => {
 
 // ---- 看板 Dashboard API (admin only) ----
 
-// 公司级指标/实际取数：指标=全员个人指标合计；实际=全员业绩分配优先(与个人视图同口径)
-function getCompanyTargets() {
-  const out = {};
-  try {
-    const r = db.exec('SELECT annual_targets FROM user_targets');
-    (r[0] && r[0].values || []).forEach(v => {
-      try {
-        const t = JSON.parse(v[0] || '{}');
-        Object.keys(t).forEach(y => { out[y] = (out[y] || 0) + (parseFloat(t[y]) || 0); });
-      } catch(e) {}
-    });
-  } catch(e) {}
-  return out;
-}
-function getCompanyActualWan(state, year, quarter) {
-  const allocs = (state.allocations || []).filter(a => {
-    if (year != null) { const y = a.month ? parseInt(String(a.month).split('-')[0], 10) : null; if (y !== year) return false; }
-    if (quarter != null) {
-      let q = a.quarter;
-      if (!q && a.month) q = 'Q' + (Math.floor((parseInt(String(a.month).split('-')[1], 10) - 1) / 3) + 1);
-      if (q !== quarter) return false;
-    }
-    return true;
-  });
-    const THRESHOLD = 100000; // 10万：合同金额小于此值不计入售前绩效
-  function presalePerfOrZero(c) {
-    const sa = parseFloat(c.subAmount) || 0;
-    return (sa >= THRESHOLD) ? (parseFloat(c.presalePerformance) || 0) : 0;
-  }
-  const t = allocs.reduce((s, a) => s + (parseFloat(a.consultantPerformance) || 0), 0);
-  if (t > 0) return t / 10000;
-  const cons = (state.contracts || []).filter(c => {
-    if (year != null) { const y = c.yearMonth ? parseInt(String(c.yearMonth).split('-')[0], 10) : null; if (y !== year) return false; }
-    if (quarter != null && c.quarter !== quarter) return false;
-    return (parseFloat(c.subAmount) || 0) >= THRESHOLD;
-  });
-  return cons.reduce((s, c) => s + presalePerfOrZero(c), 0) / 10000;
-}
-
 // Helper: get quarter from month (1-based)
 function getQuarter(month) {
   if (month <= 3) return 'Q1';
@@ -1044,12 +867,6 @@ app.get('/api/dashboard/stats', requireAdmin, (req, res) => {
 
   let apps = state.applications || [];
   let contracts = state.contracts || [];
-
-  // 按项目(oppNo)去重：商机号可重复录入，汇总统计只计一次（首个为准）
-  {
-    const seen = new Set();
-    apps = apps.filter(a => { if (a.oppNo && seen.has(a.oppNo)) return false; if (a.oppNo) seen.add(a.oppNo); return true; });
-  }
 
   // Filter by period
   if (year) {
@@ -1087,7 +904,7 @@ app.get('/api/dashboard/stats', requireAdmin, (req, res) => {
   const won = apps.filter(a => a.status === '签单').length;
   const lost = apps.filter(a => a.status === '丢失').length;
   const totalAmount = contracts.reduce((s, c) => s + (parseFloat(c.subAmount) || 0), 0) / 10000;
-  const wonAmount = contracts.reduce((s, c) => s + presalePerfOrZero(c), 0) / 10000;
+  const wonAmount = contracts.reduce((s, c) => s + (parseFloat(c.presalePerformance) || 0), 0) / 10000;
 
   res.json({
     total: apps.length,
@@ -1103,14 +920,17 @@ app.get('/api/dashboard/annual', requireAdmin, (req, res) => {
   const result = getState();
   if (!result) return res.json({ years: [] });
   const state = result.state;
-  const companyTargets = getCompanyTargets();
+  const contracts = state.contracts || [];
   const years = [2023, 2024, 2025, 2026];
   const currentYear = new Date().getFullYear();
 
   const data = years.map(year => {
-    // 实际：全员业绩分配优先（与个人视图同口径），无分配时从合同取
-    const actual = getCompanyActualWan(state, year);
-    const target = parseFloat(companyTargets[year]) || 0;
+    const yearContracts = contracts.filter(c => {
+      const sd = new Date(c.mainSignDate || c.signDate || 0);
+      return sd.getFullYear() === year;
+    });
+    const actual = yearContracts.reduce((s, c) => s + (parseFloat(c.presalePerformance) || 0), 0) / 10000;
+    const target = parseFloat(state.annualTargets && state.annualTargets[year]) || 0;
     const completion = target > 0 ? Math.round(actual / target * 1000) / 10 : 0;
     return {
       year,
@@ -1128,16 +948,20 @@ app.get('/api/dashboard/quarter', requireAdmin, (req, res) => {
   const result = getState();
   if (!result) return res.json({ quarters: [] });
   const state = result.state;
+  const contracts = state.contracts || [];
   const year = parseInt(req.query.year) || new Date().getFullYear();
-  // 公司级指标：全员个人指标合计（全局state里的annualTargets会被最后保存者的个人值覆盖，不可用）
-  const companyTargets = getCompanyTargets();
-  const annualTarget = parseFloat(companyTargets[year]) || 0;
-  const quarterPcts = state.quarterPcts && Object.keys(state.quarterPcts).length ? state.quarterPcts : { Q1: 16, Q2: 27, Q3: 23, Q4: 34 };
+  const annualTarget = parseFloat(state.annualTargets && state.annualTargets[year]) || 0;
+  const quarterPcts = state.quarterPcts || { Q1: 16, Q2: 27, Q3: 23, Q4: 34 };
   const currentQuarter = getQuarter(new Date().getMonth() + 1);
 
   const quarters = ['Q1', 'Q2', 'Q3', 'Q4'].map(q => {
-    // 季度实际：全员业绩分配优先（与个人视图同口径），无分配时从合同取
-    const actual = getCompanyActualWan(state, year, q);
+    const qNum = parseInt(q[1]);
+    const qMonths = { Q1: [1,2,3], Q2: [4,5,6], Q3: [7,8,9], Q4: [10,11,12] }[q];
+    const qContracts = contracts.filter(c => {
+      const sd = new Date(c.mainSignDate || c.signDate || 0);
+      return sd.getFullYear() === year && qMonths.includes(sd.getMonth() + 1);
+    });
+    const actual = qContracts.reduce((s, c) => s + (parseFloat(c.presalePerformance) || 0), 0) / 10000;
     const pct = parseFloat(quarterPcts[q]) || 0;
     const target = annualTarget * pct / 100;
     const completion = target > 0 ? Math.round(actual / target * 1000) / 10 : 0;
