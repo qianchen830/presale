@@ -4414,7 +4414,15 @@ function saveContract() {
     }
     return;
   }
-  if (!form.checkValidity()) { form.reportValidity(); return; }
+  if (!form.checkValidity()) {
+    // 找出第一个未填的必填字段，给出明确提示（弹框内原生提示可能被遮挡）
+    var firstInvalid = form.querySelector(':invalid');
+    var lbl = firstInvalid ? (firstInvalid.closest('.fg') && firstInvalid.closest('.fg').querySelector('label')) : null;
+    alert('请填写必填字段：' + (lbl ? lbl.textContent.replace('*', '').trim() : (firstInvalid ? firstInvalid.name : '')));
+    form.reportValidity();
+    if (firstInvalid) firstInvalid.focus();
+    return;
+  }
   // 销售部门为生态伙伴部时，伙伴结算必填
   const salesDeptVal = document.querySelector('#contractForm [name="salesDept"]').value;
   const partnerSettleVal = document.querySelector('#contractForm [name="partnerSettle"]').value;
