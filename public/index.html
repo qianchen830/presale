@@ -4968,7 +4968,7 @@ function showDetail(card, type) {
         if (!yGrouped[grpKey]._consSet.has(consKey)) {
           yGrouped[grpKey]._consSet.add(consKey);
           yGrouped[grpKey].consultants.push(consKey);
-          yGrouped[grpKey].contractPerformance += parseFloat(a.contractPerformance) || 0;
+          yGrouped[grpKey].contractPerformance += parseFloat(a.consultantPerformance) || 0;
         }
       });
       rows = Object.keys(yGrouped).map(function(mcno) {
@@ -5028,7 +5028,7 @@ function showDetail(card, type) {
         if (!qGrouped[grpKey]._consSet.has(consKey)) {
           qGrouped[grpKey]._consSet.add(consKey);
           qGrouped[grpKey].consultants.push(consKey);
-          qGrouped[grpKey].contractPerformance += parseFloat(a.contractPerformance) || 0;
+          qGrouped[grpKey].contractPerformance += parseFloat(a.consultantPerformance) || 0;
         }
       });
       rows = Object.keys(qGrouped).map(function(mcno) {
