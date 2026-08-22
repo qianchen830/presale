@@ -2888,6 +2888,7 @@ function renderCards() {
   }
   const expectedAmt = expectedApps.reduce(function(s, a) { return s + amtOfApp(a); }, 0);
   const totalWonExpected = wonAmt + expectedAmt;
+  console.log('[DEBUG renderCards]', 'getPeriodKey:', getPeriodKey(), 'dedupView:', dedupView, 'wonApps.length:', wonApps.length, 'wonContracts.length:', wonContracts.length, 'wonAmt:', wonAmt, '_contractSignActual(2026):', _contractSignActual(2026, null, filtered));
 
   // 顶部数量/金额：admin/部门视角与「新增」格子一致；个人视角保持全部申请口径
   var topCount = dedupView ? newApps.length : total;
