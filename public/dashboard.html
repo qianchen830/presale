@@ -2633,7 +2633,7 @@ function renderCards() {
   const statusGroups = [
     { label: '新增', count: total, amount: totalAmount, color: 'var(--sf-blue)', type: 'new' },
     { label: '跟进', count: followApps.length, amount: followApps.reduce((s, a) => s + amtOf(a), 0), color: 'var(--sf-warning-text)', type: 'active' },
-    { label: '签单', count: _dedupView ? _wonCount : won, amount: _wonAmt2, color: 'var(--sf-success-text)', type: 'won' },
+    { label: '签单', count: _dedupView ? _wonCount : won, amount: _wonAmt, color: 'var(--sf-success-text)', type: 'won' },
     { label: '预计', count: expectedApps.length, amount: expectedApps.reduce((s, a) => s + amtOf(a), 0), color: '#8b5cf6', type: 'expected' },
     { label: '丢单', count: lostApps.length, amount: lostApps.reduce((s, a) => s + amtOf(a), 0), color: '#9e9e9e', type: 'lost' },
     { label: '暂停/停滞', count: stalledApps.length, amount: stalledApps.reduce((s, a) => s + amtOf(a), 0), color: '#6b7280', type: 'stalled' },
