@@ -2831,36 +2831,14 @@ function renderCards() {
   const riskApps = baseApps.filter(a => state.judgments.some(j => j.oppNo === a.oppNo && j.isRisk === '是'));
 
   // 各状态金额口径（单位万元）：
-  //   签单/预计/活跃/丢失/暂停：个人视角优先本人分配份额，无分配则用合同subAmount（10万门槛）；部门/admin视角直接用合同subAmount
+  //   签单：合同subAmount（10万门槛）；预计/活跃/丢失/暂停：expectedSignAmount；其余状态不计入
   const amtOfApp = function(a) {
-    if (a.status === '签单' || a.status === '预计' || a.status === '活跃' || a.status === '丢失' || a.status === '暂停') {
-      var myName = _isPersonalScope() ? (_currentUser.displayName || _currentUser.username) : null;
-      if (myName) {
-        // 个人视角：先查本人分配份额
-        var matched = (state.allocations || []).filter(function(al) {
-          if (al.consultant !== myName) return false;
-          if (al.oppNo === a.oppNo) return true;
-          if (al.contractId) {
-            var c = state.contracts.find(function(cc) { return cc.id === al.contractId; });
-            if (!c) return false;
-            var appOpps = (a.oppNo || '').split('、').map(function(s) { return s.trim(); });
-            if (c.oppNo !== a.oppNo && !appOpps.includes(c.oppNo)) return false;
-            return true;
-          }
-          return false;
-        });
-        if (matched.length > 0) {
-          return matched.reduce(function(s, al) { return s + (parseFloat(al.consultantPerformance) || 0); }, 0) / 10000;
-        }
-      }
-      // 无分配或个人视角：用合同subAmount
-      if (a.status === '签单') {
-        var wonCon = state.contracts.filter(function(c) { return c.oppNo === a.oppNo && (parseFloat(c.subAmount) || 0) >= 100000; });
-        if (wonCon.length > 0) return wonCon.reduce(function(s, c) { return s + (parseFloat(c.subAmount) || 0); }, 0) / 10000;
-        return (parseFloat(a.signAmount) || 0) / 10000;
-      }
-      return (parseFloat(a.expectedSignAmount) || 0) / 10000;
+    if (a.status === '签单') {
+      var wonCon = state.contracts.filter(function(c) { return c.oppNo === a.oppNo && (parseFloat(c.subAmount) || 0) >= 100000; });
+      if (wonCon.length > 0) return wonCon.reduce(function(s, c) { return s + (parseFloat(c.subAmount) || 0); }, 0) / 10000;
+      return (parseFloat(a.signAmount) || 0) / 10000;
     }
+    if (a.status === '预计' || a.status === '活跃' || a.status === '丢失' || a.status === '暂停') return (parseFloat(a.expectedSignAmount) || 0) / 10000;
     return 0;
   };
   const wonAmt = wonApps.reduce(function(s, a) { return s + amtOfApp(a); }, 0);
