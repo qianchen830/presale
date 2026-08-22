@@ -1249,8 +1249,20 @@ function consultantPerfOf(oppNo) {
     .filter(function(al) { return al.oppNo === oppNo && (!scope || scope.has(al.consultant)); })
     .reduce(function(s, al) { return s + (parseFloat(al.consultantPerformance) || 0); }, 0);
 }
-// 金额口径（万元）：签单=本人/范围内顾问业绩分配，预计=预计签单金额，其余=0（与源文件amtOf一致）
-function amtOf(a) { return a.status === '签单' ? consultantPerfOf(a.oppNo) / 10000 : a.status === '预计' ? (parseFloat(a.expectedSignAmount) || 0) / 10000 : 0; }
+// 金额口径（万元）：签单=顾问个人业绩分配；预计/活跃/丢失/暂停=预计签单金额；其余不计
+function amtOf(a) {
+  if (a.status === '签单') return consultantPerfOf(a.oppNo) / 10000;
+  if (a.status === '预计' || a.status === '活跃' || a.status === '丢失' || a.status === '暂停') return (parseFloat(a.expectedSignAmount) || 0) / 10000;
+  return 0;
+}
+// 模块实时保存失败时给出可见提示（避免静默失败让人以为"保存没反应"）
+function moduleSaveFail(op) {
+  return function(err) {
+    console.warn('[module-save]', op, err);
+    setSaveStatus('err', '保存失败');
+    setTimeout(function() { setSaveStatus('warn', '部分修改未保存，请重试'); }, 2500);
+  };
+}
 function today() { return new Date().toISOString().slice(0, 10); }
 
 function getISOWeekInfo(d) {
@@ -4120,7 +4132,7 @@ function saveApp() {
 /* ----- Requirement Cell Update & Quick Add ----- */
 function updateReqCell(id, field, value) {
   const rec = state.requirements.find(r => r.id === id);
-  if (rec) { rec[field] = value; fetch('/api/modules/requirements/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) }).catch(() => {}); }
+  if (rec) { rec[field] = value; fetch('/api/modules/requirements/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) }).catch(moduleSaveFail('requirements')); }
 }
 function addReqRow() {
   if (!state.selectedAppId) { alert('请先在「售前申请」列表中选择一条记录'); return; }
@@ -4128,7 +4140,7 @@ function addReqRow() {
   const newRec2 = { id: uid(), oppNo: app.oppNo, rawRequirement: '', domainAnalysis: '', businessAnalysis: '', itAnalysis: '', pendingQuestions: '', expectedGoal: '', needDev: '' };
   state.requirements.push(newRec2);
   renderSubTables();
-  fetch('/api/modules/requirements', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newRec2) }).catch(() => {});
+  fetch('/api/modules/requirements', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newRec2) }).catch(moduleSaveFail('requirements'));
   setTimeout(() => { const rows = document.querySelectorAll('#tblReq .dt tbody tr'); const last = rows[rows.length - 1]; if (last) { last.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); const inp = last.querySelector('[contenteditable="true"]'); if (inp) inp.focus(); } }, 50);
 }
 
@@ -4141,7 +4153,7 @@ function updateJudgeCell(id, field, value) {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(rec)
-    }).catch(() => {});
+    }).catch(moduleSaveFail('judgments'));
   }
 }
 function addJudgeRow() {
@@ -4154,7 +4166,7 @@ function addJudgeRow() {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(newRec)
-  }).catch(() => {});
+  }).catch(moduleSaveFail('judgments'));
   setTimeout(() => { const rows = document.querySelectorAll('#tblJudgeLeft .dt tbody tr'); const last = rows[rows.length - 1]; if (last) { last.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); const inp = last.querySelector('[contenteditable="true"]'); if (inp) inp.focus(); } }, 50);
 }
 
@@ -4167,7 +4179,7 @@ function updateFollowCell(id, field, value) {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(rec)
-    }).catch(() => {});
+    }).catch(moduleSaveFail('followUps'));
   }
 }
 function addFollowRow() {
@@ -4177,7 +4189,7 @@ function addFollowRow() {
   const newRec = { id: uid(), oppNo: app.oppNo, followDate: today, workItem: '', hours: 0, summary: '', nextWork: '', nextDate: today };
   state.followUps.push(newRec);
   renderSubTables();
-  fetch('/api/modules/followUps', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newRec) }).catch(() => {});
+  fetch('/api/modules/followUps', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newRec) }).catch(moduleSaveFail('followUps'));
   setTimeout(() => { const rows = document.querySelectorAll('#tblFollow .dt tbody tr'); const last = rows[rows.length - 1]; if (last) { last.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); const inp = last.querySelector('[contenteditable="true"]'); if (inp) inp.focus(); } }, 50);
 }
 
@@ -4187,7 +4199,7 @@ function updateMoneyCell(el, id, field) {
   var n = parseFloat(raw);
   if (isNaN(n)) n = 0;
   var rec = state.contracts.find(r => r.id === id);
-  if (rec) { rec[field] = n; fetch('/api/modules/contracts/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) }).catch(() => {}); }
+  if (rec) { rec[field] = n; fetch('/api/modules/contracts/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) }).catch(moduleSaveFail('contracts')); }
   el.textContent = fmtMoney2(n);
 }
 
@@ -4199,7 +4211,7 @@ function updateContractCell(id, field, value) {
     } else {
       rec[field] = value;
     }
-    fetch('/api/modules/contracts/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) }).catch(() => {});
+    fetch('/api/modules/contracts/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) }).catch(moduleSaveFail('contracts'));
   }
 }
 function addContractRow() {
@@ -4208,7 +4220,7 @@ function addContractRow() {
   const newRec = { id: uid(), oppNo: app ? (app.oppNo || '') : '', signOppNo: '', workOrderNo: '', mainContractNo: '', signCustomer: app ? (app.customer || '') : '', signCustomerName: '', subAmount: 0, actualCost: 0, subPerformance: 0, presalePerformance: 0, salesDept: app ? (app.department || '') : '', accountMgr: app ? (app.applicant || '') : '', mainSignDate: today, product: app ? (app.product || '') : '', isCloudSub: '否', signOpDate: today, partnerSettle: '未结算', yearMonth: '', quarter: '', remarks: '' };
   state.contracts.push(newRec);
   renderSubTables();
-  fetch('/api/modules/contracts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newRec) }).catch(() => {});
+  fetch('/api/modules/contracts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newRec) }).catch(moduleSaveFail('contracts'));
   setTimeout(() => { const rows = document.querySelectorAll('#tblContract .dt tbody tr'); const last = rows[rows.length - 1]; if (last) { last.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); const inp = last.querySelector('[contenteditable="true"]'); if (inp) inp.focus(); } }, 50);
 }
 
@@ -4217,7 +4229,7 @@ function updateQ12Cell(id, field, value) {
   const rec = state.salesQuestions.find(r => r.id === id);
   if (rec) {
     rec[field] = value;
-    fetch('/api/modules/salesQuestions/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) }).catch(() => {});
+    fetch('/api/modules/salesQuestions/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) }).catch(moduleSaveFail('salesQuestions'));
   }
 }
 
@@ -4236,7 +4248,7 @@ function addQ12Row() {
   };
   state.salesQuestions.push(newRow);
   renderSubTables();
-  fetch('/api/modules/salesQuestions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newRow) }).catch(() => {});
+  fetch('/api/modules/salesQuestions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newRow) }).catch(moduleSaveFail('salesQuestions'));
   // Scroll to bottom and focus the new row's first editable cell
   setTimeout(() => {
     const rows = document.querySelectorAll('#tblQ12 .dt tbody tr');
