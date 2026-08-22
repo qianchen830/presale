@@ -1134,7 +1134,7 @@ app.get('/api/dashboard/quarter', requireAdmin, (req, res) => {
   // 公司级指标：全员个人指标合计（全局state里的annualTargets会被最后保存者的个人值覆盖，不可用）
   const companyTargets = getCompanyTargets();
   const annualTarget = parseFloat(companyTargets[year]) || 0;
-  const quarterPcts = state.quarterPcts && Object.keys(state.quarterPcts).length ? state.quarterPcts : { Q1: 16, Q2: 27, Q3: 23, Q4: 34 };
+  const quarterPcts = state.quarterPcts && Object.keys(state.quarterPcts).length ? state.quarterPcts : { Q1: 25, Q2: 25, Q3: 25, Q4: 25 };
   const currentQuarter = getQuarter(new Date().getMonth() + 1);
 
   const quarters = ['Q1', 'Q2', 'Q3', 'Q4'].map(q => {
