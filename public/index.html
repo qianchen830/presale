@@ -4042,8 +4042,13 @@ function saveApp() {
     return;
   }
   const data = getFormData('appForm');
+  // 商机号重复校验：新建时若同oppNo已存在，提醒并允许继续保存
+  if (!editingId && data.oppNo) {
+    var exists = state.applications.some(function(a) { return a.oppNo === data.oppNo; });
+    if (exists && !confirm('商机号「' + data.oppNo + '」已存在，是否继续保存？（同一商机可录入多条记录）')) return;
+  }
   // 签单状态门禁：仅原状态已是"签单"（合同驱动）才允许保持为签单；其余情况禁止写为签单
-  const origStatus = editingId ? (state.applications.find(r => r.id === editingId) || {}).status : null;
+  const origStatus = editingId ? (state.applications.find(function(r) { return r.id === editingId; }) || {}).status : null;
   if (data.status === '签单' && origStatus !== '签单') {
     alert('「签单」状态由合同签订自动变更，如需置为签单，请先在「合同签订」中录入合同。');
     return;
