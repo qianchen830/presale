@@ -2458,7 +2458,7 @@ function renderCards() {
   const won = dd.filter(a => a.status === '签单').length;
   const totalAmount = dd.reduce((s, a) => s + amtOf(a), 0);
 
-  // 期间业绩目标进度（随年/季/月/周筛选联动；实际数从筛选后合同取，10万门槛）
+  // 期间业绩目标进度（随年/季/月/周筛选联动；实际数从筛选后合同取，10万门槛，用presalePerformance）
   const _yearWon = getFilteredContracts().filter(function(c) { return (parseFloat(c.subAmount) || 0) >= 100000; });
   const _perfActual = _yearWon.reduce(function(s, c) { return s + (parseFloat(c.presalePerformance) || 0); }, 0) / 10000;
   const _pk = getPeriodKey().split('_');
@@ -2625,7 +2625,8 @@ function renderCards() {
     const p = c.product || '未指定';
     if (!productMap[p]) productMap[p] = { count: 0, amount: 0 };
     productMap[p].count++;
-    productMap[p].amount += (parseFloat(c.presalePerformance) || 0);
+    // subAmount 单位元，amount 统一存元，fmtMoney2 时 /10000 转万
+    productMap[p].amount += (parseFloat(c.subAmount) || 0);
   });
   const productArr = Object.entries(productMap).sort((a, b) => b[1].amount - a[1].amount).slice(0, 5);
   const productTotalAmount = productArr.reduce((s, p) => s + p[1].amount, 0);
@@ -6888,11 +6889,11 @@ function showDetail(card, type) {
     // 签单明细按签单合同subAmount降序（大到小）；其余按申请日期升序（早的在前）
     if (type === 'won') {
       apps.sort(function(x, y) {
-        // 签单金额 = 签单合同subAmount（10万门槛）之和，用signAmount兜底
+        // 签单金额（万元）= 签单合同subAmount（10万门槛）之和，用signAmount兜底
         var wonContractsX = (state.contracts || []).filter(function(c) { return c.oppNo === x.oppNo && (parseFloat(c.subAmount) || 0) >= 100000; });
         var wonContractsY = (state.contracts || []).filter(function(c) { return c.oppNo === y.oppNo && (parseFloat(c.subAmount) || 0) >= 100000; });
-        var ax = wonContractsX.length > 0 ? wonContractsX.reduce(function(s, c) { return s + (parseFloat(c.subAmount) || 0); }, 0) : (parseFloat(x.signAmount) || 0);
-        var ay = wonContractsY.length > 0 ? wonContractsY.reduce(function(s, c) { return s + (parseFloat(c.subAmount) || 0); }, 0) : (parseFloat(y.signAmount) || 0);
+        var ax = wonContractsX.length > 0 ? wonContractsX.reduce(function(s, c) { return s + (parseFloat(c.subAmount) || 0); }, 0) / 10000 : ((parseFloat(x.signAmount) || 0) / 10000);
+        var ay = wonContractsY.length > 0 ? wonContractsY.reduce(function(s, c) { return s + (parseFloat(c.subAmount) || 0); }, 0) / 10000 : ((parseFloat(y.signAmount) || 0) / 10000);
         return ay - ax;
       });
     } else {
@@ -6927,7 +6928,7 @@ function showDetail(card, type) {
         '申请日期': a.applyDate, '客户': a.customer, '项目名称': a.projectName,
         '商机号': a.oppNo, '销售部门': a.department || '—', '销售人员': a.applicant || '—',
         '支持顾问': consultantStr,
-        '金额(万元)': a.status === '签单' ? fmtWan(parseFloat(a.signAmount) || 0) : (a.status === '预计' ? fmtWan(a.expectedSignAmount) : '—')
+        '金额(万元)': a.status === '签单' ? fmtMoney2(parseFloat(a.signAmount) || 0) : (a.status === '预计' ? fmtMoney2(a.expectedSignAmount) : '—')
       };
       // 签单/丢失/新增/跟进/停滞 明细不显示预计签单时间列，其余类型（预计/全部/暂停/关闭/风险）显示
       if (['won','lost','new','active','stalled'].indexOf(type) === -1) r['预计签单时间'] = a.expectedSignDate || '—';
@@ -6936,13 +6937,14 @@ function showDetail(card, type) {
   } else if (card === 'target') {
     title = type === 'target' ? '年度指标明细' : '实际完成明细';
     const signedContracts = getFilteredContracts().slice().sort(function(a, b) {
-      var va = parseFloat(a.presalePerformance) || 0;
-      var vb = parseFloat(b.presalePerformance) || 0;
+      // 按subAmount降序（10万门槛），presalePerformance兜底
+      var va = (parseFloat(a.subAmount) || 0) >= 100000 ? (parseFloat(a.subAmount) || 0) : (parseFloat(a.presalePerformance) || 0);
+      var vb = (parseFloat(b.subAmount) || 0) >= 100000 ? (parseFloat(b.subAmount) || 0) : (parseFloat(b.presalePerformance) || 0);
       return vb - va;
     });
     rows = signedContracts.map(c => ({
       '签单时间': c.mainSignDate || c.signOpDate || c.yearMonth || '—', '客户': c.signCustomerName || c.signCustomer || '—', '项目名称': c.projectName || (c.product || '—'),
-      '商机号': c.oppNo || '—', '签单金额(万元)': fmtWan(c.presalePerformance), '产品': c.product || '—'
+      '商机号': c.oppNo || '—', '签单金额(万元)': fmtWan((parseFloat(c.subAmount) || 0) >= 100000 ? c.subAmount : (c.presalePerformance || 0)), '产品': c.product || '—'
     }));
   } else if (card === 'yearActual') {
     title = type + '年 实际完成明细';
