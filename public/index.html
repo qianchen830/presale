@@ -2844,7 +2844,7 @@ function renderCards() {
       return '<div class="overview-cell" onclick="showDetail(\'overview\',\'' + s.type + '\')">' +
         '<div class="ovc-lbl" style="color:' + s.color + '">' + s.label + '</div>' +
         '<div class="ovc-main"><b>' + s.count + '</b><span>个</span></div>' +
-        (s.amount > 0 ? '<div class="ovc-amt">' + fmtAmt(s.amount) + '</div>' : '') +
+        (s.amount > 0 ? '<div class="ovc-amt">' + fmtAmt(s.amount) + '</div>' : '<div class="ovc-amt">—</div>') +
         '</div>';
     }).join('') +
     '</div>';

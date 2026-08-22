@@ -2533,7 +2533,7 @@ function renderCards() {
       return '<div class="overview-cell" onclick="showDetail(\'overview\',\'' + s.type + '\')">' +
         '<div class="ovc-lbl" style="color:' + s.color + '">' + s.label + '</div>' +
         '<div class="ovc-main"><b>' + s.count + '</b><span>个</span></div>' +
-        '<div class="ovc-amt">' + fmtMoney2(s.amount) + '</div>' +
+        '<div class="ovc-amt">' + (s.amount > 0 ? fmtMoney2(s.amount) : '—') + '</div>' +
         '</div>';
     }).join('') +
     '</div>';
