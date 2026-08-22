@@ -2518,7 +2518,7 @@ function renderCards() {
   const _yearWon = getFilteredContracts().filter(function(c) { return (parseFloat(c.subAmount) || 0) >= 100000; });
   const _perfActual = _yearWon.reduce(function(s, c) { return s + (parseFloat(c.subAmount) || 0); }, 0) / 10000;
   // 签单计数+金额：admin/部门视角=期间内合同签订口径（与年度指标实际值完全一致）；个人视角=申请记录
-  const won = _dedupView ? _yearWon.length : baseApps.filter(a => a.status === '签单').length;
+  const won = baseApps.filter(a => a.status === '签单').length;  // 签单计数：申请日期口径（与index.html一致）
   const _wonAmt = _dedupView ? _perfActual : (baseApps.filter(a => a.status === '签单')).reduce((s, a) => s + amtOf(a), 0);
   const expAppsArr = baseApps.filter(a => a.status === '预计');
   const newAppsArr = baseApps.filter(a => inRange(a.applyDate, getPeriodRange(getPeriodKey())));
