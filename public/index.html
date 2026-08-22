@@ -501,8 +501,7 @@ input[type=number]{-moz-appearance:textfield;}
       <div class="pd-wrap" id="ddQuarter"><button class="pd-btn" onclick="toggleDD(&#39;ddQuarter&#39;)"><span id="lblQuarter">全年</span> <span class="arr">▼</span></button><div class="pd-panel" id="panelQuarter"><div class="pd-grid cols3"><button class="pd-opt cur" onclick="clearQuarter()" style="color:var(--sf-text-secondary)">全年</button><button class="pd-opt" onclick="selectQuarter(1)">Q1</button><button class="pd-opt" onclick="selectQuarter(2)">Q2</button><button class="pd-opt" onclick="selectQuarter(3)">Q3</button><button class="pd-opt" onclick="selectQuarter(4)">Q4</button></div></div></div>
       <div class="pd-wrap" id="ddMonth"><button class="pd-btn" onclick="toggleDD(&#39;ddMonth&#39;)"><span id="lblMonth">不限</span> <span class="arr">▼</span></button><div class="pd-panel" id="panelMonth"><div class="pd-grid cols4"><button class="pd-opt cur" onclick="clearMonth()" style="grid-column:1/-1;color:var(--sf-text-secondary)">不限月份</button><button class="pd-opt" onclick="selectMonth(0)">1</button><button class="pd-opt" onclick="selectMonth(1)">2</button><button class="pd-opt" onclick="selectMonth(2)">3</button><button class="pd-opt" onclick="selectMonth(3)">4</button><button class="pd-opt" onclick="selectMonth(4)">5</button><button class="pd-opt" onclick="selectMonth(5)">6</button><button class="pd-opt" onclick="selectMonth(6)">7</button><button class="pd-opt" onclick="selectMonth(7)">8</button><button class="pd-opt" onclick="selectMonth(8)">9</button><button class="pd-opt" onclick="selectMonth(9)">10</button><button class="pd-opt" onclick="selectMonth(10)">11</button><button class="pd-opt" onclick="selectMonth(11)">12</button></div></div></div>
       <div class="pd-wrap" id="ddWeek"><button class="pd-btn" onclick="toggleDD(&#39;ddWeek&#39;)"><span id="lblWeek">本周</span> <span class="arr">▼</span></button><div class="pd-panel" id="panelWeek"><div class="pd-cal"><div class="pd-cal-hdr"><button class="pd-cal-nav" onclick="event.stopPropagation();navCal(-1)">‹</button><span>2026年 8月</span><button class="pd-cal-nav" onclick="event.stopPropagation();navCal(1)">›</button></div><div class="pd-cal-grid"><div class="pd-cal-hd">一</div><div class="pd-cal-hd">二</div><div class="pd-cal-hd">三</div><div class="pd-cal-hd">四</div><div class="pd-cal-hd">五</div><div class="pd-cal-hd">六</div><div class="pd-cal-hd">日</div><div class="pd-cal-day empty"></div><div class="pd-cal-day empty"></div><div class="pd-cal-day empty"></div><div class="pd-cal-day empty"></div><div class="pd-cal-day empty"></div><button class="pd-cal-day" onclick="selectWeekDate(&#39;2026-08-01&#39;)">1</button><button class="pd-cal-day" onclick="selectWeekDate(&#39;2026-08-02&#39;)">2</button><button class="pd-cal-day" onclick="selectWeekDate(&#39;2026-08-03&#39;)">3</button><button class="pd-cal-day" onclick="selectWeekDate(&#39;2026-08-04&#39;)">4</button><button class="pd-cal-day" onclick="selectWeekDate(&#39;2026-08-05&#39;)">5</button><button class="pd-cal-day" onclick="selectWeekDate(&#39;2026-08-06&#39;)">6</button><button class="pd-cal-day" onclick="selectWeekDate(&#39;2026-08-07&#39;)">7</button><button class="pd-cal-day" onclick="selectWeekDate(&#39;2026-08-08&#39;)">8</button><button class="pd-cal-day" onclick="selectWeekDate(&#39;2026-08-09&#39;)">9</button><button class="pd-cal-day" onclick="selectWeekDate(&#39;2026-08-10&#39;)">10</button><button class="pd-cal-day" onclick="selectWeekDate(&#39;2026-08-11&#39;)">11</button><button class="pd-cal-day" onclick="selectWeekDate(&#39;2026-08-12&#39;)">12</button><button class="pd-cal-day" onclick="selectWeekDate(&#39;2026-08-13&#39;)">13</button><button class="pd-cal-day" onclick="selectWeekDate(&#39;2026-08-14&#39;)">14</button><button class="pd-cal-day" onclick="selectWeekDate(&#39;2026-08-15&#39;)">15</button><button class="pd-cal-day today" onclick="selectWeekDate(&#39;2026-08-16&#39;)">16</button><button class="pd-cal-day" onclick="selectWeekDate(&#39;2026-08-17&#39;)">17</button><button class="pd-cal-day" onclick="selectWeekDate(&#39;2026-08-18&#39;)">18</button><button class="pd-cal-day" onclick="selectWeekDate(&#39;2026-08-19&#39;)">19</button><button class="pd-cal-day" onclick="selectWeekDate(&#39;2026-08-20&#39;)">20</button><button class="pd-cal-day" onclick="selectWeekDate(&#39;2026-08-21&#39;)">21</button><button class="pd-cal-day" onclick="selectWeekDate(&#39;2026-08-22&#39;)">22</button><button class="pd-cal-day" onclick="selectWeekDate(&#39;2026-08-23&#39;)">23</button><button class="pd-cal-day" onclick="selectWeekDate(&#39;2026-08-24&#39;)">24</button><button class="pd-cal-day" onclick="selectWeekDate(&#39;2026-08-25&#39;)">25</button><button class="pd-cal-day" onclick="selectWeekDate(&#39;2026-08-26&#39;)">26</button><button class="pd-cal-day" onclick="selectWeekDate(&#39;2026-08-27&#39;)">27</button><button class="pd-cal-day" onclick="selectWeekDate(&#39;2026-08-28&#39;)">28</button><button class="pd-cal-day" onclick="selectWeekDate(&#39;2026-08-29&#39;)">29</button><button class="pd-cal-day" onclick="selectWeekDate(&#39;2026-08-30&#39;)">30</button><button class="pd-cal-day" onclick="selectWeekDate(&#39;2026-08-31&#39;)">31</button></div><div class="pd-cal-today-bar"><button onclick="event.stopPropagation();jumpToToday()">今天</button></div></div></div></div>
-      <div class="pd-wrap" id="ddDeptFilter"><button class="pd-btn" onclick="toggleDD('ddDeptFilter')"><span id="lblDeptFilter">全部部门</span> <span class="arr">▼</span></button><div class="pd-panel" id="panelDeptFilter"><div class="pd-grid"><button class="pd-opt cur" onclick="clearDeptFilter()" style="color:var(--sf-text-secondary)">全部部门</button></div></div></div>
-      <div class="pd-wrap" id="ddConsultantFilter"><button class="pd-btn" onclick="toggleDD('ddConsultantFilter')"><span id="lblConsultantFilter">全部顾问</span> <span class="arr">▼</span></button><div class="pd-panel" id="panelConsultantFilter"><div class="pd-grid"><button class="pd-opt cur" onclick="clearConsultantFilter()" style="color:var(--sf-text-secondary)">全部顾问</button></div></div></div>
+
       <span class="cur-label">当前：<b id="periodLabel">2026年（全年）</b></span>
     </div>
   </div>
@@ -1418,38 +1417,6 @@ function buildWeekCalendar() {
     ? Object.keys(consultantHomeDept).filter(function(c) { return consultantHomeDept[c] === state.filterDept; })
     : Object.keys(consultantHomeDept);
   consInDept.sort();
-
-  function buildConsultantFilterOptions(search) {
-    var s = (search || '').toLowerCase();
-    var html = '<button class="pd-opt' + (!state.filterConsultant && !s ? ' cur' : '') + '" onclick="clearConsultantFilter()" style="color:var(--sf-text-secondary)">全部顾问</button>';
-    consInDept.forEach(function(c) {
-      if (s && !c.toLowerCase().includes(s)) return;
-      html += '<button class="pd-opt' + (state.filterConsultant === c ? ' cur' : '') + '" onclick="setConsultantFilter(\'' + c.replace(/'/g, "\\'") + '\')">' + c + '</button>';
-    });
-    return html;
-  }
-
-  if (document.getElementById('panelConsultantFilter')) {
-    var pCons = document.getElementById('panelConsultantFilter');
-    var existingSearchC = document.getElementById('consultantFilterSearch');
-    if (!existingSearchC) {
-      var inpC = document.createElement('input');
-      inpC.id = 'consultantFilterSearch';
-      inpC.type = 'text';
-      inpC.placeholder = '搜索顾问...';
-      inpC.style = 'width:100%;padding:6px 8px;margin-bottom:6px;border:1px solid var(--sf-border);border-radius:4px;font-size:12px;box-sizing:border-box;outline:none;';
-      inpC.addEventListener('input', function() {
-        var gridC = pCons.querySelector('.pd-grid');
-        if (gridC) gridC.innerHTML = buildConsultantFilterOptions(this.value);
-      });
-      inpC.addEventListener('click', function(e) { e.stopPropagation(); });
-      pCons.insertBefore(inpC, pCons.firstChild);
-    }
-    var gridC = pCons.querySelector('.pd-grid');
-    if (!gridC) { gridC = document.createElement('div'); gridC.className = 'pd-grid'; pCons.appendChild(gridC); }
-    gridC.innerHTML = buildConsultantFilterOptions(document.getElementById('consultantFilterSearch').value);
-  }
-  document.getElementById('lblConsultantFilter').textContent = (state.filterConsultant || '全部顾问');
 }
 
 function jumpToToday() {
@@ -1709,24 +1676,14 @@ function getFilteredApps() {
       apps = apps.filter(function(a) { return a.consultant === myName; });
     }
   }
-  // 顶部部门过滤（按顾问在组织架构里的归属部门）
-  if (state.filterDept) {
-    var deptById2 = {};
-    (state.departments||[]).forEach(function(d) { deptById2[d.id] = d.name; });
-    var appConsultants2 = {};
-    (state.applications||[]).forEach(function(a) { if (a.consultant) appConsultants2[a.consultant] = true; });
-    var consultantHomeDept2 = {};
-    (state.employees||[]).forEach(function(e) {
-      if (e.name && appConsultants2[e.name] && e.deptId && deptById2[e.deptId]) {
-        consultantHomeDept2[e.name] = deptById2[e.deptId];
-      }
-    });
-    apps = apps.filter(function(a) { return consultantHomeDept2[a.consultant] === state.filterDept; });
-  }
-  // 顶部顾问过滤
-  if (state.filterConsultant) {
-    apps = apps.filter(a => a.consultant === state.filterConsultant);
-  }
+  // 按 oppNo 去重（同一商机号只保留一条，避免重复数据显示）
+  var seen = {};
+  apps = apps.filter(function(a) {
+    if (!a.oppNo) return true;
+    if (seen[a.oppNo]) return false;
+    seen[a.oppNo] = true;
+    return true;
+  });
   return apps;
 }
 

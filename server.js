@@ -476,7 +476,7 @@ app.get('/api/state', requireAuth, (req, res) => {
   const prefs = getUserPrefs(req.session.userId);
   merged.consultant = prefs.consultant || req.session.displayName || req.session.username || '';
   merged.consultantAvatar = prefs.consultantAvatar || '';
-  merged.year = prefs.year || new Date().getFullYear();
+  merged.year = new Date().getFullYear();
   merged.quarter = prefs.quarter != null ? prefs.quarter : null;
   merged.month = prefs.month != null ? prefs.month : null;
   merged.weekNum = prefs.weekNum != null ? prefs.weekNum : null;
