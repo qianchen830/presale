@@ -3558,8 +3558,17 @@ function renderSalesAnalysis() {
   if (!container) return;
   var contracts = getFilteredContracts(); // 按当前筛选期间取数
 
+  var isPersonalSales = !!state.consultant; // 个人视角：顾问账号只显示本人支持的合同关联的销售人员
+  var myConsName = isPersonalSales ? state.consultant : null;
+  var myOppNos = {};
+  if (isPersonalSales) {
+    (state.allocations || []).forEach(function(al) {
+      if (al.consultant === myConsName && al.oppNo) myOppNos[al.oppNo] = true;
+    });
+  }
   var personMap = {};
   contracts.forEach(function(c) {
+    if (isPersonalSales && !myOppNos[c.oppNo]) return; // 个人视角：只统计本人有分配的合同
     // 10万门槛：合同金额<10万不计入
     var subAmt = parseFloat(c.subAmount) || 0;
     if (subAmt < 100000) return;
@@ -3725,7 +3734,7 @@ function renderSalesAnalysis() {
   container.innerHTML =
     '<div style="display:grid;grid-template-columns:1fr 340px;gap:16px;align-items:stretch;">' +
       '<div class="t-card" style="height:100%;display:flex;flex-direction:column;">' +
-        '<div class="t-card-hdr"><div class="t-card-title"><i data-lucide="bar-chart-3"></i> 销售人员业绩排名</div></div>' +
+        '<div class="t-card-hdr"><div class="t-card-title"><i data-lucide="bar-chart-3"></i> ' + (isPersonalSales ? '我的关联销售人员' : '销售人员业绩排名') + '</div></div>' +
         '<div style="flex:1;min-height:0;"><div class="cons-chart-wrap"><div class="cons-chart"><div class="cons-chart-inner">' + barsHtml + '</div></div></div></div>' +
       '</div>' +
       '<div>' + salesLostHtml + '</div>' +
