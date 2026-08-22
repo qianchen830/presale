@@ -4889,12 +4889,13 @@ function showDetail(card, type) {
         }).join(', ');
       }
       // 金额(万)：签单=合同subAmount（10万门槛），预计=expectedSignAmount（已是万），其余显示-
+      // 金额字段：signAmount存元需除万，expectedSignAmount存元需除万
       var amtW = 0;
       if (a.status === '签单') {
         var wc = (state.contracts || []).filter(function(c) { return c.oppNo === a.oppNo && (parseFloat(c.subAmount) || 0) >= 100000; });
         amtW = wc.length > 0 ? wc.reduce(function(s, c) { return s + (parseFloat(c.subAmount) || 0); }, 0) / 10000 : (parseFloat(a.signAmount) || 0) / 10000;
       } else if (a.status === '预计') {
-        amtW = (parseFloat(a.expectedSignAmount) || 0); // 存的是万元
+        amtW = (parseFloat(a.expectedSignAmount) || 0) / 10000; // 存的是元，需除万
       }
       return {
         '申请日期': a.applyDate, '客户': a.customer, '项目名称': a.projectName,
@@ -4961,7 +4962,7 @@ function showDetail(card, type) {
           '申请客户名称': g.signCustomer,
           '签约客户名称': g.signCustomerName,
           '销售部门': g.salesDept, '客户经理': g.accountMgr,
-          '合同业绩(万)': fmtMoney2((parseFloat(g.contractPerformance) || 0) / 10000),
+          '合同业绩(万)': fmtMoney2(g.contractPerformance),
           '支持顾问': g.consultants.join(', ')
         };
       });
@@ -5014,7 +5015,7 @@ function showDetail(card, type) {
           '申请客户名称': g.signCustomer,
           '签约客户名称': g.signCustomerName,
           '销售部门': g.salesDept, '客户经理': g.accountMgr,
-          '合同业绩(万)': fmtMoney2((parseFloat(g.contractPerformance) || 0) / 10000),
+          '合同业绩(万)': fmtMoney2(g.contractPerformance),
           '支持顾问': g.consultants.join(', ')
         };
       });
