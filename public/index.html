@@ -2888,7 +2888,7 @@ function renderCards() {
   }
   const expectedAmt = expectedApps.reduce(function(s, a) { return s + amtOfApp(a); }, 0);
   const totalWonExpected = wonAmt + expectedAmt;
-  console.log('[DEBUG renderCards]', 'getPeriodKey:', getPeriodKey(), 'dedupView:', dedupView, 'wonApps.length:', wonApps.length, 'wonContracts.length:', wonContracts.length, 'wonAmt:', wonAmt, '_contractSignActual(2026):', _contractSignActual(2026, null, filtered));
+
 
   // 顶部数量/金额：admin/部门视角与「新增」格子一致；个人视角保持全部申请口径
   var topCount = dedupView ? newApps.length : total;
@@ -2931,7 +2931,7 @@ function renderCards() {
     var yActual;
     if (isCurrent) {
       // 当年实际：按过滤条件统计合同 presalePerformance
-      yActual = getCardsAnnualActual(y, filtered);
+      yActual = (isCurrent && y === currentYear) ? wonAmt : getCardsAnnualActual(y, filtered);
     } else {
       // 往年实际：优先取手动编辑值，否则按过滤条件统计
       yActual = state.annualActuals[y] != null ? state.annualActuals[y] : getCardsAnnualActual(y, filtered);
