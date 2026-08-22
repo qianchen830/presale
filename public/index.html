@@ -2748,43 +2748,64 @@ function getCardsContracts(filteredApps) {
   return state.contracts.filter(function(c) { return oppNos[c.oppNo]; });
 }
 
-// 按过滤条件统计年度实际（实际执行，单位：元→万元）
-function getCardsAnnualActual(year, filteredApps) {
-  // 按过滤条件的合同统计 presalePerformance，按合同签订日期（mainSignDate/signOpDate）判断年份，10万门槛
-  var THRESHOLD = 100000;
-  var contracts = getCardsContracts(filteredApps).filter(function(c) {
-    if ((parseFloat(c.subAmount) || 0) < THRESHOLD) return false;
-    if (c.mainSignDate) { var d = new Date(c.mainSignDate); if (d.getFullYear() === year) return true; }
-    if (c.signOpDate) { var d2 = new Date(c.signOpDate); if (d2.getFullYear() === year) return true; }
-    if (c.yearMonth) { var y = parseInt(String(c.yearMonth).split('-')[0]); if (y === year) return true; }
-    return false;
-  });
-  return contracts.reduce(function(s, c) { return s + (parseFloat(c.presalePerformance) || 0); }, 0) / 10000;
+// 是否个人视角（普通账号：非admin且无部门查看权限）
+function _isPersonalScope() {
+  return _currentUser && _currentUser.role !== 'admin' && !(_currentUser.view_depts && _currentUser.view_depts.length > 0);
 }
 
-// 按过滤条件统计季度实际（按合同签订日期 mainSignDate/signOpDate 判断季度）
-function getCardsQuarterActual(year, quarter, filteredApps) {
-  // 从绩效分配列表（allocations）取数，按month字段（格式2026-01）判断季度
-  // 仅统计当前用户有权限查看的合同（filteredApps 的 oppNo 范围）
-  var appOppNos = {};
-  (filteredApps||[]).forEach(function(a){ if(a.oppNo) appOppNos[a.oppNo]=true; });
-  var qidx = parseInt(quarter[1]);
-  var allocs = (state.allocations||[]).filter(function(a) {
-    if (!appOppNos[a.oppNo]) return false;
-    var m = a.month; // 格式 2026-01
-    if (!m) return false;
+// 个人视角：业绩分配中分配给自己的金额（按month字段判年份，单位元→万元）
+function _personalAllocActual(year, quarterIdx) {
+  var myName = _currentUser.displayName || _currentUser.username;
+  var sum = 0;
+  (state.allocations || []).forEach(function(a) {
+    if (a.consultant !== myName) return;
+    var m = a.month || ''; // 格式 2026-01
     var parts = m.split('-');
-    if (parts.length < 2) return false;
-    var y = parseInt(parts[0]);
-    var mo = parseInt(parts[1]);
-    if (y !== year) return false;
-    if (Math.floor((mo - 1) / 3) + 1 !== qidx) return false;
-    return true;
+    if (parts.length < 2) return;
+    if (parseInt(parts[0]) !== year) return;
+    if (quarterIdx != null && Math.floor((parseInt(parts[1]) - 1) / 3) + 1 !== quarterIdx) return;
+    sum += parseFloat(a.consultantPerformance) || 0;
   });
-  // consultantPerformance 单位是元，转万元
-  var result = allocs.reduce(function(s, a) { return s + (parseFloat(a.consultantPerformance) || 0); }, 0) / 10000;
-  console.log('[QACTUAL] year=' + year + ' quarter=' + quarter + ' filteredApps=' + (filteredApps||[]).length + ' allocsMatched=' + allocs.length + ' totalAllocs=' + (state.allocations||[]).length + ' result=' + result);
-  return result;
+  return sum / 10000;
+}
+
+// 合同签订年月（mainSignDate/signOpDate/yearMonth → 'YYYY-MM'，取不到返回null）
+function _contractYearMonth(c) {
+  if (c.mainSignDate) { var d = new Date(c.mainSignDate); if (!isNaN(d)) return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); }
+  if (c.signOpDate) { var d2 = new Date(c.signOpDate); if (!isNaN(d2)) return d2.getFullYear() + '-' + String(d2.getMonth() + 1).padStart(2, '0'); }
+  if (c.yearMonth) return String(c.yearMonth);
+  return null;
+}
+
+// admin/部门权限视角：合同签单金额合计（subAmount，10万门槛，单位元→万元）
+function _contractSignActual(year, quarterIdx, filteredApps) {
+  var THRESHOLD = 100000;
+  var sum = 0;
+  getCardsContracts(filteredApps).forEach(function(c) {
+    if ((parseFloat(c.subAmount) || 0) < THRESHOLD) return;
+    var m = _contractYearMonth(c);
+    if (!m) return;
+    var parts = m.split('-');
+    if (parseInt(parts[0]) !== year) return;
+    if (quarterIdx != null && Math.floor((parseInt(parts[1]) - 1) / 3) + 1 !== quarterIdx) return;
+    sum += parseFloat(c.subAmount) || 0;
+  });
+  return sum / 10000;
+}
+
+// 按过滤条件统计年度实际（实际执行，单位：万元）
+// 口径：普通账号=业绩分配中自己的份额；admin/部门权限=合同签单金额（subAmount）
+function getCardsAnnualActual(year, filteredApps) {
+  if (_isPersonalScope()) return _personalAllocActual(year, null);
+  return _contractSignActual(year, null, filteredApps);
+}
+
+// 按过滤条件统计季度实际（单位：万元）
+// 口径：普通账号=业绩分配中自己的份额；admin/部门权限=合同签单金额（subAmount）
+function getCardsQuarterActual(year, quarter, filteredApps) {
+  var qidx = parseInt(quarter[1]);
+  if (_isPersonalScope()) return _personalAllocActual(year, qidx);
+  return _contractSignActual(year, qidx, filteredApps);
 }
 
 function renderCards() {
