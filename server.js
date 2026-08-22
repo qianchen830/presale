@@ -1,10 +1,9 @@
 // 售前管理 - 后端服务
-// Node.js + Express + sql.js (纯 JS SQLite) + Session Auth
+// Node.js + Express + better-sqlite3 (原生 SQLite) + Session Auth
 const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
-const initSqlJs = require('sql.js');
 
 const PORT = process.env.PORT || 3210;
 const SESSION_SECRET = process.env.SESSION_SECRET || 'presale-secret-2026-change-me';
@@ -23,23 +22,23 @@ function contractHasPerformance(c) {
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
-// ---- sql.js 数据库 ----
+// ---- better-sqlite3 数据库（同步原生 SQLite）----
 let db;
-const SQL = require('sql.js');
 
-async function initDb() {
-  const SQL = await initSqlJs();
-
-  let data = null;
+function initDb() {
+  const Database = require('better-sqlite3');
   let isNewDb = false;
-  if (fs.existsSync(DB_PATH)) {
-    data = fs.readFileSync(DB_PATH);
-  } else {
+  if (!fs.existsSync(DB_PATH)) {
     isNewDb = true;
   }
 
-  db = new SQL.Database(data);
-  db.run(`
+  db = new Database(DB_PATH);
+
+  // 优化：使用 WAL 模式提升并发读写性能，崩溃恢复更安全
+  db.pragma('journal_mode = WAL');
+  db.pragma('synchronous = NORMAL');
+
+  db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT UNIQUE NOT NULL,
@@ -78,24 +77,23 @@ async function initDb() {
     );
   `);
 
-  // 兼容旧数据库：view_depts 列不存在时添加
+  // 兼容旧数据库
   try { db.run("ALTER TABLE users ADD COLUMN view_depts TEXT NOT NULL DEFAULT '[]'"); } catch(e) { /* 列已存在 */ }
-  // 兼容旧数据库：user_targets 表不存在时添加（首次启动已用 CREATE TABLE IF NOT EXISTS，这里只做兜底）
   try { db.run("ALTER TABLE user_targets ADD COLUMN quarter_targets TEXT NOT NULL DEFAULT '{}'"); } catch(e) {}
   try { db.run("ALTER TABLE user_targets ADD COLUMN quarter_pcts TEXT NOT NULL DEFAULT '{}'"); } catch(e) {}
 
   // 默认管理员
-  const adminRow = db.exec("SELECT id FROM users WHERE username = 'admin'");
-  if (adminRow.length === 0 || adminRow[0].values.length === 0) {
+  const adminRow = db.prepare("SELECT id FROM users WHERE username = 'admin'").get();
+  if (!adminRow) {
     const bcrypt = require('bcryptjs');
     const hash = bcrypt.hashSync('admin123', 10);
     const now = new Date().toISOString();
-    db.run("INSERT INTO users (username, password_hash, display_name, role, department, view_depts, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      ['admin', hash, '系统管理员', 'admin', '解决方案与项目经理部', '[]', now]);
+    db.prepare("INSERT INTO users (username, password_hash, display_name, role, department, view_depts, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
+      .run('admin', hash, '系统管理员', 'admin', '解决方案与项目经理部', '[]', now);
     console.log('✅ 默认管理员账号已创建: admin / admin123');
   }
 
-  // 仅在新建数据库时初始化空状态，绝不在已有数据上覆盖写入
+  // 仅在新建数据库时初始化空状态
   if (isNewDb) {
     const now = new Date().toISOString();
     const emptyState = {
@@ -109,8 +107,7 @@ async function initDb() {
       filterDept: null, filterConsultant: null, consultant: '', consultantAvatar: '',
       selectedAppId: null
     };
-    db.run('INSERT INTO app_state (id, data, updated_at) VALUES (1, ?, ?)', [JSON.stringify(emptyState), now]);
-    saveDb();
+    db.prepare('INSERT INTO app_state (id, data, updated_at) VALUES (1, ?, ?)').run(JSON.stringify(emptyState), now);
     console.log('✅ 新建数据库已初始化空状态');
   }
 
@@ -119,12 +116,8 @@ async function initDb() {
 
 function saveDb() {
   if (!db) return;
-  const buf = db.export();
-  const bufArr = Buffer.from(buf);
-  // 原子写入：先写临时文件再 rename，避免写过程崩溃导致数据库损坏
-  const tmp = DB_PATH + '.tmp';
-  fs.writeFileSync(tmp, bufArr);
-  fs.renameSync(tmp, DB_PATH);
+  // better-sqlite3 默认同步写盘，WAL 模式保证原子性，崩溃安全
+  // 无需额外操作，每次事务提交自动落盘
 }
 
 // 同步落盘：模块CRUD/状态保存后立即写盘。
@@ -132,9 +125,9 @@ function saveDb() {
 const saveDbs = () => { saveDb(); };
 
 function getStateRow() {
-  const r = db.exec('SELECT data, updated_at FROM app_state WHERE id = 1');
-  if (!r.length || !r[0].values.length) return null;
-  return { data: r[0].values[0][0], updated_at: r[0].values[0][1] };
+  const r = db.prepare('SELECT data, updated_at FROM app_state WHERE id = 1').get();
+  if (!r) return null;
+  return { data: r.data, updated_at: r.updated_at };
 }
 
 function getState() {
@@ -187,8 +180,8 @@ function saveState(newState) {
 
   console.log("[saveState] merged.applications count:", merged.applications.length, " deletedIds:", JSON.stringify([...(_deletedIds.applications||[])]));
   const dataStr = JSON.stringify(merged);
-  db.run('INSERT INTO app_state_history (data, created_at) VALUES (?, ?)', [existing ? existing.data : '{}', now]);
-  db.run("UPDATE app_state SET data = ?, updated_at = ? WHERE id = 1", [dataStr, now]);
+  db.prepare('INSERT INTO app_state_history (data, created_at) VALUES (?, ?)').run(existing ? existing.data : '{}', now);
+  db.prepare("UPDATE app_state SET data = ?, updated_at = ? WHERE id = 1").run(dataStr, now);
   saveDbs();
   return now;
 }
@@ -201,17 +194,17 @@ const PER_USER_TARGET_KEYS = ['annualTarget','annualTargets','annualActuals','qu
 
 function getUserPrefs(userId) {
   try {
-    const r = db.exec('SELECT prefs FROM user_prefs WHERE user_id = ' + parseInt(userId));
-    if (r.length && r[0].values.length) return JSON.parse(r[0].values[0][0] || '{}');
+    const r = db.prepare('SELECT prefs FROM user_prefs WHERE user_id = ?').get(parseInt(userId));
+    if (r) return JSON.parse(r.prefs || '{}');
   } catch(e) {}
   return {};
 }
 function saveUserPrefs(userId, patch) {
   const cur = getUserPrefs(userId);
   const next = Object.assign({}, cur, patch);
-  db.run(`INSERT INTO user_prefs (user_id, prefs, updated_at) VALUES (?, ?, ?)
-    ON CONFLICT(user_id) DO UPDATE SET prefs = excluded.prefs, updated_at = excluded.updated_at`,
-    [parseInt(userId), JSON.stringify(next), new Date().toISOString()]);
+  db.prepare(`INSERT INTO user_prefs (user_id, prefs, updated_at) VALUES (?, ?, ?)
+    ON CONFLICT(user_id) DO UPDATE SET prefs = excluded.prefs, updated_at = excluded.updated_at`)
+    .run(parseInt(userId), JSON.stringify(next), new Date().toISOString());
   return next;
 }
 
@@ -411,7 +404,7 @@ app.get('/api/health', (req, res) => {
 app.post('/api/auth/login', (req, res) => {
   const { username, password } = req.body || {};
   if (!username || !password) return res.status(400).json({ error: '用户名和密码不能为空' });
-  const r = db.exec("SELECT * FROM users WHERE username = '" + username.replace(/'/g, "''") + "'");
+  const r = db.prepare("SELECT * FROM users WHERE username = ?").get(username);
   if (!r.length || !r[0].values.length) return res.status(401).json({ error: '用户名或密码错误' });
   const cols = r[0].columns;
   const user = {};
@@ -467,8 +460,8 @@ app.get('/api/state', requireAuth, (req, res) => {
   // 读取当前用户的个人指标（合并到 state 中返回）
   let userTargets = { annualTargets: {}, annualActuals: {}, quarterTargets: {}, quarterPcts: {} };
   try {
-    const ut = db.exec('SELECT annual_targets, annual_actuals, quarter_targets, quarter_pcts FROM user_targets WHERE user_id = ' + req.session.userId);
-    if (ut.length && ut[0].values.length) {
+    const ut = db.prepare('SELECT annual_targets, annual_actuals, quarter_targets, quarter_pcts FROM user_targets WHERE user_id = ?').get(req.session.userId);
+    if (ut) {
       userTargets = {
         annualTargets: JSON.parse(ut[0].values[0][0] || '{}'),
         annualActuals: JSON.parse(ut[0].values[0][1] || '{}'),
@@ -571,23 +564,22 @@ app.put('/api/user/targets', requireAuth, (req, res) => {
   const { annualTargets, annualActuals, quarterTargets, quarterPcts } = req.body || {};
   const now = new Date().toISOString();
   try {
-    db.run(`INSERT INTO user_targets (user_id, annual_targets, annual_actuals, quarter_targets, quarter_pcts, updated_at)
+    db.prepare(`INSERT INTO user_targets (user_id, annual_targets, annual_actuals, quarter_targets, quarter_pcts, updated_at)
       VALUES (?, ?, ?, ?, ?, ?)
       ON CONFLICT(user_id) DO UPDATE SET
         annual_targets = excluded.annual_targets,
         annual_actuals = excluded.annual_actuals,
         quarter_targets = excluded.quarter_targets,
         quarter_pcts = excluded.quarter_pcts,
-        updated_at = excluded.updated_at`,
-      [
+        updated_at = excluded.updated_at`)
+      .run(
         req.session.userId,
         JSON.stringify(annualTargets || {}),
         JSON.stringify(annualActuals || {}),
         JSON.stringify(quarterTargets || {}),
         JSON.stringify(quarterPcts || {}),
         now
-      ]
-    );
+      );
     saveDbs();
     res.json({ ok: true, updatedAt: now });
   } catch (e) {
@@ -598,7 +590,7 @@ app.put('/api/user/targets', requireAuth, (req, res) => {
 
 app.get('/api/state/history', requireAuth, (req, res) => {
   const limit = Math.min(parseInt(req.query.limit || '50', 10), 200);
-  const r = db.exec('SELECT id, created_at, length(data) AS size FROM app_state_history ORDER BY id DESC LIMIT ' + limit);
+  const r = db.prepare('SELECT id, created_at, length(data) AS size FROM app_state_history ORDER BY id DESC LIMIT ?').all(limit);
   if (!r.length) return res.json({ items: [] });
   const cols = r[0].columns;
   const items = r[0].values.map(row => {
@@ -608,21 +600,14 @@ app.get('/api/state/history', requireAuth, (req, res) => {
 });
 
 app.get('/api/state/history/:id', requireAuth, (req, res) => {
-  const r = db.exec("SELECT data, created_at FROM app_state_history WHERE id = " + parseInt(req.params.id));
+  const r = db.prepare("SELECT data, created_at FROM app_state_history WHERE id = ?").get(parseInt(req.params.id));
   if (!r.length || !r[0].values.length) return res.status(404).json({ error: '版本不存在' });
   res.json({ state: JSON.parse(r[0].values[0][0]), createdAt: r[0].values[0][1] });
 });
 
 // ---- 管理员接口 ----
 app.get('/api/admin/users', requireAuth, (req, res) => {
-  const r = db.exec('SELECT id, username, display_name, role, department, view_depts, created_at FROM users ORDER BY id ASC');
-  if (!r.length) return res.json({ users: [] });
-  const cols = r[0].columns;
-  const users = r[0].values.map(row => {
-    const u = {}; cols.forEach((c, i) => u[c] = row[i]);
-    try { u.view_depts = JSON.parse(u.view_depts || '[]'); } catch { u.view_depts = []; }
-    return u;
-  });
+  const users = db.prepare('SELECT id, username, display_name, role, department, view_depts, created_at FROM users ORDER BY id ASC').all().map(v => ({id: v.id, username: v.username, display_name: v.display_name, role: v.role, department: v.department, view_depts: v.view_depts, created_at: v.created_at}));
   res.json({ users });
 });
 
@@ -630,13 +615,13 @@ app.post('/api/admin/users', requireAdmin, (req, res) => {
   const { username, password, displayName, role, department, viewDepts } = req.body || {};
   if (!username || !password) return res.status(400).json({ error: '用户名和密码不能为空' });
   const safeName = username.replace(/'/g, "''");
-  const existing = db.exec("SELECT id FROM users WHERE username = '" + safeName + "'");
+  const existing = db.prepare("SELECT id FROM users WHERE username = ?").get(safeName);
   if (existing.length && existing[0].values.length) return res.status(409).json({ error: '用户名已存在' });
   const bcrypt = require('bcryptjs');
   const hash = bcrypt.hashSync(password, 10);
   const now = new Date().toISOString();
-  db.run("INSERT INTO users (username, password_hash, display_name, role, department, view_depts, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-    [username, hash, displayName || username, role || 'user', department || '', JSON.stringify(viewDepts || []), now]);
+  db.prepare("INSERT INTO users (username, password_hash, display_name, role, department, view_depts, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
+    .run(username, hash, displayName || username, role || 'user', department || '', JSON.stringify(viewDepts || []), now);
   saveDbs();
   res.json({ ok: true });
 });
@@ -644,17 +629,17 @@ app.post('/api/admin/users', requireAdmin, (req, res) => {
 app.put('/api/admin/users/:id', requireAdmin, (req, res) => {
   const id = parseInt(req.params.id);
   const { password, displayName, role, department, viewDepts } = req.body || {};
-  const existing = db.exec("SELECT id FROM users WHERE id = " + id);
+  const existing = db.prepare("SELECT id FROM users WHERE id = ?").get(id);
   if (!existing.length || !existing[0].values.length) return res.status(404).json({ error: '用户不存在' });
   if (password) {
     const bcrypt = require('bcryptjs');
     const hash = bcrypt.hashSync(password, 10);
-    db.run("UPDATE users SET password_hash = ? WHERE id = ?", [hash, id]);
+    db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(hash, id);
   }
-  if (displayName !== undefined) db.run("UPDATE users SET display_name = ? WHERE id = ?", [displayName, id]);
-  if (role !== undefined)         db.run("UPDATE users SET role = ? WHERE id = ?", [role, id]);
-  if (department !== undefined)   db.run("UPDATE users SET department = ? WHERE id = ?", [department, id]);
-  if (viewDepts !== undefined)    db.run("UPDATE users SET view_depts = ? WHERE id = ?", [JSON.stringify(viewDepts), id]);
+  if (displayName !== undefined) db.prepare("UPDATE users SET display_name = ? WHERE id = ?").run(displayName, id);
+  if (role !== undefined)         db.prepare("UPDATE users SET role = ? WHERE id = ?").run(role, id);
+  if (department !== undefined)   db.prepare("UPDATE users SET department = ? WHERE id = ?").run(department, id);
+  if (viewDepts !== undefined)    db.prepare("UPDATE users SET view_depts = ? WHERE id = ?").run(JSON.stringify(viewDepts), id);
   saveDbs();
   res.json({ ok: true });
 });
@@ -666,22 +651,21 @@ app.put('/api/admin/users/:id/password', requireAuth, (req, res) => {
   if (!password || password.length < 6) return res.status(400).json({ error: '密码至少6位' });
   // 非管理员只能修改自己的密码
   if (req.session.role !== 'admin' && req.session.userId !== id) return res.status(403).json({ error: '无权限' });
-  const existing = db.exec("SELECT id FROM users WHERE id = " + id);
+  const existing = db.prepare("SELECT id FROM users WHERE id = ?").get(id);
   if (!existing.length || !existing[0].values.length) return res.status(404).json({ error: '用户不存在' });
   const bcrypt = require('bcryptjs');
   const hash = bcrypt.hashSync(password, 10);
-  db.run("UPDATE users SET password_hash = ? WHERE id = ?", [hash, id]);
+  db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(hash, id);
   saveDbs();
   res.json({ ok: true });
 });
 
 // ---- 普通用户查看自己的账号信息 ----
 app.get('/api/users/me-record', requireAuth, (req, res) => {
-  const r = db.exec("SELECT id, username, display_name, role, department, view_depts, created_at FROM users WHERE id = " + req.session.userId);
-  if (!r.length || !r[0].values.length) return res.status(404).json({ error: '用户不存在' });
-  const row = r[0].values[0];
-  const viewDepts = (() => { try { return JSON.parse(row[5] || '[]'); } catch { return []; } })();
-  res.json({ users: [{ id: row[0], username: row[1], display_name: row[2], role: row[3], department: row[4], view_depts: viewDepts, created_at: row[6] }] });
+  const u = db.prepare("SELECT id, username, display_name, role, department, view_depts, created_at FROM users WHERE id = ?").get(req.session.userId);
+  if (!u) return res.status(404).json({ error: '用户不存在' });
+  const viewDepts = (() => { try { return JSON.parse(u.view_depts || '[]'); } catch { return []; } })();
+  res.json({ users: [{ id: u.id, username: u.username, display_name: u.display_name, role: u.role, department: u.department, view_depts: viewDepts, created_at: u.created_at }] });
 });
 
 // ---- 用户改自己的密码 ----
@@ -689,12 +673,12 @@ app.post('/api/auth/change-password', requireAuth, (req, res) => {
   const { oldPassword, newPassword } = req.body || {};
   if (!oldPassword || !newPassword) return res.status(400).json({ error: '旧密码和新密码都不能为空' });
   if (newPassword.length < 6) return res.status(400).json({ error: '新密码至少6位' });
-  const r = db.exec('SELECT id, password_hash FROM users WHERE id = ' + req.session.userId);
-  if (!r.length || !r[0].values.length) return res.status(404).json({ error: '用户不存在' });
+  const r = db.prepare('SELECT id, password_hash FROM users WHERE id = ?').get(req.session.userId);
+  if (!r) return res.status(404).json({ error: '用户不存在' });
   const bcrypt = require('bcryptjs');
-  if (!bcrypt.compareSync(oldPassword, r[0].values[0][1])) return res.status(403).json({ error: '旧密码错误' });
+  if (!bcrypt.compareSync(oldPassword, r.password_hash)) return res.status(403).json({ error: '旧密码错误' });
   const hash = bcrypt.hashSync(newPassword, 10);
-  db.run('UPDATE users SET password_hash = ? WHERE id = ?', [hash, req.session.userId]);
+  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hash, req.session.userId);
   saveDbs();
   res.json({ ok: true });
 });
@@ -702,9 +686,9 @@ app.post('/api/auth/change-password', requireAuth, (req, res) => {
 app.delete('/api/admin/users/:id', requireAdmin, (req, res) => {
   const id = parseInt(req.params.id);
   if (id === req.session.userId) return res.status(400).json({ error: '不能删除自己' });
-  const existing = db.exec("SELECT id FROM users WHERE id = " + id);
+  const existing = db.prepare("SELECT id FROM users WHERE id = ?").get(id);
   if (!existing.length || !existing[0].values.length) return res.status(404).json({ error: '用户不存在' });
-  db.run("DELETE FROM users WHERE id = ?", [id]);
+  db.prepare("DELETE FROM users WHERE id = ?").run(id);
   saveDbs();
   res.json({ ok: true });
 });
@@ -724,7 +708,7 @@ app.get('/api/admin/employees', requireAuth, (req, res) => {
   const deptById = {};
   departments.forEach(d => { deptById[d.id] = d.name; });
   // 已有账号的用户名
-  const existing = db.exec("SELECT username FROM users");
+  const existing = db.prepare("SELECT username FROM users").all();
   const usedNames = new Set((existing[0]?.values || []).map(v => v[0]));
   // 只返回未创建账号的员工（过滤掉已创建账号的）
   const available = employees.filter(e => !usedNames.has(e.name)).map(e => ({
@@ -1009,7 +993,7 @@ app.delete('/api/admin/employees/:id', requireAuth, (req, res) => {
 function getCompanyTargets() {
   const out = {};
   try {
-    const r = db.exec('SELECT annual_targets FROM user_targets');
+    const r = db.prepare('SELECT annual_targets FROM user_targets').all();
     (r[0] && r[0].values || []).forEach(v => {
       try {
         const t = JSON.parse(v[0] || '{}');
@@ -1274,13 +1258,14 @@ app.use((err, req, res, next) => {
 });
 
 // 启动
-initDb().then(() => {
+try {
+  initDb();
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`\n🖥️  售前管理后端已启动: http://0.0.0.0:${PORT}`);
     console.log(`📁 数据库: ${DB_PATH}`);
     console.log(`🔐 默认管理员: admin / admin123 (请首次登录后修改密码)\n`);
   });
-}).catch(e => {
+} catch(e) {
   console.error('数据库初始化失败:', e);
   process.exit(1);
-});
+}
