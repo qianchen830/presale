@@ -3111,7 +3111,7 @@ function renderSubTables() {
   renderJudgeTable(app.oppNo);
   renderFollowTable(app.oppNo);
   renderContractTable(app.oppNo);
-  renderAllocationTable(app.oppNo);
+  renderAllocationTable(app.oppNo, _selectedContractId);
   lucide.createIcons();
 }
 
@@ -4762,10 +4762,19 @@ function saveAllocation() {
 }
 
 /* 业绩分配列表渲染 */
-function renderAllocationTable(oppNo) {
+function renderAllocationTable(oppNo, contractId) {
+  // 匹配规则（任一满足即可）：
+  // 1. allocation.oppNo === 申请oppNo（精确）
+  // 2. allocation.contractId === 选中合同id（点开合同分配弹框时）
+  // 3. allocation.oppNo 是所选申请的关联合同mainContractNo（合同编号作为oppNo的分配）
   const rows = state.allocations.filter(r => {
-    if (r.oppNo !== oppNo) return false;
-    // 选中售前申请时，显示所有关联数据，不受时间范围限制
+    if (r.oppNo !== oppNo && r.contractId !== contractId) {
+      // 尝试用合同主合同编号匹配（部分分配用合同编号作oppNo）
+      if (contractId) {
+        var c = state.contracts.find(function(c) { return c.id === contractId; });
+        if (c && r.oppNo !== c.mainContractNo) return false;
+      } else return false;
+    }
     return true;
   });
   const ps = pageState.allocations;
