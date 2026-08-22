@@ -1102,7 +1102,7 @@ let _serverSyncOk = false;
 
 async function apiGetState() {
   try {
-    var res = await fetch(API_BASE + '/api/state', { cache: 'no-store' });
+    var res = await fetch(API_BASE + '/api/state', { cache: 'no-store', credentials: 'include' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     var data = await res.json();
     _serverSyncOk = true;
@@ -1119,6 +1119,7 @@ async function apiPutState(stateObj) {
     var res = await fetch(API_BASE + '/api/state', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ state: stateObj })
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
