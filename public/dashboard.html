@@ -2525,10 +2525,10 @@ function renderCards() {
   var _wonContracts = [];
   var conOppSet = {};
   var appOppNos = {};
-  (state.applications || []).forEach(function(a) { if (a.oppNo) appOppNos[a.oppNo] = true; });
+  (state.applications || []).forEach(function(a) { if (a.oppNo) appOppNos[(a.oppNo || '').trim()] = true; });
   (state.contracts || []).forEach(function(con) {
     if ((parseFloat(con.subAmount) || 0) < 100000) return;
-    if (!con.oppNo || !appOppNos[con.oppNo]) return;  // oppNo必须在申请记录中（与index一致）
+    if (!con.oppNo || !appOppNos[(con.oppNo || '').trim()]) return;  // oppNo必须在申请记录中（与index一致）
     if (conOppSet[con.oppNo]) return;  // 按oppNo去重（与index一致）
     var m = null;
     if (con.mainSignDate) { var dd = new Date(con.mainSignDate); if (!isNaN(dd)) m = dd.getFullYear() + '-' + String(dd.getMonth()+1).padStart(2,'0'); }

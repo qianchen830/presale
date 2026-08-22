@@ -2736,8 +2736,8 @@ function getConsultantActual(year, quarter) {
 // 按过滤条件（顾问/部门）筛选合同
 function getCardsContracts(filteredApps) {
   var oppNos = {};
-  (filteredApps||[]).forEach(function(a) { if (a.oppNo) oppNos[a.oppNo] = true; });
-  return state.contracts.filter(function(c) { return oppNos[c.oppNo]; });
+  (filteredApps||[]).forEach(function(a) { if (a.oppNo) oppNos[(a.oppNo || '').trim()] = true; });
+  return state.contracts.filter(function(c) { return oppNos[(c.oppNo || '').trim()]; });
 }
 
 // 是否个人视角（普通账号：非admin且无部门查看权限）
