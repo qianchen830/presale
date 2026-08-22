@@ -4910,15 +4910,23 @@ function showDetail(card, type) {
     } else if (type !== 'all' && type !== 'new') {
       apps = filtered.filter(a => a.status === statusMap[type]);
     }
-    // 明细按申请日期升序（早的在前）
-    apps.sort(function(x, y) {
-      var dx = x.applyDate ? new Date(x.applyDate) : null;
-      var dy = y.applyDate ? new Date(y.applyDate) : null;
-      if (!dx && !dy) return 0;
-      if (!dx) return -1;
-      if (!dy) return 1;
-      return dx - dy;
-    });
+    // 签单明细按金额降序（大到小）；其余按申请日期升序（早的在前）
+    if (type === 'won') {
+      apps.sort(function(x, y) {
+        var ax = x.status === '签单' ? (parseFloat(x.signAmount) || 0) : 0;
+        var ay = y.status === '签单' ? (parseFloat(y.signAmount) || 0) : 0;
+        return ay - ax;
+      });
+    } else {
+      apps.sort(function(x, y) {
+        var dx = x.applyDate ? new Date(x.applyDate) : null;
+        var dy = y.applyDate ? new Date(y.applyDate) : null;
+        if (!dx && !dy) return 0;
+        if (!dx) return -1;
+        if (!dy) return 1;
+        return dx - dy;
+      });
+    }
     rows = apps.map(a => {
       // 查找该商机的业绩分配，汇总支持顾问及比例
       var allocs = state.allocations.filter(al => al.oppNo === a.oppNo);
@@ -4944,9 +4952,9 @@ function showDetail(card, type) {
   } else if (card === 'target') {
     title = type === 'target' ? '年度指标明细' : '实际完成明细';
     const signedContracts = getFilteredContracts().slice().sort(function(a, b) {
-      var da = a.signDate || a.month || '';
-      var db = b.signDate || b.month || '';
-      return da < db ? -1 : (da > db ? 1 : 0);
+      var va = parseFloat(a.presalePerformance) || 0;
+      var vb = parseFloat(b.presalePerformance) || 0;
+      return vb - va;
     });
     rows = signedContracts.map(c => ({
       '签单时间': c.signDate || c.month, '客户': c.signCustomerName || c.signCustomer || '—', '项目名称': c.projectName || '—',
