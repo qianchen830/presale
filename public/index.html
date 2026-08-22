@@ -4919,6 +4919,7 @@ function showDetail(card, type) {
     if (yAllocs.length > 0) {
       var yGrouped = {};
       yAllocs.forEach(function(a) {
+        var c = state.contracts.find(function(r) { return r.id === a.contractId; });
         var grpKey = c ? (c.mainContractNo || '—') : '—';
         if (!yGrouped[grpKey]) {
           yGrouped[grpKey] = {
@@ -4973,6 +4974,7 @@ function showDetail(card, type) {
     if (qAllocs.length > 0) {
       var qGrouped = {};
       qAllocs.forEach(function(a) {
+        var c = state.contracts.find(function(r) { return r.id === a.contractId; });
         var grpKey = c ? (c.mainContractNo || '—') : '—';
         if (!qGrouped[grpKey]) {
           qGrouped[grpKey] = {
