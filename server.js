@@ -605,7 +605,7 @@ app.get('/api/state/history/:id', requireAuth, (req, res) => {
 
 // ---- 管理员接口 ----
 app.get('/api/admin/users', requireAuth, (req, res) => {
-  const users = db.prepare('SELECT id, username, display_name, role, department, view_depts, created_at FROM users ORDER BY id ASC').all().map(v => ({id: v.id, username: v.username, display_name: v.display_name, role: v.role, department: v.department, view_depts: v.view_depts, created_at: v.created_at}));
+  const users = db.prepare('SELECT id, username, display_name, role, department, view_depts, created_at FROM users ORDER BY id ASC').all().map(v => ({id: v.id, username: v.username, display_name: v.display_name, role: v.role, department: v.department, view_depts: (() => { try { return JSON.parse(v.view_depts || '[]'); } catch { return []; } })(), created_at: v.created_at}));
   res.json({ users });
 });
 
@@ -645,13 +645,11 @@ app.put('/api/admin/users/:id', requireAdmin, (req, res) => {
 // 重置/修改密码（本人或管理员可调用）
 app.put('/api/admin/users/:id/password', requireAuth, (req, res) => {
   const id = parseInt(req.params.id);
-  console.log('[DEBUG changePassword] id:', id, 'session.userId:', req.session.userId);
   const { password } = req.body || {};
   if (!password || password.length < 6) return res.status(400).json({ error: '密码至少6位' });
   // 非管理员只能修改自己的密码
   if (req.session.role !== 'admin' && req.session.userId !== id) return res.status(403).json({ error: '无权限' });
   const existing = db.prepare("SELECT id FROM users WHERE id = ?").get(id);
-  console.log('[DEBUG changePassword] existing:', existing);
   if (!existing) return res.status(404).json({ error: '用户不存在' });
   const bcrypt = require('bcryptjs');
   const hash = bcrypt.hashSync(password, 10);
