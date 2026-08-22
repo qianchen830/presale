@@ -3235,8 +3235,11 @@ function renderConsultantAnalysis() {
     var d = new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, 1);
     return d >= allocRange.start && d <= allocRange.end;
   }
+  var isPersonalCons = !!state.consultant; // 个人视角：顾问账号只看自己的业绩
+  var myConsName = isPersonalCons ? state.consultant : null;
   var allocList = (state.allocations || []).filter(function(a) {
     if (!a || !(a.consultant || '').trim()) return false;
+    if (isPersonalCons && a.consultant !== myConsName) return false;
     if (!allocInRange(a)) return false;
     var k = (a.oppNo || '') + '|' + (a.consultant || '').trim();
     if (allocSeen[k]) return false;
@@ -3472,6 +3475,7 @@ function renderConsultantAnalysis() {
   });
   var lostArr = Object.keys(lostMap).map(function(k) { return lostMap[k]; })
     .sort(function(x, y) { return y.amount - x.amount; });
+  if (isPersonalCons) lostArr = lostArr.filter(function(d) { return d.name === myConsName; });
   // 脚注口径：按丢失申请数/金额合计（与成交与丢单卡片一致）
   var lostApps = lostPool.filter(function(a) { return a.status === '丢失'; });
   var lostTotalCount = lostApps.length;
@@ -3499,7 +3503,7 @@ function renderConsultantAnalysis() {
 
   // 柱状图卡片（左）与丢单分析（右）等高并排；下方为顾问列表+业绩明细；最后大单统计
   var chartCard = '<div class="t-card" style="height:100%;display:flex;flex-direction:column;">' +
-    '<div class="t-card-hdr"><div class="t-card-title"><i data-lucide="bar-chart-3"></i> 顾问业绩排名</div></div>' +
+    '<div class="t-card-hdr"><div class="t-card-title"><i data-lucide="bar-chart-3"></i> ' + (isPersonalCons ? '我的顾问业绩' : '顾问业绩排名') + '</div></div>' +
     '<div style="flex:1;min-height:0;">' + chartHtml + '</div>' +
   '</div>';
   var bodyCard = '<div class="t-card" style="margin-top:16px;">' + bodyHtml + '</div>';
