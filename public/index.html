@@ -4894,13 +4894,13 @@ function showDetail(card, type) {
         var wc = (state.contracts || []).filter(function(c) { return c.oppNo === a.oppNo && (parseFloat(c.subAmount) || 0) >= 100000; });
         amtW = wc.length > 0 ? wc.reduce(function(s, c) { return s + (parseFloat(c.subAmount) || 0); }, 0) / 10000 : (parseFloat(a.signAmount) || 0) / 10000;
       } else if (a.status === '预计') {
-        amtW = (parseFloat(a.expectedSignAmount) || 0);
+        amtW = (parseFloat(a.expectedSignAmount) || 0); // 存的是万元
       }
       return {
         '申请日期': a.applyDate, '客户': a.customer, '项目名称': a.projectName,
         '商机号': a.oppNo, '销售部门': a.department || '—', '客户经理': a.applicant || '—',
         '支持顾问': consultantStr,
-        '金额(万)': amtW > 0 ? fmtMoney2(amtW) : '—'
+        '金额(万)': amtW > 0 ? fmtMoney2(amtW) + '万' : '—'
       };
     });
   } else if (card === 'target') {
@@ -4912,24 +4912,28 @@ function showDetail(card, type) {
     }));
   } else if (card === 'yearActual') {
     title = type + '年 实际完成明细';
-    // 收集当前可见商机的所有 oppNo 变体（支持多编号格式），作为归属判断基准
-    var filteredApps = getFilteredApps() || [];
+    // 收集所有商机的所有 oppNo 变体（支持多编号格式），用于判断业绩归属
+    var allAppsForMatch = getAllApps() || [];
     var filteredOppNos = new Set();
-    filteredApps.forEach(function(a) {
+    allAppsForMatch.forEach(function(a) {
       filteredOppNos.add(a.oppNo);
       (a.oppNo || '').split('、').forEach(function(s) { var t = s.trim(); if (t) filteredOppNos.add(t); });
     });
     // 匹配规则（任一满足）：
-    // 1. allocation.oppNo 在可见商机oppNo集合中
-    // 2. allocation.contractId 对应合同的oppNo在可见商机oppNo集合中
+    // 1. allocation.contractId 对应合同的oppNo在任意申请中（合同归属申请）
+    // 2. 个人视角：本人参与的分配（别人分配给自己的项目也要能看到）
+    var isPersonal = _isPersonalScope();
+    var myName = isPersonal ? (_currentUser.displayName || _currentUser.username) : null;
     var yAllocs = (state.allocations || []).filter(function(a) {
       var aYear = a.month ? parseInt(String(a.month).split('-')[0]) : null;
       if (aYear !== parseInt(type)) return false;
-      if (filteredOppNos.has(a.oppNo)) return true;
+      // 合同归属申请
       if (a.contractId) {
         var c = state.contracts.find(function(r) { return r.id === a.contractId; });
         if (c && (filteredOppNos.has(c.oppNo) || (c.oppNo || '').split('、').some(function(s) { return filteredOppNos.has(s.trim()); }))) return true;
       }
+      // 个人视角：本人参与的分配（不受申请可见性限制）
+      if (isPersonal && a.consultant === myName) return true;
       return false;
     });
     if (yAllocs.length > 0) {
@@ -4964,21 +4968,25 @@ function showDetail(card, type) {
     } else { rows = []; }
   } else if (card === 'quarter') {
     title = type + ' 完成明细（' + state.year + '年）';
-    var filteredAppsQ = getFilteredApps() || [];
+    var allAppsForMatchQ = getAllApps() || [];
     var filteredOppNosQ = new Set();
-    filteredAppsQ.forEach(function(a) {
+    allAppsForMatchQ.forEach(function(a) {
       filteredOppNosQ.add(a.oppNo);
       (a.oppNo || '').split('、').forEach(function(s) { var t = s.trim(); if (t) filteredOppNosQ.add(t); });
     });
+    var isPersonalQ = _isPersonalScope();
+    var myNameQ = isPersonalQ ? (_currentUser.displayName || _currentUser.username) : null;
     var qAllocs = (state.allocations || []).filter(function(a) {
       if (a.quarter !== type) return false;
       var aYear = a.month ? parseInt(String(a.month).split('-')[0]) : null;
       if (aYear !== state.year) return false;
-      if (filteredOppNosQ.has(a.oppNo)) return true;
+      // 合同归属申请
       if (a.contractId) {
         var c = state.contracts.find(function(r) { return r.id === a.contractId; });
         if (c && (filteredOppNosQ.has(c.oppNo) || (c.oppNo || '').split('、').some(function(s) { return filteredOppNosQ.has(s.trim()); }))) return true;
       }
+      // 个人视角：本人参与的分配（不受申请可见性限制）
+      if (isPersonalQ && a.consultant === myNameQ) return true;
       return false;
     });
     if (qAllocs.length > 0) {
