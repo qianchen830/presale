@@ -4919,25 +4919,26 @@ function showDetail(card, type) {
     if (yAllocs.length > 0) {
       var yGrouped = {};
       yAllocs.forEach(function(a) {
-        if (!yGrouped[a.contractId]) {
-          var c = state.contracts.find(function(r) { return r.id === a.contractId; });
-          yGrouped[a.contractId] = {
+        var grpKey = c ? (c.mainContractNo || '—') : '—';
+        if (!yGrouped[grpKey]) {
+          yGrouped[grpKey] = {
             month: a.month || '—', quarter: a.quarter || '—',
-            mainContractNo: c ? (c.mainContractNo || '—') : '—',
+            mainContractNo: grpKey,
             signCustomer: c ? (c.signCustomer || '—') : '—',
             signCustomerName: c ? (c.signCustomerName || '—') : '—',
             salesDept: c ? (c.salesDept || '—') : (a.department || '—'),
             accountMgr: c ? (c.accountMgr || '—') : '—',
-            contractPerformance: a.contractPerformance, consultants: []
+            contractPerformance: 0, consultants: []
           };
         }
-        yGrouped[a.contractId].consultants.push((a.consultant || '—') + (a.pct != null ? '(' + a.pct + '%)' : ''));
+        yGrouped[grpKey].contractPerformance += parseFloat(a.contractPerformance) || 0;
+        yGrouped[grpKey].consultants.push((a.consultant || '—') + (a.pct != null ? '(' + a.pct + '%)' : ''));
       });
-      rows = Object.keys(yGrouped).map(function(cid) {
-        var g = yGrouped[cid];
+      rows = Object.keys(yGrouped).map(function(mcno) {
+        var g = yGrouped[mcno];
         return {
           '月份': g.month, '季度': g.quarter,
-          '主合同编号': g.mainContractNo,
+          '主合同编号': mcno,
           '申请客户名称': g.signCustomer,
           '签约客户名称': g.signCustomerName,
           '销售部门': g.salesDept, '客户经理': g.accountMgr,
@@ -4972,25 +4973,26 @@ function showDetail(card, type) {
     if (qAllocs.length > 0) {
       var qGrouped = {};
       qAllocs.forEach(function(a) {
-        if (!qGrouped[a.contractId]) {
-          var c = state.contracts.find(function(r) { return r.id === a.contractId; });
-          qGrouped[a.contractId] = {
+        var grpKey = c ? (c.mainContractNo || '—') : '—';
+        if (!qGrouped[grpKey]) {
+          qGrouped[grpKey] = {
             month: a.month || '—',
-            mainContractNo: c ? (c.mainContractNo || '—') : '—',
+            mainContractNo: grpKey,
             signCustomer: c ? (c.signCustomer || '—') : '—',
             signCustomerName: c ? (c.signCustomerName || '—') : '—',
             salesDept: c ? (c.salesDept || '—') : (a.department || '—'),
             accountMgr: c ? (c.accountMgr || '—') : '—',
-            contractPerformance: a.contractPerformance, consultants: []
+            contractPerformance: 0, consultants: []
           };
         }
-        qGrouped[a.contractId].consultants.push((a.consultant || '—') + (a.pct != null ? '(' + a.pct + '%)' : ''));
+        qGrouped[grpKey].contractPerformance += parseFloat(a.contractPerformance) || 0;
+        qGrouped[grpKey].consultants.push((a.consultant || '—') + (a.pct != null ? '(' + a.pct + '%)' : ''));
       });
-      rows = Object.keys(qGrouped).map(function(cid) {
-        var g = qGrouped[cid];
+      rows = Object.keys(qGrouped).map(function(mcno) {
+        var g = qGrouped[mcno];
         return {
           '月份': g.month,
-          '主合同编号': g.mainContractNo,
+          '主合同编号': mcno,
           '申请客户名称': g.signCustomer,
           '签约客户名称': g.signCustomerName,
           '销售部门': g.salesDept, '客户经理': g.accountMgr,
