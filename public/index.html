@@ -2829,8 +2829,30 @@ function renderCards() {
   const riskApps = baseApps.filter(a => state.judgments.some(j => j.oppNo === a.oppNo && j.isRisk === '是'));
 
   // 各状态金额口径（单位万元）：签单=合同subAmount（10万门槛）；预计=expectedSignAmount（存万）；其余状态不计金额
+  // 各状态金额口径（单位万元）：
+  //   签单：个人视角=本人分配份额(consultantPerformance)，部门/admin视角=合同subAmount（10万门槛）
+  //   预计：expectedSignAmount（存万）
+  //   其余状态：不计金额
   const amtOfApp = function(a) {
     if (a.status === '签单') {
+      if (_isPersonalScope()) {
+        var myName = _currentUser.displayName || _currentUser.username;
+        return (state.allocations || [])
+          .filter(function(al) {
+            if (al.consultant !== myName) return false;
+            if (al.oppNo === a.oppNo) return true;
+            // allocation.contractId 对应合同的 oppNo 匹配申请的 oppNo（含多编号包含关系）
+            if (al.contractId) {
+              var c = state.contracts.find(function(cc) { return cc.id === al.contractId; });
+              if (!c) return false;
+              var appOpps = (a.oppNo || '').split('、').map(function(s) { return s.trim(); });
+              if (c.oppNo !== a.oppNo && !appOpps.includes(c.oppNo)) return false;
+              return true;
+            }
+            return false;
+          })
+          .reduce(function(s, al) { return s + (parseFloat(al.consultantPerformance) || 0); }, 0) / 10000;
+      }
       var wonCon = state.contracts.filter(function(c) { return c.oppNo === a.oppNo && (parseFloat(c.subAmount) || 0) >= 100000; });
       if (wonCon.length > 0) return wonCon.reduce(function(s, c) { return s + (parseFloat(c.subAmount) || 0); }, 0) / 10000;
       return (parseFloat(a.signAmount) || 0) / 10000;
@@ -4890,28 +4912,39 @@ function showDetail(card, type) {
     }));
   } else if (card === 'yearActual') {
     title = type + '年 实际完成明细';
-    // 以当前过滤条件下的申请为基础，筛选对应年度的业绩分配
-    var filteredOppNos = new Set((getFilteredApps() || []).map(function(a) { return a.oppNo; }));
+    // 收集当前可见商机的所有 oppNo 变体（支持多编号格式），作为归属判断基准
+    var filteredApps = getFilteredApps() || [];
+    var filteredOppNos = new Set();
+    filteredApps.forEach(function(a) {
+      filteredOppNos.add(a.oppNo);
+      (a.oppNo || '').split('、').forEach(function(s) { var t = s.trim(); if (t) filteredOppNos.add(t); });
+    });
+    // 匹配规则（任一满足）：
+    // 1. allocation.oppNo 在可见商机oppNo集合中
+    // 2. allocation.contractId 对应合同的oppNo在可见商机oppNo集合中
     var yAllocs = (state.allocations || []).filter(function(a) {
       var aYear = a.month ? parseInt(String(a.month).split('-')[0]) : null;
-      return aYear === parseInt(type) && filteredOppNos.has(a.oppNo);
+      if (aYear !== parseInt(type)) return false;
+      if (filteredOppNos.has(a.oppNo)) return true;
+      if (a.contractId) {
+        var c = state.contracts.find(function(r) { return r.id === a.contractId; });
+        if (c && (filteredOppNos.has(c.oppNo) || (c.oppNo || '').split('、').some(function(s) { return filteredOppNos.has(s.trim()); }))) return true;
+      }
+      return false;
     });
     if (yAllocs.length > 0) {
-      // 按合同ID分组，合并同一合同的多个顾问分配
       var yGrouped = {};
       yAllocs.forEach(function(a) {
         if (!yGrouped[a.contractId]) {
           var c = state.contracts.find(function(r) { return r.id === a.contractId; });
           yGrouped[a.contractId] = {
-            month: a.month || '—',
-            quarter: a.quarter || '—',
+            month: a.month || '—', quarter: a.quarter || '—',
             mainContractNo: c ? (c.mainContractNo || '—') : '—',
             signCustomer: c ? (c.signCustomer || '—') : '—',
             signCustomerName: c ? (c.signCustomerName || '—') : '—',
             salesDept: c ? (c.salesDept || '—') : (a.department || '—'),
             accountMgr: c ? (c.accountMgr || '—') : '—',
-            contractPerformance: a.contractPerformance,
-            consultants: []
+            contractPerformance: a.contractPerformance, consultants: []
           };
         }
         yGrouped[a.contractId].consultants.push((a.consultant || '—') + (a.pct != null ? '(' + a.pct + '%)' : ''));
@@ -4923,25 +4956,32 @@ function showDetail(card, type) {
           '主合同编号': g.mainContractNo,
           '申请客户名称': g.signCustomer,
           '签约客户名称': g.signCustomerName,
-          '销售部门': g.salesDept,
-          '客户经理': g.accountMgr,
-          '合同业绩(元)': fmtMoney(g.contractPerformance),
+          '销售部门': g.salesDept, '客户经理': g.accountMgr,
+          '合同业绩(万)': fmtMoney2((parseFloat(g.contractPerformance) || 0) / 10000),
           '支持顾问': g.consultants.join(', ')
         };
       });
-    } else {
-      rows = [];
-    }
+    } else { rows = []; }
   } else if (card === 'quarter') {
     title = type + ' 完成明细（' + state.year + '年）';
-    var filteredOppNosQ = new Set((getFilteredApps() || []).map(function(a) { return a.oppNo; }));
+    var filteredAppsQ = getFilteredApps() || [];
+    var filteredOppNosQ = new Set();
+    filteredAppsQ.forEach(function(a) {
+      filteredOppNosQ.add(a.oppNo);
+      (a.oppNo || '').split('、').forEach(function(s) { var t = s.trim(); if (t) filteredOppNosQ.add(t); });
+    });
     var qAllocs = (state.allocations || []).filter(function(a) {
       if (a.quarter !== type) return false;
       var aYear = a.month ? parseInt(String(a.month).split('-')[0]) : null;
-      return aYear === state.year && filteredOppNosQ.has(a.oppNo);
+      if (aYear !== state.year) return false;
+      if (filteredOppNosQ.has(a.oppNo)) return true;
+      if (a.contractId) {
+        var c = state.contracts.find(function(r) { return r.id === a.contractId; });
+        if (c && (filteredOppNosQ.has(c.oppNo) || (c.oppNo || '').split('、').some(function(s) { return filteredOppNosQ.has(s.trim()); }))) return true;
+      }
+      return false;
     });
     if (qAllocs.length > 0) {
-      // 按合同ID分组，合并同一合同的多个顾问分配
       var qGrouped = {};
       qAllocs.forEach(function(a) {
         if (!qGrouped[a.contractId]) {
@@ -4953,8 +4993,7 @@ function showDetail(card, type) {
             signCustomerName: c ? (c.signCustomerName || '—') : '—',
             salesDept: c ? (c.salesDept || '—') : (a.department || '—'),
             accountMgr: c ? (c.accountMgr || '—') : '—',
-            contractPerformance: a.contractPerformance,
-            consultants: []
+            contractPerformance: a.contractPerformance, consultants: []
           };
         }
         qGrouped[a.contractId].consultants.push((a.consultant || '—') + (a.pct != null ? '(' + a.pct + '%)' : ''));
@@ -4966,15 +5005,12 @@ function showDetail(card, type) {
           '主合同编号': g.mainContractNo,
           '申请客户名称': g.signCustomer,
           '签约客户名称': g.signCustomerName,
-          '销售部门': g.salesDept,
-          '客户经理': g.accountMgr,
-          '合同业绩(元)': fmtMoney(g.contractPerformance),
+          '销售部门': g.salesDept, '客户经理': g.accountMgr,
+          '合同业绩(万)': fmtMoney2((parseFloat(g.contractPerformance) || 0) / 10000),
           '支持顾问': g.consultants.join(', ')
         };
       });
-    } else {
-      rows = [];
-    }
+    } else { rows = []; }
   } else if (card === 'risk') {
     title = '风险项目明细';
     const riskApps = filtered.filter(a => state.judgments.some(j => j.oppNo === a.oppNo && j.isRisk === '是'));
