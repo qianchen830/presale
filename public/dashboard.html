@@ -2551,7 +2551,7 @@ function renderCards() {
     }
     _wonAmt += (parseFloat(con.subAmount) || 0) / 10000;
     _wonCount++;
-    console.log('[DEBUG _wonAmt]', 'pk:', getPeriodKey(), '_wonAmt:', _wonAmt, '_wonCount:', _wonCount);
+    console.log('[DEBUG _wonAmt]', 'pk:', getPeriodKey(), '_dedupView:', _dedupView, '_u:', JSON.stringify(_u), 'won:', won, '_wonCount:', _wonCount, '_wonAmt:', _wonAmt.toFixed(2));
   });
   const expAppsArr = baseApps.filter(a => a.status === '预计');
   const newAppsArr = baseApps.filter(a => inRange(a.applyDate, getPeriodRange(getPeriodKey())));
@@ -2617,6 +2617,7 @@ function renderCards() {
     return daysSince > 14;
   });
 
+  console.log('[DEBUG statusGroups]', 'won:', won, '_wonCount:', _wonCount, '_wonAmt:', _wonAmt.toFixed(2));
   const statusGroups = [
     { label: '新增', count: newApps.length, amount: newApps.reduce((s, a) => s + amtOf(a), 0), color: 'var(--sf-blue)', type: 'new' },
     { label: '跟进', count: followApps.length, amount: followApps.reduce((s, a) => s + amtOf(a), 0), color: 'var(--sf-warning-text)', type: 'active' },
