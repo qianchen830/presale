@@ -1272,9 +1272,9 @@ function fmtMoneyInputBlur(el) { var raw = (el.value || '').replace(/[,，\s]/g,
 function fmtDate(d) { return d || '—'; }
 function amtOf(a) {
   // 10万门槛：合同金额<10万不计售前绩效
-  // 普通账号视角：优先取本人分配份额（consultantPerformance），无分配才用合同金额
+  // 普通账号视角：优先取本人分配份额（consultantPerformance），无分配才用合同金额；admin/部门视角直接用合同金额
   if (a.status === '签单' || a.status === '预计' || a.status === '活跃' || a.status === '丢失' || a.status === '暂停') {
-    var myName = state.consultant; // 普通账号有值，admin账号为空
+    var myName = _isPersonalDash() ? (state.consultant || (window._dashUser && (window._dashUser.displayName || window._dashUser.username))) : null;
     if (myName) {
       var matched = (state.allocations || []).filter(function(al) {
         if (al.consultant !== myName) return false;
@@ -2432,11 +2432,20 @@ async function loadState() {
     const r = await fetch('/api/state', { credentials: 'include' });
     const res = await r.json();
     if (!res || !res.state) return false;
+    // 保存当前登录用户信息（判断视角：admin/部门/普通账号）
+    window._dashUser = res.user || null;
     return applyStateObj(res.state);
   } catch(e) {
     console.error('loadState failed:', e);
   }
   return false;
+}
+
+// 是否个人视角（普通账号：非admin且无部门查看权限；与index.html的_isPersonalScope口径一致）
+function _isPersonalDash() {
+  var u = window._dashUser;
+  if (!u) return !!(state.consultant); // 兼容：未拿到user信息时回退旧判断
+  return u.role !== 'admin' && !(u.view_depts && u.view_depts.length > 0);
 }
 
 /* ===== 检查是否需要导出提醒（在保存状态区域显示） ===== */
@@ -2469,16 +2478,31 @@ function renderCards() {
   const filtered = getFilteredApps();
   const all = getAllApps();
 
-  const total = filtered.length;
-  const newCount = filtered.filter(a => inRange(a.applyDate, getPeriodRange(getPeriodKey()))).length;
-  const following = filtered.filter(a => a.status === '活跃').length;
-  const lost = filtered.filter(a => a.status === '丢失').length;
-  const won = filtered.filter(a => a.status === '签单').length;
-  const totalAmount = filtered.reduce((s, a) => s + amtOf(a), 0);
+  // 视角判断（与index.html一致）：admin/部门视角按oppNo去重，个人视角不去重
+  var _u = window._dashUser || null;
+  var _dedupView = _u && (_u.role === 'admin' || (_u.view_depts && _u.view_depts.length > 0));
+  var baseApps = filtered;
+  if (_dedupView) {
+    var seen = {};
+    baseApps = filtered.filter(function(a) { if (a.oppNo && !seen[a.oppNo]) { seen[a.oppNo] = true; return true; } return false; });
+  }
 
-  // 期间业绩目标进度（随年/季/月/周筛选联动；实际数从筛选后合同取，10万门槛，用presalePerformance）
+  const total = baseApps.length;
+  const newCount = baseApps.filter(a => inRange(a.applyDate, getPeriodRange(getPeriodKey()))).length;
+  const following = baseApps.filter(a => a.status === '活跃').length;
+  const lost = baseApps.filter(a => a.status === '丢失').length;
+  const won = baseApps.filter(a => a.status === '签单').length;
+  // 顶部金额（与index.html一致）：admin/部门视角=新增金额；个人视角=签单+预计
+  const wonAppsArr = baseApps.filter(a => a.status === '签单');
+  const expAppsArr = baseApps.filter(a => a.status === '预计');
+  const newAppsArr = baseApps.filter(a => inRange(a.applyDate, getPeriodRange(getPeriodKey())));
+  const _wonAmt = wonAppsArr.reduce((s, a) => s + amtOf(a), 0);
+  const _expAmt = expAppsArr.reduce((s, a) => s + amtOf(a), 0);
+  const totalAmount = _dedupView ? newAppsArr.reduce((s, a) => s + amtOf(a), 0) : (_wonAmt + _expAmt);
+
+  // 期间业绩目标进度（随年/季/月/周筛选联动；实际数从筛选后合同取，10万门槛，用subAmount，与售前管理系统一致）
   const _yearWon = getFilteredContracts().filter(function(c) { return (parseFloat(c.subAmount) || 0) >= 100000; });
-  const _perfActual = _yearWon.reduce(function(s, c) { return s + (parseFloat(c.presalePerformance) || 0); }, 0) / 10000;
+  const _perfActual = _yearWon.reduce(function(s, c) { return s + (parseFloat(c.subAmount) || 0); }, 0) / 10000;
   const _pk = getPeriodKey().split('_');
   let tgtLabel = '年度目标';
   let tgtVal = parseFloat(state.annualTarget) || 0;
@@ -2497,7 +2521,7 @@ function renderCards() {
   const tgtPct = tgtVal > 0 ? (_perfActual / tgtVal * 100) : 0;
   const tgtBarW = Math.min(Math.max(tgtPct, 0), 100);
 
-  var showTarget = !state.consultant; // 非顾问账号才显示年度目标
+  var showTarget = !_isPersonalDash(); // 非个人视角（admin/部门）才显示年度目标
   var targetHtml = '';
   if (showTarget) {
     targetHtml = '<div style="margin-top:8px;padding:8px 10px;background:var(--sf-gray-1);border-radius:var(--sf-radius);cursor:pointer" onclick="showDetail(\'target\',\'target\')" title="点击查看签单合同明细">' +
@@ -3248,8 +3272,8 @@ function renderConsultantAnalysis() {
     var d = new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, 1);
     return d >= allocRange.start && d <= allocRange.end;
   }
-  var isPersonalCons = !!state.consultant; // 个人视角：顾问账号只看自己的业绩
-  var myConsName = isPersonalCons ? state.consultant : null;
+  var isPersonalCons = _isPersonalDash(); // 个人视角：普通账号只看自己的业绩
+  var myConsName = isPersonalCons ? (state.consultant || (window._dashUser && (window._dashUser.displayName || window._dashUser.username))) : null;
   var allocList = (state.allocations || []).filter(function(a) {
     if (!a || !(a.consultant || '').trim()) return false;
     if (isPersonalCons && a.consultant !== myConsName) return false;
@@ -3571,8 +3595,8 @@ function renderSalesAnalysis() {
   if (!container) return;
   var contracts = getFilteredContracts(); // 按当前筛选期间取数
 
-  var isPersonalSales = !!state.consultant; // 个人视角：顾问账号只显示本人支持的合同关联的销售人员
-  var myConsName = isPersonalSales ? state.consultant : null;
+  var isPersonalSales = _isPersonalDash(); // 个人视角：普通账号只显示本人支持的合同关联的销售人员
+  var myConsName = isPersonalSales ? (state.consultant || (window._dashUser && (window._dashUser.displayName || window._dashUser.username))) : null;
   var myOppNos = {};
   if (isPersonalSales) {
     (state.allocations || []).forEach(function(al) {
