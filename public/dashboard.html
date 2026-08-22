@@ -1272,12 +1272,33 @@ function fmtMoneyInputBlur(el) { var raw = (el.value || '').replace(/[,，\s]/g,
 function fmtDate(d) { return d || '—'; }
 function amtOf(a) {
   // 10万门槛：合同金额<10万不计售前绩效
-  if (a.status === '签单') {
-    var contracts = (state.contracts || []).filter(function(c) { return c.oppNo === a.oppNo && (parseFloat(c.subAmount) || 0) >= 100000; });
-    if (!contracts.length) return 0;
-    return contracts.reduce(function(s, c) { return s + (parseFloat(c.subAmount) || 0); }, 0) / 10000;
+  // 普通账号视角：优先取本人分配份额（consultantPerformance），无分配才用合同金额
+  if (a.status === '签单' || a.status === '预计' || a.status === '活跃' || a.status === '丢失' || a.status === '暂停') {
+    var myName = state.consultant; // 普通账号有值，admin账号为空
+    if (myName) {
+      var matched = (state.allocations || []).filter(function(al) {
+        if (al.consultant !== myName) return false;
+        if (al.oppNo === a.oppNo) return true;
+        if (al.contractId) {
+          var c = (state.contracts || []).find(function(cc) { return cc.id === al.contractId; });
+          if (!c) return false;
+          var appOpps = (a.oppNo || '').split('、').map(function(s) { return s.trim(); });
+          if (c.oppNo !== a.oppNo && !appOpps.includes(c.oppNo)) return false;
+          return true;
+        }
+        return false;
+      });
+      if (matched.length > 0) {
+        return matched.reduce(function(s, al) { return s + (parseFloat(al.consultantPerformance) || 0); }, 0) / 10000;
+      }
+    }
+    if (a.status === '签单') {
+      var contracts = (state.contracts || []).filter(function(c) { return c.oppNo === a.oppNo && (parseFloat(c.subAmount) || 0) >= 100000; });
+      if (!contracts.length) return 0;
+      return contracts.reduce(function(s, c) { return s + (parseFloat(c.subAmount) || 0); }, 0) / 10000;
+    }
+    if (a.status === '预计' || a.status === '活跃' || a.status === '丢失' || a.status === '暂停') return (parseFloat(a.expectedSignAmount) || 0) / 10000;
   }
-  if (a.status === '预计' || a.status === '活跃' || a.status === '丢失' || a.status === '暂停') return (parseFloat(a.expectedSignAmount) || 0) / 10000;
   return 0;
 }
 /* 业绩分配顾问业绩合计（以 allocations 的 consultantPerformance 为准；无分配返回 0） */
