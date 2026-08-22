@@ -4920,6 +4920,8 @@ function showDetail(card, type) {
       var yGrouped = {};
       yAllocs.forEach(function(a) {
         var c = state.contracts.find(function(r) { return r.id === a.contractId; });
+        // contractId找不到时，用allocation.oppNo查合同（同oppNo的合同取mainContractNo）
+        if (!c && a.oppNo) c = state.contracts.find(function(r) { return r.oppNo === a.oppNo; });
         var grpKey = c ? (c.mainContractNo || '—') : '—';
         if (!yGrouped[grpKey]) {
           yGrouped[grpKey] = {
@@ -4975,6 +4977,7 @@ function showDetail(card, type) {
       var qGrouped = {};
       qAllocs.forEach(function(a) {
         var c = state.contracts.find(function(r) { return r.id === a.contractId; });
+        if (!c && a.oppNo) c = state.contracts.find(function(r) { return r.oppNo === a.oppNo; });
         var grpKey = c ? (c.mainContractNo || '—') : '—';
         if (!qGrouped[grpKey]) {
           qGrouped[grpKey] = {
