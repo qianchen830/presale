@@ -531,7 +531,7 @@ app.get('/api/state', requireAuth, (req, res) => {
   });
   merged.deptSupportTargets = computedDeptSupport;
 
-  res.json({ state: merged, updatedAt: result.updatedAt });
+  res.json({ state: merged, updatedAt: result.updatedAt, user: user });
 });
 
 app.put('/api/state', requireAuth, (req, res) => {

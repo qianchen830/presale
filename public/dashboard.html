@@ -2445,7 +2445,10 @@ async function loadState() {
 function _isPersonalDash() {
   var u = window._dashUser;
   if (!u) return !!(state.consultant); // 兼容：未拿到user信息时回退旧判断
-  return u.role !== 'admin' && !(u.view_depts && u.view_depts.length > 0);
+  if (u.role === 'admin') return false;
+  var vd = u.view_depts;
+  if (typeof vd === 'string') { try { vd = JSON.parse(vd || '[]'); } catch (e) { vd = []; } }
+  return !(Array.isArray(vd) && vd.length > 0);
 }
 
 /* ===== 检查是否需要导出提醒（在保存状态区域显示） ===== */
