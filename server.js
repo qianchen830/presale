@@ -121,7 +121,10 @@ function saveDb() {
   if (!db) return;
   const buf = db.export();
   const bufArr = Buffer.from(buf);
-  fs.writeFileSync(DB_PATH, bufArr);
+  // 原子写入：先写临时文件再 rename，避免写过程崩溃导致数据库损坏
+  const tmp = DB_PATH + '.tmp';
+  fs.writeFileSync(tmp, bufArr);
+  fs.renameSync(tmp, DB_PATH);
 }
 
 // 同步落盘：模块CRUD/状态保存后立即写盘。
