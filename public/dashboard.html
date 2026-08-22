@@ -2484,13 +2484,10 @@ function renderCards() {
   const tgtPct = tgtVal > 0 ? (_perfActual / tgtVal * 100) : 0;
   const tgtBarW = Math.min(Math.max(tgtPct, 0), 100);
 
-  document.getElementById('cardOverview').innerHTML =
-    '<div class="overview-top" onclick="showDetail(\'overview\',\'all\')">' +
-    '<span class="ov-num">' + total + '<b>个</b></span>' +
-    '<span class="ov-split"></span>' +
-    '<span class="ov-amt">金额：' + fmtMoney2(totalAmount) + '</span>' +
-    '</div>' +
-    '<div style="margin-top:8px;padding:8px 10px;background:var(--sf-gray-1);border-radius:var(--sf-radius);cursor:pointer" onclick="showDetail(\'target\',\'target\')" title="点击查看签单合同明细">' +
+  var showTarget = !state.consultant; // 非顾问账号才显示年度目标
+  var targetHtml = '';
+  if (showTarget) {
+    targetHtml = '<div style="margin-top:8px;padding:8px 10px;background:var(--sf-gray-1);border-radius:var(--sf-radius);cursor:pointer" onclick="showDetail(\'target\',\'target\')" title="点击查看签单合同明细">' +
       '<div style="display:flex;justify-content:space-between;font-size:var(--text-2xs);color:var(--sf-text-secondary);margin-bottom:4px">' +
         '<span>' + tgtLabel + '：<b style="color:var(--sf-text)">' + (tgtVal > 0 ? fmtMoney2(tgtVal) : '—') + (tgtVal > 0 ? ' 万' : '') + '</b></span>' +
         '<span>完成：<b style="color:var(--sf-success-text)">' + fmtMoney2(Math.round(_perfActual * 100) / 100) + '</b> 万' + (tgtVal > 0 ? ' (' + tgtPct.toFixed(1) + '%)' : '') + '</span>' +
@@ -2499,6 +2496,14 @@ function renderCards() {
         '<div style="height:100%;width:' + tgtBarW + '%;background:linear-gradient(90deg,var(--sf-blue),var(--sf-success-text));border-radius:3px;transition:width .3s"></div>' +
       '</div>' +
     '</div>';
+  }
+  document.getElementById('cardOverview').innerHTML =
+    '<div class="overview-top" onclick="showDetail(\'overview\',\'all\')">' +
+    '<span class="ov-num">' + total + '<b>个</b></span>' +
+    '<span class="ov-split"></span>' +
+    '<span class="ov-amt">金额：' + fmtMoney2(totalAmount) + '</span>' +
+    '</div>' +
+    targetHtml;
 
   const riskApps = filtered.filter(a => state.judgments.some(j => j.oppNo === a.oppNo && j.isRisk === '是'));
   const newApps = filtered.filter(a => inRange(a.applyDate, getPeriodRange(getPeriodKey())));
