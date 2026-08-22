@@ -614,7 +614,7 @@ app.post('/api/admin/users', requireAdmin, (req, res) => {
   if (!username || !password) return res.status(400).json({ error: '用户名和密码不能为空' });
   const safeName = username.replace(/'/g, "''");
   const existing = db.prepare("SELECT id FROM users WHERE username = ?").get(safeName);
-  if (existing.length && existing[0].values.length) return res.status(409).json({ error: '用户名已存在' });
+  if (existing) return res.status(409).json({ error: '用户名已存在' });
   const bcrypt = require('bcryptjs');
   const hash = bcrypt.hashSync(password, 10);
   const now = new Date().toISOString();
@@ -628,7 +628,7 @@ app.put('/api/admin/users/:id', requireAdmin, (req, res) => {
   const id = parseInt(req.params.id);
   const { password, displayName, role, department, viewDepts } = req.body || {};
   const existing = db.prepare("SELECT id FROM users WHERE id = ?").get(id);
-  if (!existing.length || !existing[0].values.length) return res.status(404).json({ error: '用户不存在' });
+  if (!existing) return res.status(404).json({ error: '用户不存在' });
   if (password) {
     const bcrypt = require('bcryptjs');
     const hash = bcrypt.hashSync(password, 10);
@@ -650,7 +650,7 @@ app.put('/api/admin/users/:id/password', requireAuth, (req, res) => {
   // 非管理员只能修改自己的密码
   if (req.session.role !== 'admin' && req.session.userId !== id) return res.status(403).json({ error: '无权限' });
   const existing = db.prepare("SELECT id FROM users WHERE id = ?").get(id);
-  if (!existing.length || !existing[0].values.length) return res.status(404).json({ error: '用户不存在' });
+  if (!existing) return res.status(404).json({ error: '用户不存在' });
   const bcrypt = require('bcryptjs');
   const hash = bcrypt.hashSync(password, 10);
   db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(hash, id);
@@ -685,7 +685,7 @@ app.delete('/api/admin/users/:id', requireAdmin, (req, res) => {
   const id = parseInt(req.params.id);
   if (id === req.session.userId) return res.status(400).json({ error: '不能删除自己' });
   const existing = db.prepare("SELECT id FROM users WHERE id = ?").get(id);
-  if (!existing.length || !existing[0].values.length) return res.status(404).json({ error: '用户不存在' });
+  if (!existing) return res.status(404).json({ error: '用户不存在' });
   db.prepare("DELETE FROM users WHERE id = ?").run(id);
   saveDbs();
   res.json({ ok: true });
@@ -707,7 +707,7 @@ app.get('/api/admin/employees', requireAuth, (req, res) => {
   departments.forEach(d => { deptById[d.id] = d.name; });
   // 已有账号的用户名
   const existing = db.prepare("SELECT username FROM users").all();
-  const usedNames = new Set((existing[0]?.values || []).map(v => v[0]));
+  const usedNames = new Set(existing.map(v => v.username));
   // 只返回未创建账号的员工（过滤掉已创建账号的）
   const available = employees.filter(e => !usedNames.has(e.name)).map(e => ({
     name: e.name,
