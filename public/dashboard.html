@@ -1293,6 +1293,8 @@ function amtOf(a) {
       }
     }
     if (a.status === '签单') {
+      // admin/部门视角用signAmount（与index一致）；个人视角用合同subAmount
+      if (_dedupView) return (parseFloat(a.signAmount) || 0) / 10000;
       var contracts = (state.contracts || []).filter(function(c) { return c.oppNo === a.oppNo && (parseFloat(c.subAmount) || 0) >= 100000; });
       if (!contracts.length) return 0;
       return contracts.reduce(function(s, c) { return s + (parseFloat(c.subAmount) || 0); }, 0) / 10000;
