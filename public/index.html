@@ -4923,6 +4923,7 @@ function showDetail(card, type) {
         // contractId找不到时，用allocation.oppNo查合同（同oppNo的合同取mainContractNo）
         if (!c && a.oppNo) c = state.contracts.find(function(r) { return r.oppNo === a.oppNo; });
         var grpKey = c ? (c.mainContractNo || '—') : '—';
+        var consKey = (a.consultant || '—') + (a.pct != null ? '(' + a.pct + '%)' : '');
         if (!yGrouped[grpKey]) {
           yGrouped[grpKey] = {
             month: a.month || '—', quarter: a.quarter || '—',
@@ -4931,11 +4932,14 @@ function showDetail(card, type) {
             signCustomerName: c ? (c.signCustomerName || '—') : '—',
             salesDept: c ? (c.salesDept || '—') : (a.department || '—'),
             accountMgr: c ? (c.accountMgr || '—') : '—',
-            contractPerformance: 0, consultants: []
+            contractPerformance: 0, _consSet: new Set()
           };
         }
-        yGrouped[grpKey].contractPerformance += parseFloat(a.contractPerformance) || 0;
-        yGrouped[grpKey].consultants.push((a.consultant || '—') + (a.pct != null ? '(' + a.pct + '%)' : ''));
+        if (!yGrouped[grpKey]._consSet.has(consKey)) {
+          yGrouped[grpKey]._consSet.add(consKey);
+          yGrouped[grpKey].consultants.push(consKey);
+          yGrouped[grpKey].contractPerformance += parseFloat(a.contractPerformance) || 0;
+        }
       });
       rows = Object.keys(yGrouped).map(function(mcno) {
         var g = yGrouped[mcno];
@@ -4979,6 +4983,7 @@ function showDetail(card, type) {
         var c = state.contracts.find(function(r) { return r.id === a.contractId; });
         if (!c && a.oppNo) c = state.contracts.find(function(r) { return r.oppNo === a.oppNo; });
         var grpKey = c ? (c.mainContractNo || '—') : '—';
+        var consKey = (a.consultant || '—') + (a.pct != null ? '(' + a.pct + '%)' : '');
         if (!qGrouped[grpKey]) {
           qGrouped[grpKey] = {
             month: a.month || '—',
@@ -4987,11 +4992,14 @@ function showDetail(card, type) {
             signCustomerName: c ? (c.signCustomerName || '—') : '—',
             salesDept: c ? (c.salesDept || '—') : (a.department || '—'),
             accountMgr: c ? (c.accountMgr || '—') : '—',
-            contractPerformance: 0, consultants: []
+            contractPerformance: 0, _consSet: new Set()
           };
         }
-        qGrouped[grpKey].contractPerformance += parseFloat(a.contractPerformance) || 0;
-        qGrouped[grpKey].consultants.push((a.consultant || '—') + (a.pct != null ? '(' + a.pct + '%)' : ''));
+        if (!qGrouped[grpKey]._consSet.has(consKey)) {
+          qGrouped[grpKey]._consSet.add(consKey);
+          qGrouped[grpKey].consultants.push(consKey);
+          qGrouped[grpKey].contractPerformance += parseFloat(a.contractPerformance) || 0;
+        }
       });
       rows = Object.keys(qGrouped).map(function(mcno) {
         var g = qGrouped[mcno];
