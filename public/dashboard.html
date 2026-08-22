@@ -2497,16 +2497,14 @@ function renderCards() {
   // 期间业绩目标进度（随年/季/月/周筛选联动；实际数从筛选后合同取，10万门槛，用subAmount，与售前管理系统一致）
   const _yearWon = getFilteredContracts().filter(function(c) { return (parseFloat(c.subAmount) || 0) >= 100000; });
   const _perfActual = _yearWon.reduce(function(s, c) { return s + (parseFloat(c.subAmount) || 0); }, 0) / 10000;
-  const won = baseApps.filter(a => a.status === '签单').length;
-  // 顶部金额（与index.html一致）：
-  // admin/部门视角：签单=期间内合同签订金额（与年度指标实际值口径一致），预计/活跃等=新增金额
-  // 个人视角：签单+预计金额（保持原有逻辑）
-  const _wonAmt = _dedupView
-    ? _perfActual  // admin/部门：签单金额=年度指标实际值口径（合同签订金额，10万门槛）
-    : (baseApps.filter(a => a.status === '签单')).reduce((s, a) => s + amtOf(a), 0);  // 个人视角：签单按本人分配
+  // 签单计数+金额：admin/部门视角=期间内合同签订口径（与年度指标实际值完全一致）；个人视角=申请记录
+  const won = _dedupView ? _yearWon.length : baseApps.filter(a => a.status === '签单').length;
+  const _wonAmt = _dedupView ? _perfActual : (baseApps.filter(a => a.status === '签单')).reduce((s, a) => s + amtOf(a), 0);
   const expAppsArr = baseApps.filter(a => a.status === '预计');
   const newAppsArr = baseApps.filter(a => inRange(a.applyDate, getPeriodRange(getPeriodKey())));
-  const _expAmt = expAppsArr.reduce((s, a) => s + amtOf(a), 0);
+  const _expAmt = _dedupView
+    ? expAppsArr.reduce((s, a) => s + amtOf(a), 0)  // admin/部门：预计按申请日期过滤
+    : expAppsArr.reduce((s, a) => s + amtOf(a), 0);
   const totalAmount = _dedupView ? newAppsArr.reduce((s, a) => s + amtOf(a), 0) : (_wonAmt + _expAmt);
   const _pk = getPeriodKey().split('_');
   let tgtLabel = '年度目标';
