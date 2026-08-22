@@ -2524,36 +2524,35 @@ function renderCards() {
   // 签单金额：期间内签订合同（subAmount≥10万，oppNo在申请记录中，按oppNo去重）= 年度指标实际值
   var _wonAmt = 0;
   var _wonCount = 0;
-  if (_dedupView) {
-    var pk = getPeriodKey().split('_');
-    var pkYear = parseInt(pk[1]);
-    var pkType = pk[0];
-    var conOppSet = {};
-    (state.contracts || []).forEach(function(con) {
-      if ((parseFloat(con.subAmount) || 0) < 100000) return;
-      if (!con.oppNo || conOppSet[con.oppNo]) return;
-      var m = null;
-      if (con.mainSignDate) { var dd = new Date(con.mainSignDate); if (!isNaN(dd)) m = dd.getFullYear() + '-' + String(dd.getMonth()+1).padStart(2,'0'); }
-      if (!m && con.signOpDate) { var dd2 = new Date(con.signOpDate); if (!isNaN(dd2)) m = dd2.getFullYear() + '-' + String(dd2.getMonth()+1).padStart(2,'0'); }
-      if (!m && con.yearMonth) m = String(con.yearMonth);
-      if (!m) return;
-      var parts = m.split('-');
-      var conYear = parseInt(parts[0]);
-      var conMonth = parseInt(parts[1]);
-      var inPeriod = false;
-      if (pkType === 'year' && conYear === pkYear) inPeriod = true;
-      if (pkType === 'quarter') { var qn = parseInt(pk[2]); if (conYear === pkYear && Math.floor((conMonth-1)/3)+1 === qn) inPeriod = true; }
-      if (pkType === 'month') { if (inRange(m+'-01', getPeriodRange(getPeriodKey()))) inPeriod = true; }
-      if (pkType === 'week') { if (inRange(con.mainSignDate || con.signOpDate, getPeriodRange(getPeriodKey()))) inPeriod = true; }
-      if (!inPeriod) return;
+  var pk = getPeriodKey().split('_');
+  var pkYear = parseInt(pk[1]);
+  var pkType = pk[0];
+  var conOppSet = {};
+  (state.contracts || []).forEach(function(con) {
+    if ((parseFloat(con.subAmount) || 0) < 100000) return;
+    if (!con.oppNo) return;
+    var m = null;
+    if (con.mainSignDate) { var dd = new Date(con.mainSignDate); if (!isNaN(dd)) m = dd.getFullYear() + '-' + String(dd.getMonth()+1).padStart(2,'0'); }
+    if (!m && con.signOpDate) { var dd2 = new Date(con.signOpDate); if (!isNaN(dd2)) m = dd2.getFullYear() + '-' + String(dd2.getMonth()+1).padStart(2,'0'); }
+    if (!m && con.yearMonth) m = String(con.yearMonth);
+    if (!m) return;
+    var parts = m.split('-');
+    var conYear = parseInt(parts[0]);
+    var conMonth = parseInt(parts[1]);
+    var inPeriod = false;
+    if (pkType === 'year' && conYear === pkYear) inPeriod = true;
+    else if (pkType === 'quarter') { var qn = parseInt(pk[2]); if (conYear === pkYear && Math.floor((conMonth-1)/3)+1 === qn) inPeriod = true; }
+    else if (pkType === 'month') { var r = getPeriodRange(getPeriodKey()); if (inRange(m+'-01', r)) inPeriod = true; }
+    else if (pkType === 'week') { if (inRange(con.mainSignDate || con.signOpDate, getPeriodRange(getPeriodKey()))) inPeriod = true; }
+    if (!inPeriod) return;
+    if (_dedupView) {
+      if (conOppSet[con.oppNo]) return;
       conOppSet[con.oppNo] = true;
-      _wonAmt += (parseFloat(con.subAmount) || 0) / 10000;
-      _wonCount++;
-    });
-  } else {
-    _wonAmt = (baseApps.filter(a => a.status === '签单')).reduce((s, a) => s + amtOf(a), 0);
-    _wonCount = baseApps.filter(a => a.status === '签单').length;
-  }
+    }
+    _wonAmt += (parseFloat(con.subAmount) || 0) / 10000;
+    _wonCount++;
+    console.log('[DEBUG _wonAmt]', 'pk:', getPeriodKey(), '_wonAmt:', _wonAmt, '_wonCount:', _wonCount);
+  });
   const expAppsArr = baseApps.filter(a => a.status === '预计');
   const newAppsArr = baseApps.filter(a => inRange(a.applyDate, getPeriodRange(getPeriodKey())));
   const _expAmt = _dedupView
