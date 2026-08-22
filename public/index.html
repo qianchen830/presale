@@ -2924,9 +2924,9 @@ function getCardsQuarterActual(year, quarter, filteredApps) {
 function renderCards() {
   const filtered = getFilteredApps();
 
-  // 个人视图（无view_depts）：不去重，按原始申请记录条数统计
-  // 部门/admin视图（有view_depts）：按oppNo去重，避免多人支持同一项目被重复计算
-  var hasDeptScope = _currentUser && _currentUser.view_depts && _currentUser.view_depts.length > 0;
+  // 汇总视图按项目(oppNo)去重：商机号允许重复录入，但部门/admin汇总统计只计一次；
+  // 个人视图保持原始记录条数
+  var hasDeptScope = _currentUser && (_currentUser.role === 'admin' || (_currentUser.view_depts && _currentUser.view_depts.length > 0));
   var baseApps = filtered;
   if (hasDeptScope) {
     var seen = {};

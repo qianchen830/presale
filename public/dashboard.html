@@ -2430,12 +2430,16 @@ function renderCards() {
   const filtered = getFilteredApps();
   const all = getAllApps();
 
-  const total = filtered.length;
-  const newCount = filtered.filter(a => inRange(a.applyDate, getPeriodRange(getPeriodKey()))).length;
-  const following = filtered.filter(a => a.status === '活跃').length;
-  const lost = filtered.filter(a => a.status === '丢失').length;
-  const won = filtered.filter(a => a.status === '签单').length;
-  const totalAmount = filtered.reduce((s, a) => s + amtOf(a), 0);
+  // 看板为admin全局汇总：按项目(oppNo)去重，商机号重复录入只计一次（首个为准）
+  const seenOpp = {};
+  const dd = filtered.filter(function(a) { if (a.oppNo && seenOpp[a.oppNo]) return false; if (a.oppNo) seenOpp[a.oppNo] = true; return true; });
+
+  const total = dd.length;
+  const newCount = dd.filter(a => inRange(a.applyDate, getPeriodRange(getPeriodKey()))).length;
+  const following = dd.filter(a => a.status === '活跃').length;
+  const lost = dd.filter(a => a.status === '丢失').length;
+  const won = dd.filter(a => a.status === '签单').length;
+  const totalAmount = dd.reduce((s, a) => s + amtOf(a), 0);
 
   // 期间业绩目标进度（随年/季/月/周筛选联动；实际数从筛选后合同取）
   const _yearWon = getFilteredContracts();
