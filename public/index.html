@@ -4932,7 +4932,7 @@ function showDetail(card, type) {
             signCustomerName: c ? (c.signCustomerName || '—') : '—',
             salesDept: c ? (c.salesDept || '—') : (a.department || '—'),
             accountMgr: c ? (c.accountMgr || '—') : '—',
-            contractPerformance: 0, _consSet: new Set()
+            contractPerformance: 0, consultants: [], _consSet: new Set()
           };
         }
         if (!yGrouped[grpKey]._consSet.has(consKey)) {
@@ -4992,7 +4992,7 @@ function showDetail(card, type) {
             signCustomerName: c ? (c.signCustomerName || '—') : '—',
             salesDept: c ? (c.salesDept || '—') : (a.department || '—'),
             accountMgr: c ? (c.accountMgr || '—') : '—',
-            contractPerformance: 0, _consSet: new Set()
+            contractPerformance: 0, consultants: [], _consSet: new Set()
           };
         }
         if (!qGrouped[grpKey]._consSet.has(consKey)) {
