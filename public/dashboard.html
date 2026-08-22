@@ -1293,12 +1293,25 @@ function amtOf(a) {
       }
     }
     if (a.status === '签单') {
-      // admin/部门视角用signAmount（与index一致）；个人视角用合同subAmount
+      var myName = _isPersonalDash() ? (state.consultant || (window._dashUser && (window._dashUser.displayName || window._dashUser.username))) : null;
+      if (!myName) return (parseFloat(a.signAmount) || 0) / 10000;
+      var matched = (state.allocations || []).filter(function(al) {
+        if (al.consultant !== myName) return false;
+        if (al.oppNo === a.oppNo) return true;
+        if (al.contractId) {
+          var c = (state.contracts || []).find(function(cc) { return cc.id === al.contractId; });
+          if (!c) return false;
+          return c.oppNo === a.oppNo;
+        }
+        return false;
+      });
+      if (matched.length > 0) return matched.reduce(function(s, al) { return s + (parseFloat(al.consultantPerformance) || 0); }, 0) / 10000;
       var contracts = (state.contracts || []).filter(function(c) { return c.oppNo === a.oppNo && (parseFloat(c.subAmount) || 0) >= 100000; });
       if (!contracts.length) return 0;
       return contracts.reduce(function(s, c) { return s + (parseFloat(c.subAmount) || 0); }, 0) / 10000;
     }
-    if (a.status === '预计' || a.status === '活跃' || a.status === '丢失' || a.status === '暂停') return (parseFloat(a.expectedSignAmount) || 0) / 10000;
+    if (a.status === '预计' || a.status === '活跃' || a.status === '丢失' || a.status === '暂停' || a.status === '关闭') return (parseFloat(a.expectedSignAmount) || 0) / 10000;
+
   }
   return 0;
 }
