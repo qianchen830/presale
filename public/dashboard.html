@@ -2550,13 +2550,14 @@ function renderCards() {
     _wonContracts.push(con);
     _wonAmt += (parseFloat(con.subAmount) || 0) / 10000;
   });
-  var _wonCount = won;  // 签单计数仍用申请日期口径
+  // 签单金额：admin/部门用合同口径(_wonAmt)，个人视角用amtOf(分配金额)
+  var _wonAmt2 = _dedupView ? _wonAmt : (baseApps.filter(a => a.status === '签单').reduce((s, a) => s + amtOf(a), 0));
   const expAppsArr = baseApps.filter(a => a.status === '预计');
   const newAppsArr = baseApps.filter(a => inRange(a.applyDate, getPeriodRange(getPeriodKey())));
   const _expAmt = _dedupView
     ? expAppsArr.reduce((s, a) => s + amtOf(a), 0)  // admin/部门：预计按申请日期过滤
     : expAppsArr.reduce((s, a) => s + amtOf(a), 0);
-  const totalAmount = _dedupView ? newAppsArr.reduce((s, a) => s + amtOf(a), 0) : (_wonAmt + _expAmt);
+  const totalAmount = _dedupView ? newAppsArr.reduce((s, a) => s + amtOf(a), 0) : (_wonAmt2 + _expAmt);
   const _pk = getPeriodKey().split('_');
   let tgtLabel = '年度目标';
   let tgtVal = parseFloat(state.annualTarget) || 0;
@@ -2618,7 +2619,7 @@ function renderCards() {
   const statusGroups = [
     { label: '新增', count: total, amount: totalAmount, color: 'var(--sf-blue)', type: 'new' },
     { label: '跟进', count: followApps.length, amount: followApps.reduce((s, a) => s + amtOf(a), 0), color: 'var(--sf-warning-text)', type: 'active' },
-    { label: '签单', count: _dedupView ? _wonCount : won, amount: _wonAmt, color: 'var(--sf-success-text)', type: 'won' },
+    { label: '签单', count: _dedupView ? _wonCount : won, amount: _wonAmt2, color: 'var(--sf-success-text)', type: 'won' },
     { label: '预计', count: expectedApps.length, amount: expectedApps.reduce((s, a) => s + amtOf(a), 0), color: '#8b5cf6', type: 'expected' },
     { label: '丢单', count: lostApps.length, amount: lostApps.reduce((s, a) => s + amtOf(a), 0), color: '#9e9e9e', type: 'lost' },
     { label: '暂停/停滞', count: stalledApps.length, amount: stalledApps.reduce((s, a) => s + amtOf(a), 0), color: '#6b7280', type: 'stalled' },
