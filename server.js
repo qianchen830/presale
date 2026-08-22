@@ -353,7 +353,14 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 const session = require('express-session');
+const FileStore = require('session-file-store')(session);
 app.use(session({
+  store: new FileStore({
+    path: path.join(DATA_DIR, 'sessions'),
+    ttl: 7 * 24 * 60 * 60, // 7 days in seconds
+    retries: 2,
+    secret: SESSION_SECRET
+  }),
   secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
