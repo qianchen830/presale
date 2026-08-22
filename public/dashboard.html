@@ -1677,22 +1677,6 @@ function getContractsByAppDate() {
 }
 
 function statusBadge(s) {
-  var range = getPeriodRange(getPeriodKey());
-  var appRange = (state.applications || []).filter(function(a) { return inRange(a.applyDate, range); });
-  var oppSet = {};
-  appRange.forEach(function(a) { if (a.oppNo) oppSet[a.oppNo] = true; });
-  var list = (state.contracts || []).filter(function(con) {
-    if (con.oppNo && oppSet[con.oppNo]) return true;
-    return false;
-  });
-  var seen = {};
-  return list.filter(function(con) {
-    var k = con.mainContractNo || con.id;
-    if (seen[k]) return false;
-    seen[k] = true;
-    return true;
-  });
-}
 
   const map = { '活跃': 'b-active', '暂停': 'b-paused', '预计': 'b-expect', '签单': 'b-won', '丢失': 'b-lost', '关闭': 'b-closed' };
   const label = s === '丢失' ? '丢单' : s;
