@@ -220,7 +220,9 @@ function syncAppSignStatus(state, oppNo) {
   const cons = (state.contracts || []).filter(c => c.oppNo === oppNo);
   apps.forEach(a => {
     if (cons.length === 0) {
-      if (a.status === '签单') { a.status = '活跃'; a.signDate = ''; a.signAmount = ''; }
+      // 无合同：仅当无 signAmount（非手动/文件录入）时才回退活跃；
+      // 有 signAmount 的签单（个人文件同步来的合法状态）保持不变
+      if (a.status === '签单' && !(parseFloat(a.signAmount) > 0)) { a.status = '活跃'; a.signDate = ''; a.signAmount = ''; }
     } else {
       const totalAmt = cons.reduce((s, c) => s + (parseFloat(c.subAmount) || 0), 0);
       const dates = cons.map(c => c.mainSignDate).filter(Boolean).sort();
@@ -229,10 +231,7 @@ function syncAppSignStatus(state, oppNo) {
       if (dates[0]) a.signDate = dates[0];
     }
   });
-  // 10万门槛：确保合同presalePerformance不计入不达标准的合同
-  cons.forEach(c => {
-    if (!contractHasPerformance(c)) c.presalePerformance = 0;
-  });
+  // 10万门槛：统计层过滤（getCardsAnnualActual 等），不再清零DB字段以保真源数据
 }
 
 // ---- 数据权限过滤 ----
@@ -251,7 +250,13 @@ function filterStateByUser(state, user) {
 
   // 收集 allocations 里本人作为支持顾问的所有 oppNo（不再用于扩充申请可见性：
   // 按需求，普通用户只能看到售前顾问=自己的申请；但本人的分配记录本身仍对其可见，
-  // 以保证个人实际业绩取数完整）
+  // 以保证个人实际业绩取数完整；同时用于扩充合同可见性：个人文件中合同可能
+  // 录入在与他人共存分配的商机下，如明芳文件中的 OPP202512090157 合同）
+  const myAllocOppNos = new Set(
+    (s.allocations || [])
+      .filter(a => a.consultant === myName && a.oppNo)
+      .map(a => a.oppNo)
+  );
 
   // 建立 consultant → 归属部门 映射（只用 employees.deptId，不从 applications 表覆盖）
   const deptById = {};
@@ -293,10 +298,10 @@ function filterStateByUser(state, user) {
   // 先收集可见的 oppNo（来自过滤后的 applications）
   const visibleOppNos = new Set((s.applications || []).map(a => a.oppNo).filter(Boolean));
 
-  // contracts：通过 oppNo 关联到本人可见的申请 + 本人是客户经理的记录
+  // contracts：通过 oppNo 关联到本人可见的申请 + 本人是客户经理的记录 + 本人有业绩分配的商机（个人文件中合同可能录入在与他人共存的分配商机下）
   if (s.contracts) {
     s.contracts = s.contracts.filter(c =>
-      visibleOppNos.has(c.oppNo) || c.accountMgr === myName
+      visibleOppNos.has(c.oppNo) || c.accountMgr === myName || myAllocOppNos.has(c.oppNo)
     );
   }
 
@@ -318,8 +323,10 @@ function filterStateByUser(state, user) {
     );
   }
   if (s.allocations) {
+    // 分配可见性：本人名下 + 本人参与分配的商机（共同分配合伙人可见，与个人文件口径一致；
+    // 不按可见申请扩充，避免看到他人商机的全部分配）
     s.allocations = s.allocations.filter(a =>
-      visibleOppNos.has(a.oppNo) || a.consultant === myName
+      myAllocOppNos.has(a.oppNo) || a.consultant === myName
     );
   }
 
