@@ -1252,10 +1252,12 @@ function consultantPerfOf(oppNo) {
 // 金额口径（万元）：签单=个人视图按个人业绩分配、汇总视图(admin/部门授权)按合同签订金额；
 // 预计/活跃/丢失/暂停=预计签单金额；其余不计
 function amtOf(a) {
+  // 10万门槛：合同金额<10万不计
   if (a.status === '签单') {
-    var scope = getScopeConsultants();
-    if (scope === null || scope.size > 1) return (parseFloat(a.signAmount) || 0) / 10000;
-    return consultantPerfOf(a.oppNo) / 10000;
+    // 签单金额=签单合同的subAmount之和（10万门槛），用signAmount兜底
+    var wonContracts = (state.contracts || []).filter(function(c) { return c.oppNo === a.oppNo && (parseFloat(c.subAmount) || 0) >= 100000; });
+    if (wonContracts.length > 0) return wonContracts.reduce(function(s, c) { return s + (parseFloat(c.subAmount) || 0); }, 0) / 10000;
+    return (parseFloat(a.signAmount) || 0) / 10000;
   }
   if (a.status === '预计' || a.status === '活跃' || a.status === '丢失' || a.status === '暂停') return (parseFloat(a.expectedSignAmount) || 0) / 10000;
   return 0;
@@ -2961,7 +2963,17 @@ function renderCards() {
 
   const expectedApps = baseApps.filter(a => a.status === '预计');
 
-  // 金额口径（万元，与源文件amtOf一致）：签单=顾问个人业绩分配；预计=预计签单金额；其余状态不计金额
+  // 停滞项目：活跃状态但超14天无跟进（暂停/停滞口径）
+  const stalledApps = baseApps.filter(a => {
+    if (a.status !== '活跃') return false;
+    const follows = (state.followUps || []).filter(f => f.oppNo === a.oppNo);
+    if (!follows.length) return true;
+    const latest = follows.reduce((m, f) => { const d = f.followDate ? new Date(f.followDate) : null; return d && (!m || d > m) ? d : m; }, null);
+    if (!latest) return true;
+    return (Date.now() - latest.getTime()) / 86400000 > 14;
+  });
+
+  // 金额口径：签单=签单合同subAmount（10万门槛）；预计=预计签单金额；其余状态不计金额
   const statusGroups = [
     { label: '风险', count: riskApps.length, amount: riskApps.reduce((s, a) => s + amtOf(a), 0), color: 'var(--sf-text-danger)', type: 'risk' },
     { label: '新增', count: newApps.length, amount: newApps.reduce((s, a) => s + amtOf(a), 0), color: 'var(--sf-blue)', type: 'new' },
@@ -2969,6 +2981,7 @@ function renderCards() {
     { label: '丢失', count: lostApps.length, amount: lostApps.reduce((s, a) => s + amtOf(a), 0), color: '#9e9e9e', type: 'lost' },
     { label: '预计', count: expectedApps.length, amount: expectedApps.reduce((s, a) => s + amtOf(a), 0), color: '#8b5cf6', type: 'expected' },
     { label: '签单', count: wonApps.length, amount: wonApps.reduce((s, a) => s + amtOf(a), 0), color: 'var(--sf-success-text)', type: 'won' },
+    { label: '暂停/停滞', count: stalledApps.length, amount: stalledApps.reduce((s, a) => s + amtOf(a), 0), color: '#6b7280', type: 'stalled' },
   ];
   const fmtAmt = function(v) { return v > 0 ? fmtMoney(v) + '万' : (v === 0 ? '0万' : '—'); };
   document.getElementById('cardOverviewRisk').innerHTML =

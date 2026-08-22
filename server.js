@@ -11,6 +11,16 @@ const SESSION_SECRET = process.env.SESSION_SECRET || 'presale-secret-2026-change
 const DATA_DIR = path.join(__dirname, 'data');
 const DB_PATH = process.env.DB_PATH || path.join(DATA_DIR, 'presale.db');
 
+// ---- 10万门槛常量：合同金额小于此值不计入售前绩效 ----
+const PERFORMANCE_THRESHOLD = 100000; // 元
+function presalePerfOrZero(c) {
+  const sa = parseFloat(c.subAmount) || 0;
+  return sa >= PERFORMANCE_THRESHOLD ? (parseFloat(c.presalePerformance) || 0) : 0;
+}
+function contractHasPerformance(c) {
+  return (parseFloat(c.subAmount) || 0) >= PERFORMANCE_THRESHOLD;
+}
+
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
 // ---- sql.js 数据库 ----
@@ -210,7 +220,6 @@ function syncAppSignStatus(state, oppNo) {
   const cons = (state.contracts || []).filter(c => c.oppNo === oppNo);
   apps.forEach(a => {
     if (cons.length === 0) {
-      // 无合同：若原为签单（合同驱动），回退为活跃
       if (a.status === '签单') { a.status = '活跃'; a.signDate = ''; a.signAmount = ''; }
     } else {
       const totalAmt = cons.reduce((s, c) => s + (parseFloat(c.subAmount) || 0), 0);
@@ -219,6 +228,10 @@ function syncAppSignStatus(state, oppNo) {
       a.signAmount = totalAmt.toFixed(2);
       if (dates[0]) a.signDate = dates[0];
     }
+  });
+  // 10万门槛：确保合同presalePerformance不计入不达标准的合同
+  cons.forEach(c => {
+    if (!contractHasPerformance(c)) c.presalePerformance = 0;
   });
 }
 
@@ -996,14 +1009,19 @@ function getCompanyActualWan(state, year, quarter) {
     }
     return true;
   });
+    const THRESHOLD = 100000; // 10万：合同金额小于此值不计入售前绩效
+  function presalePerfOrZero(c) {
+    const sa = parseFloat(c.subAmount) || 0;
+    return (sa >= THRESHOLD) ? (parseFloat(c.presalePerformance) || 0) : 0;
+  }
   const t = allocs.reduce((s, a) => s + (parseFloat(a.consultantPerformance) || 0), 0);
   if (t > 0) return t / 10000;
   const cons = (state.contracts || []).filter(c => {
     if (year != null) { const y = c.yearMonth ? parseInt(String(c.yearMonth).split('-')[0], 10) : null; if (y !== year) return false; }
     if (quarter != null && c.quarter !== quarter) return false;
-    return true;
+    return (parseFloat(c.subAmount) || 0) >= THRESHOLD;
   });
-  return cons.reduce((s, c) => s + (parseFloat(c.presalePerformance) || 0), 0) / 10000;
+  return cons.reduce((s, c) => s + presalePerfOrZero(c), 0) / 10000;
 }
 
 // Helper: get quarter from month (1-based)
@@ -1069,7 +1087,7 @@ app.get('/api/dashboard/stats', requireAdmin, (req, res) => {
   const won = apps.filter(a => a.status === '签单').length;
   const lost = apps.filter(a => a.status === '丢失').length;
   const totalAmount = contracts.reduce((s, c) => s + (parseFloat(c.subAmount) || 0), 0) / 10000;
-  const wonAmount = contracts.reduce((s, c) => s + (parseFloat(c.presalePerformance) || 0), 0) / 10000;
+  const wonAmount = contracts.reduce((s, c) => s + presalePerfOrZero(c), 0) / 10000;
 
   res.json({
     total: apps.length,
