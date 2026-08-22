@@ -2616,7 +2616,7 @@ function renderCards() {
   });
 
   const statusGroups = [
-    { label: '新增', count: newApps.length, amount: newApps.reduce((s, a) => s + amtOf(a), 0), color: 'var(--sf-blue)', type: 'new' },
+    { label: '新增', count: total, amount: totalAmount, color: 'var(--sf-blue)', type: 'new' },
     { label: '跟进', count: followApps.length, amount: followApps.reduce((s, a) => s + amtOf(a), 0), color: 'var(--sf-warning-text)', type: 'active' },
     { label: '签单', count: _dedupView ? _wonCount : won, amount: _wonAmt, color: 'var(--sf-success-text)', type: 'won' },
     { label: '预计', count: expectedApps.length, amount: expectedApps.reduce((s, a) => s + amtOf(a), 0), color: '#8b5cf6', type: 'expected' },
