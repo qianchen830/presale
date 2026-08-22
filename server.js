@@ -661,10 +661,15 @@ function checkModuleOwnership(record, session) {
   var viewDepts = [];
   try { viewDepts = JSON.parse(session.viewDepts || '[]'); } catch(e) {}
   if (viewDepts.length > 0) {
-    // 查询该顾问的归属部门是否在 viewDepts 中
+    // 注意：employees 存的是 deptId（部门id），需经 departments 映射为部门名后再比对授权部门名
     var allState = getState().state;
+    var deptById = {};
+    (allState.departments || []).forEach(function(d) { if (d.id && d.name) deptById[d.id] = d.name; });
     var emp = (allState.employees || []).find(function(e) { return e.name === record.consultant; });
-    if (emp && emp.department && viewDepts.includes(emp.department)) return true;
+    if (emp && emp.deptId) {
+      var deptName = deptById[emp.deptId];
+      if (deptName && viewDepts.includes(deptName)) return true;
+    }
   }
   return false;
 }
@@ -735,18 +740,33 @@ function moduleOp(key, action, record, session) {
     }
     if (key === 'applications') {
       // 级联删除：合同、业绩分配、销售十二条、顾问判断、项目跟进
-      state.contracts = (state.contracts || []).filter(function(c) { return c.oppNo !== oppNo; });
-      state.allocations = (state.allocations || []).filter(function(a) { return a.oppNo !== oppNo; });
-      state.salesQuestions = (state.salesQuestions || []).filter(function(q) { return q.oppNo !== oppNo; });
-      state.judgments = (state.judgments || []).filter(function(j) { return j.oppNo !== oppNo; });
-      state.followUps = (state.followUps || []).filter(function(f) { return f.oppNo !== oppNo; });
+      // 重要：被级联删除的记录id必须登记到 _deletedIds，否则 saveState 的按id合并会从库副本中"复活"它们
+      var cascaded = { contracts: [], allocations: [], salesQuestions: [], judgments: [], followUps: [] };
+      state.contracts = (state.contracts || []).filter(function(c) { if (c.oppNo === oppNo) { cascaded.contracts.push(String(c.id)); return false; } return true; });
+      state.allocations = (state.allocations || []).filter(function(a) { if (a.oppNo === oppNo) { cascaded.allocations.push(String(a.id)); return false; } return true; });
+      state.salesQuestions = (state.salesQuestions || []).filter(function(q) { if (q.oppNo === oppNo) { cascaded.salesQuestions.push(String(q.id)); return false; } return true; });
+      state.judgments = (state.judgments || []).filter(function(j) { if (j.oppNo === oppNo) { cascaded.judgments.push(String(j.id)); return false; } return true; });
+      state.followUps = (state.followUps || []).filter(function(f) { if (f.oppNo === oppNo) { cascaded.followUps.push(String(f.id)); return false; } return true; });
+      for (var ck in cascaded) {
+        if (cascaded[ck].length) {
+          if (!_deletedIds[ck]) _deletedIds[ck] = new Set();
+          cascaded[ck].forEach(function(cid) { _deletedIds[ck].add(cid); });
+        }
+      }
       arr.splice(idx, 1);
       if (!_deletedIds[key]) _deletedIds[key] = new Set();
       _deletedIds[key].add(delId);
     } else if (key === 'contracts') {
-      // 级联删除：业绩分配（通过 contractId）
-      state.allocations = (state.allocations || []).filter(function(a) { return String(a.contractId) !== delId; });
-      state.allocations = (state.allocations || []).filter(function(a) { return String(a.contractId) !== delId; });
+      // 级联删除：业绩分配（通过 contractId）；同样登记 _deletedIds 防止合并复活
+      var cascadedAllocIds = [];
+      state.allocations = (state.allocations || []).filter(function(a) {
+        if (String(a.contractId) === delId) { cascadedAllocIds.push(String(a.id)); return false; }
+        return true;
+      });
+      if (cascadedAllocIds.length) {
+        if (!_deletedIds.allocations) _deletedIds.allocations = new Set();
+        cascadedAllocIds.forEach(function(cid) { _deletedIds.allocations.add(cid); });
+      }
       arr.splice(idx, 1);
       if (!_deletedIds[key]) _deletedIds[key] = new Set();
       _deletedIds[key].add(delId);
@@ -874,6 +894,40 @@ app.delete('/api/admin/employees/:id', requireAuth, (req, res) => {
 
 // ---- 看板 Dashboard API (admin only) ----
 
+// 公司级指标/实际取数：指标=全员个人指标合计；实际=全员业绩分配优先(与个人视图同口径)
+function getCompanyTargets() {
+  const out = {};
+  try {
+    const r = db.exec('SELECT annual_targets FROM user_targets');
+    (r[0] && r[0].values || []).forEach(v => {
+      try {
+        const t = JSON.parse(v[0] || '{}');
+        Object.keys(t).forEach(y => { out[y] = (out[y] || 0) + (parseFloat(t[y]) || 0); });
+      } catch(e) {}
+    });
+  } catch(e) {}
+  return out;
+}
+function getCompanyActualWan(state, year, quarter) {
+  const allocs = (state.allocations || []).filter(a => {
+    if (year != null) { const y = a.month ? parseInt(String(a.month).split('-')[0], 10) : null; if (y !== year) return false; }
+    if (quarter != null) {
+      let q = a.quarter;
+      if (!q && a.month) q = 'Q' + (Math.floor((parseInt(String(a.month).split('-')[1], 10) - 1) / 3) + 1);
+      if (q !== quarter) return false;
+    }
+    return true;
+  });
+  const t = allocs.reduce((s, a) => s + (parseFloat(a.consultantPerformance) || 0), 0);
+  if (t > 0) return t / 10000;
+  const cons = (state.contracts || []).filter(c => {
+    if (year != null) { const y = c.yearMonth ? parseInt(String(c.yearMonth).split('-')[0], 10) : null; if (y !== year) return false; }
+    if (quarter != null && c.quarter !== quarter) return false;
+    return true;
+  });
+  return cons.reduce((s, c) => s + (parseFloat(c.presalePerformance) || 0), 0) / 10000;
+}
+
 // Helper: get quarter from month (1-based)
 function getQuarter(month) {
   if (month <= 3) return 'Q1';
@@ -947,17 +1001,14 @@ app.get('/api/dashboard/annual', requireAdmin, (req, res) => {
   const result = getState();
   if (!result) return res.json({ years: [] });
   const state = result.state;
-  const contracts = state.contracts || [];
+  const companyTargets = getCompanyTargets();
   const years = [2023, 2024, 2025, 2026];
   const currentYear = new Date().getFullYear();
 
   const data = years.map(year => {
-    const yearContracts = contracts.filter(c => {
-      const sd = new Date(c.mainSignDate || c.signDate || 0);
-      return sd.getFullYear() === year;
-    });
-    const actual = yearContracts.reduce((s, c) => s + (parseFloat(c.presalePerformance) || 0), 0) / 10000;
-    const target = parseFloat(state.annualTargets && state.annualTargets[year]) || 0;
+    // 实际：全员业绩分配优先（与个人视图同口径），无分配时从合同取
+    const actual = getCompanyActualWan(state, year);
+    const target = parseFloat(companyTargets[year]) || 0;
     const completion = target > 0 ? Math.round(actual / target * 1000) / 10 : 0;
     return {
       year,
@@ -975,20 +1026,16 @@ app.get('/api/dashboard/quarter', requireAdmin, (req, res) => {
   const result = getState();
   if (!result) return res.json({ quarters: [] });
   const state = result.state;
-  const contracts = state.contracts || [];
   const year = parseInt(req.query.year) || new Date().getFullYear();
-  const annualTarget = parseFloat(state.annualTargets && state.annualTargets[year]) || 0;
-  const quarterPcts = state.quarterPcts || { Q1: 16, Q2: 27, Q3: 23, Q4: 34 };
+  // 公司级指标：全员个人指标合计（全局state里的annualTargets会被最后保存者的个人值覆盖，不可用）
+  const companyTargets = getCompanyTargets();
+  const annualTarget = parseFloat(companyTargets[year]) || 0;
+  const quarterPcts = state.quarterPcts && Object.keys(state.quarterPcts).length ? state.quarterPcts : { Q1: 16, Q2: 27, Q3: 23, Q4: 34 };
   const currentQuarter = getQuarter(new Date().getMonth() + 1);
 
   const quarters = ['Q1', 'Q2', 'Q3', 'Q4'].map(q => {
-    const qNum = parseInt(q[1]);
-    const qMonths = { Q1: [1,2,3], Q2: [4,5,6], Q3: [7,8,9], Q4: [10,11,12] }[q];
-    const qContracts = contracts.filter(c => {
-      const sd = new Date(c.mainSignDate || c.signDate || 0);
-      return sd.getFullYear() === year && qMonths.includes(sd.getMonth() + 1);
-    });
-    const actual = qContracts.reduce((s, c) => s + (parseFloat(c.presalePerformance) || 0), 0) / 10000;
+    // 季度实际：全员业绩分配优先（与个人视图同口径），无分配时从合同取
+    const actual = getCompanyActualWan(state, year, q);
     const pct = parseFloat(quarterPcts[q]) || 0;
     const target = annualTarget * pct / 100;
     const completion = target > 0 ? Math.round(actual / target * 1000) / 10 : 0;
