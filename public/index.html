@@ -4717,6 +4717,9 @@ function saveAllocation() {
   }
 
   // 删除该合同原有的分配记录，再写入新的
+  // 注意：必须先记下被移除的旧记录id，同步调 DELETE 接口登记服务端 _deletedIds，
+  // 否则后续 PUT /api/state 的按 id 合并会把旧记录“复活”
+  var removedOldAllocIds = state.allocations.filter(a => a.contractId === _allocCurContractId).map(a => a.id);
   state.allocations = state.allocations.filter(a => a.contractId !== _allocCurContractId);
   // 根据合同签订日期计算月份和季度
   var allocSignDate = c.mainSignDate || c.signOpDate || '';
@@ -4746,6 +4749,14 @@ function saveAllocation() {
     });
   });
   autoSave();
+  // 先行同步删除旧分配（服务端登记 _deletedIds，防止 PUT 合并复活）；不阻塞主流程
+  (async function() {
+    try {
+      for (var ri = 0; ri < removedOldAllocIds.length; ri++) {
+        await fetch('/api/modules/allocations/' + encodeURIComponent(removedOldAllocIds[ri]), { method: 'DELETE', credentials: 'include' });
+      }
+    } catch (e) { console.warn('旧分配同步删除失败，将在下次全量保存时重试', e); }
+  })();
   closeModal('allocationModal');
   renderSubTables();
 }
@@ -4793,9 +4804,8 @@ function editAllocation(id) {
 
 function deleteAllocation(id) {
   if (!confirm('确认删除该业绩分配记录？')) return;
-  state.allocations = state.allocations.filter(r => r.id !== id);
-  autoSave();
-  renderSubTables();
+  // 必须走 DELETE /api/modules 接口：服务端会登记 _deletedIds，防止 PUT 全量保存时按 id 合并把记录“复活”
+  deleteRecord('allocations', id);
 }
 
 /* ===== DETAIL MODAL ===== */
