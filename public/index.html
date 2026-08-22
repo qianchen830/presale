@@ -5484,8 +5484,12 @@ var _currentUser = null;
     buildPeriodPanels();
     render();
     // 在 render() 之后设置顾问名称（使用 state.consultant，即登录时已写入的用户名）
-    if (document.getElementById('hdrConsultName')) {
-      document.getElementById('hdrConsultName').textContent = state.consultant || d.displayName || d.username || '';
+    // 注意：必须同步清理 empty 类，否则全局 .empty{text-align:center} 会让名字居中、与上方「顾问」标签错位
+    var nameEl2 = document.getElementById('hdrConsultName');
+    if (nameEl2) {
+      var nm2 = state.consultant || d.displayName || d.username || '';
+      nameEl2.textContent = nm2;
+      nameEl2.classList.toggle('empty', !nm2);
     }
   } catch (e) {
     window.location.href = '/login.html';
