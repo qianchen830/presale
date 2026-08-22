@@ -461,15 +461,13 @@ app.get('/api/state', requireAuth, (req, res) => {
     const ut = db.prepare('SELECT annual_targets, annual_actuals, quarter_targets, quarter_pcts FROM user_targets WHERE user_id = ?').get(req.session.userId);
     if (ut) {
       userTargets = {
-        annualTargets: JSON.parse(ut[0].values[0][0] || '{}'),
-        annualActuals: JSON.parse(ut[0].values[0][1] || '{}'),
-        quarterTargets: JSON.parse(ut[0].values[0][2] || '{}'),
-        quarterPcts: JSON.parse(ut[0].values[0][3] || '{}')
+        annualTargets: JSON.parse(ut.annual_targets || '{}'),
+        annualActuals: JSON.parse(ut.annual_actuals || '{}'),
+        quarterTargets: JSON.parse(ut.quarter_targets || '{}'),
+        quarterPcts: JSON.parse(ut.quarter_pcts || '{}')
       };
     }
   } catch(e) {}
-
-  // 用个人指标覆盖 state 中的全局指标（个人优先）
   const merged = JSON.parse(JSON.stringify(filtered));
   merged.annualTargets = userTargets.annualTargets;
   merged.annualActuals = userTargets.annualActuals;
@@ -588,19 +586,14 @@ app.put('/api/user/targets', requireAuth, (req, res) => {
 
 app.get('/api/state/history', requireAuth, (req, res) => {
   const limit = Math.min(parseInt(req.query.limit || '50', 10), 200);
-  const r = db.prepare('SELECT id, created_at, length(data) AS size FROM app_state_history ORDER BY id DESC LIMIT ?').all(limit);
-  if (!r.length) return res.json({ items: [] });
-  const cols = r[0].columns;
-  const items = r[0].values.map(row => {
-    const item = {}; cols.forEach((c, i) => item[c] = row[i]); return item;
-  });
+  const items = db.prepare('SELECT id, created_at, length(data) AS size FROM app_state_history ORDER BY id DESC LIMIT ?').all(limit);
   res.json({ items });
 });
 
 app.get('/api/state/history/:id', requireAuth, (req, res) => {
   const r = db.prepare("SELECT data, created_at FROM app_state_history WHERE id = ?").get(parseInt(req.params.id));
-  if (!r.length || !r[0].values.length) return res.status(404).json({ error: '版本不存在' });
-  res.json({ state: JSON.parse(r[0].values[0][0]), createdAt: r[0].values[0][1] });
+  if (!r) return res.status(404).json({ error: '版本不存在' });
+  res.json({ state: JSON.parse(r.data), createdAt: r.created_at });
 });
 
 // ---- 管理员接口 ----
