@@ -213,16 +213,18 @@ function saveUserPrefs(userId, patch) {
 }
 
 // ---- 签单状态服务端同步：合同增/改/删时自动翻转申请状态（与前端 updateAppSignStatusFromContract 同口径） ----
-function syncAppSignStatus(state, oppNo) {
+function syncAppSignStatus(state, oppNo, force) {
   if (!oppNo) return;
   const apps = (state.applications || []).filter(a => a.oppNo === oppNo);
   if (!apps.length) return;
   const cons = (state.contracts || []).filter(c => c.oppNo === oppNo);
   apps.forEach(a => {
     if (cons.length === 0) {
-      // 无合同：仅当无 signAmount（非手动/文件录入）时才回退活跃；
+      // 无合同：
+      // force=true（用户显式删除合同）——无条件回退活跃并清空签单金额/日期
+      // force=undef（常规同步）——仅当无 signAmount（非手动/文件录入）时才回退，
       // 有 signAmount 的签单（个人文件同步来的合法状态）保持不变
-      if (a.status === '签单' && !(parseFloat(a.signAmount) > 0)) { a.status = '活跃'; a.signDate = ''; a.signAmount = ''; }
+      if (a.status === '签单' && (force || !(parseFloat(a.signAmount) > 0))) { a.status = '活跃'; a.signDate = ''; a.signAmount = ''; }
     } else {
       const totalAmt = cons.reduce((s, c) => s + (parseFloat(c.subAmount) || 0), 0);
       const dates = cons.map(c => c.mainSignDate).filter(Boolean).sort();
@@ -867,8 +869,8 @@ function moduleOp(key, action, record, session) {
       arr.splice(idx, 1);
       if (!_deletedIds[key]) _deletedIds[key] = new Set();
       _deletedIds[key].add(delId);
-      // 合同删除：重新同步申请签单状态（无合同则回退活跃）
-      syncAppSignStatus(state, oppNo);
+      // 合同删除：重新同步申请签单状态（无合同则回退活跃，force=true 强制清空签单金额）
+      syncAppSignStatus(state, oppNo, true);
     } else if (key === 'allocations') {
       // allocations 用 splice 真删
       arr.splice(idx, 1);
