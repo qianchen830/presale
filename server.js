@@ -1260,6 +1260,15 @@ app.use((err, req, res, next) => {
 // 启动
 try {
   initDb();
+  // graceful shutdown：关闭 WAL 并关闭数据库连接
+  const shutdown = () => {
+    console.log('\n收到关闭信号，正在关闭数据库...');
+    if (db) { db.pragma('wal_checkpoint'); db.close(); }
+    process.exit(0);
+  };
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
+
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`\n🖥️  售前管理后端已启动: http://0.0.0.0:${PORT}`);
     console.log(`📁 数据库: ${DB_PATH}`);
