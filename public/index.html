@@ -2813,11 +2813,13 @@ function getCardsQuarterActual(year, quarter, filteredApps) {
 function renderCards() {
   const filtered = getFilteredApps();
 
-  // 个人视图（无view_depts）：不去重，按原始申请记录条数统计
-  // 部门/admin视图（有view_depts）：按oppNo去重，避免多人支持同一项目被重复计算
-  var hasDeptScope = _currentUser && _currentUser.view_depts && _currentUser.view_depts.length > 0;
+  // 个人视图（无view_depts且非admin）：不去重，按原始申请记录条数统计
+  // 部门/admin视图：按oppNo去重，避免多人支持同一项目被重复计算
+  var hasDeptScope = _currentUser && _currentUser.role !== 'admin' && _currentUser.view_depts && _currentUser.view_depts.length > 0;
+  var isAdminView = _currentUser && _currentUser.role === 'admin';
+  var dedupView = hasDeptScope || isAdminView;
   var baseApps = filtered;
-  if (hasDeptScope) {
+  if (dedupView) {
     var seen = {};
     baseApps = filtered.filter(function(a) { if (a.oppNo && !seen[a.oppNo]) { seen[a.oppNo] = true; return true; } return false; });
   }
@@ -2867,11 +2869,15 @@ function renderCards() {
   const expectedAmt = expectedApps.reduce(function(s, a) { return s + amtOfApp(a); }, 0);
   const totalWonExpected = wonAmt + expectedAmt;
 
+  // 顶部数量/金额：admin/部门视角与「新增」格子一致；个人视角保持全部申请口径
+  var topCount = dedupView ? newApps.length : total;
+  var topAmount = dedupView ? newApps.reduce(function(s, a) { return s + amtOfApp(a); }, 0) : totalWonExpected;
+
   document.getElementById('cardOverview').innerHTML =
     '<div class="overview-top" onclick="showDetail(\'overview\',\'all\')">' +
-    '<span class="ov-num">' + total + '<b>个</b></span>' +
+    '<span class="ov-num">' + topCount + '<b>个</b></span>' +
     '<span class="ov-split"></span>' +
-    '<span class="ov-amt">金额：' + fmtMoney2(totalWonExpected) + '万</span>' +
+    '<span class="ov-amt">金额：' + fmtMoney2(topAmount) + '万</span>' +
     '</div>';
 
   // fmtAmt 直接显示万元值（已除万）
@@ -2925,11 +2931,14 @@ function renderCards() {
     '<table class="q-tbl"><thead><tr><th>年度</th><th>指标(万)</th><th>实际(万)</th><th>完成率</th></tr></thead><tbody>' + targetRows + '</tbody></table>';
 
   let qRows = '';
+  // 季度比例：未设置时按四季度均分（各25%）自动分解
+  var qpSum = ['Q1','Q2','Q3','Q4'].reduce(function(s, q) { return s + (parseFloat(state.quarterPcts && state.quarterPcts[q]) || 0); }, 0);
+  var qpDefault = qpSum > 0 ? null : { Q1: 25, Q2: 25, Q3: 25, Q4: 25 };
   ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => {
     // 季度实际：按过滤条件统计合同 presalePerformance
     var qActual = getCardsQuarterActual(state.year, q, filtered);
     const annualT = state.annualTargets[state.year] || state.annualTarget;
-    const qPctVal = state.quarterPcts[q] || 0;
+    const qPctVal = qpDefault ? qpDefault[q] : (state.quarterPcts[q] || 0);
     const qTarget = Math.round(annualT * qPctVal / 100);
     const qPct = qTarget > 0 ? Math.min((qActual / qTarget * 100), 100).toFixed(1) : '0.0';
     const qPctColor = qPct >= 80 ? 'var(--sf-success-text)' : qPct >= 50 ? 'var(--sf-warning-text)' : 'var(--sf-text-danger)';
@@ -2980,11 +2989,16 @@ function renderCards() {
   // Product metrics - 按过滤条件统计合同（只统计过滤后申请对应的合同）
   const cardsContracts = getCardsContracts(filtered);
   const productMap = {};
+  var prodSeen = {}; // 按主合同号去重，同一合同多次录入只计一次
   cardsContracts.forEach(function(c) {
+    var conKey = c.mainContractNo || c.id;
+    if (prodSeen[conKey]) return;
+    prodSeen[conKey] = true;
+    if ((parseFloat(c.subAmount) || 0) < 100000) return; // 10万门槛，与其他指标口径一致
     var p = c.product || '未指定';
     if (!productMap[p]) productMap[p] = { count: 0, amount: 0 };
     productMap[p].count++;
-    productMap[p].amount += (parseFloat(c.presalePerformance) || 0) / 10000;
+    productMap[p].amount += (parseFloat(c.subAmount) || 0) / 10000;
   });
   const productArr = Object.entries(productMap).sort((a, b) => b[1].amount - a[1].amount).slice(0, 5);
   if (productArr.length === 0) {
