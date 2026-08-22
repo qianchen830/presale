@@ -1249,9 +1249,14 @@ function consultantPerfOf(oppNo) {
     .filter(function(al) { return al.oppNo === oppNo && (!scope || scope.has(al.consultant)); })
     .reduce(function(s, al) { return s + (parseFloat(al.consultantPerformance) || 0); }, 0);
 }
-// 金额口径（万元）：签单=顾问个人业绩分配；预计/活跃/丢失/暂停=预计签单金额；其余不计
+// 金额口径（万元）：签单=个人视图按个人业绩分配、汇总视图(admin/部门授权)按合同签订金额；
+// 预计/活跃/丢失/暂停=预计签单金额；其余不计
 function amtOf(a) {
-  if (a.status === '签单') return consultantPerfOf(a.oppNo) / 10000;
+  if (a.status === '签单') {
+    var scope = getScopeConsultants();
+    if (scope === null || scope.size > 1) return (parseFloat(a.signAmount) || 0) / 10000;
+    return consultantPerfOf(a.oppNo) / 10000;
+  }
   if (a.status === '预计' || a.status === '活跃' || a.status === '丢失' || a.status === '暂停') return (parseFloat(a.expectedSignAmount) || 0) / 10000;
   return 0;
 }

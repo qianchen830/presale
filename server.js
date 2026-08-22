@@ -721,28 +721,30 @@ app.get('/api/consultant', requireAuth, (req, res) => {
 // 各模块单条 CRUD 路由（实时保存）
 const MODULE_KEYS = ['applications','contracts','judgments','salesQuestions','followUps','allocations'];
 
-function checkModuleOwnership(record, session, state) {
+function checkModuleOwnership(record, session, state, key) {
   if (session.role === 'admin') return true;
   const myName = session.displayName || session.username;
   // 本人负责的记录可改/可删（applications、新建记录、allocations 的业绩归属人）
   if (record.consultant === myName) return true;
-  // 导入的旧数据（contracts/judgments/followUps 等）无 consultant 字段：
-  // 通过 oppNo 找对应申请的顾问判断归属（oppNo 可能是多个、用、分隔，取第一个）
   var oppNoStr = record.oppNo || '';
-  if (oppNoStr) {
+  // 业绩分配：仅支持的售前顾问本人（consultant字段）、admin、部门授权用户可改；
+  // 项目首席顾问（oppNo归属）不能改分配给别人的业绩
+  if (key !== 'allocations' && oppNoStr) {
+    // 导入的旧数据（contracts/judgments/followUps 等）无 consultant 字段：
+    // 通过 oppNo 找对应申请的顾问判断归属（oppNo 可能是多个、用、分隔，取第一个）
     var firstOpp = oppNoStr.split('、')[0].trim();
     var app = (state.applications || []).find(function(a) { return a.oppNo === firstOpp; });
     if (app && app.consultant === myName) return true;
   }
-  // 部门级授权用户可改/可删授权部门所有顾问的记录
+  // 部门级授权用户可改/可删授权部门所有顾问的记录（含分配：归属顾问在其授权部门内）
   var viewDepts = [];
-  try { viewDepts = JSON.parse(session.viewDepts || '[]'); } catch(e) {}
+  try { viewDepts = JSON.parse(session.view_depts || '[]'); } catch(e) {}
   if (viewDepts.length > 0) {
     // 注意：employees 存的是 deptId（部门id），需经 departments 映射为部门名后再比对授权部门名
     var deptById = {};
     (state.departments || []).forEach(function(d) { if (d.id && d.name) deptById[d.id] = d.name; });
     var targetName = record.consultant;
-    if (!targetName && oppNoStr) {
+    if (!targetName && oppNoStr && key !== 'allocations') {
       var fo = oppNoStr.split('、')[0].trim();
       var fa = (state.applications || []).find(function(a) { return a.oppNo === fo; });
       if (fa) targetName = fa.consultant;
@@ -780,9 +782,10 @@ function moduleOp(key, action, record, session) {
     return { ok: true, record, updatedAt };
   }
   if (action === 'update') {
-    const idx = arr.findIndex(r => r.id === record.id);
+    // id 可能是字符串或数字（URL参数恒为字符串），统一按字符串比较
+    const idx = arr.findIndex(r => String(r.id) === String(record.id));
     if (idx < 0) return { error: '记录不存在' };
-    if (!checkModuleOwnership(arr[idx], session, state)) return { error: '无权限修改此记录' };
+    if (!checkModuleOwnership(arr[idx], session, state, key)) return { error: '无权限修改此记录' };
     var oldOppNo = key === 'contracts' ? arr[idx].oppNo : null;
     record.consultant = arr[idx].consultant;
     record.id = arr[idx].id;
@@ -804,7 +807,7 @@ function moduleOp(key, action, record, session) {
     console.log('[delete] idx=' + idx + ' record.consultant=' + (idx >= 0 ? arr[idx].consultant : 'n/a'));
     if (idx < 0) return { error: '记录不存在' };
     // 归属校验：consultant 直配 + oppNo→申请归属 + 部门授权，与 update 同一套规则
-    if (!checkModuleOwnership(arr[idx], session, state)) return { error: '无权限删除此记录' };
+    if (!checkModuleOwnership(arr[idx], session, state, key)) return { error: '无权限删除此记录' };
     // 级联删除：applications 删时同步删关联合同/业绩分配；contracts 删时同步删业绩分配；其他软删除
     var oppNo = null;
     if (key === 'applications' || key === 'contracts') {

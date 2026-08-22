@@ -1605,7 +1605,7 @@ function getFilteredApps() {
 
 function getFilteredContracts() {
   const range = getPeriodRange(getPeriodKey());
-  return state.contracts.filter(c => {
+  const list = state.contracts.filter(c => {
     if (c.mainSignDate && inRange(c.mainSignDate, range)) return true;
     if (c.signOpDate && inRange(c.signOpDate, range)) return true;
     if (c.yearMonth) {
@@ -1613,6 +1613,14 @@ function getFilteredContracts() {
       if (inRange(ym, range)) return true;
     }
     return false;
+  });
+  // 按主合同号去重：同一合同多次录入/同步只计一次（首个为准）
+  const seen = new Set();
+  return list.filter(c => {
+    const k = c.mainContractNo || c.id;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
   });
 }
 
