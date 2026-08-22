@@ -2753,10 +2753,10 @@ function _isPersonalScope() {
   return _currentUser && _currentUser.role !== 'admin' && !(_currentUser.view_depts && _currentUser.view_depts.length > 0);
 }
 
-// 个人视角：业绩分配中分配给自己的金额（按month字段判年份，单位元→万元）
+// 个人视角：业绩分配中分配给自己的金额（按month字段判年份，按合同主合同编号去重，单位元→万元）
 function _personalAllocActual(year, quarterIdx) {
   var myName = _currentUser.displayName || _currentUser.username;
-  var sum = 0;
+  var grouped = {};
   (state.allocations || []).forEach(function(a) {
     if (a.consultant !== myName) return;
     var m = a.month || ''; // 格式 2026-01
@@ -2764,7 +2764,37 @@ function _personalAllocActual(year, quarterIdx) {
     if (parts.length < 2) return;
     if (parseInt(parts[0]) !== year) return;
     if (quarterIdx != null && Math.floor((parseInt(parts[1]) - 1) / 3) + 1 !== quarterIdx) return;
-    sum += parseFloat(a.consultantPerformance) || 0;
+    // 找合同mainContractNo（contractId优先，oppNo兜底）
+    var c = state.contracts.find(function(r) { return r.id === a.contractId; });
+    if (!c && a.oppNo) c = state.contracts.find(function(r) { return r.oppNo === a.oppNo; });
+    var grpKey = c ? (c.mainContractNo || '—') : '—';
+    var consKey = (a.consultant || '—') + (a.pct != null ? '(' + a.pct + '%)' : '');
+    if (!grouped[grpKey]) grouped[grpKey] = { _set: new Set() };
+    if (!grouped[grpKey]._set.has(consKey)) {
+      grouped[grpKey]._set.add(consKey);
+    }
+  });
+  // 按合同mainContractNo+顾问+百分比去重后，用原始分配记录累加（每组每顾问只算一次）
+  var sum = 0;
+  Object.keys(grouped).forEach(function(grpKey) {
+    var seenCons = {};
+    (state.allocations || []).forEach(function(a) {
+      if (a.consultant !== myName) return;
+      var m = a.month || '';
+      var parts = m.split('-');
+      if (parts.length < 2) return;
+      if (parseInt(parts[0]) !== year) return;
+      if (quarterIdx != null && Math.floor((parseInt(parts[1]) - 1) / 3) + 1 !== quarterIdx) return;
+      var c = state.contracts.find(function(r) { return r.id === a.contractId; });
+      if (!c && a.oppNo) c = state.contracts.find(function(r) { return r.oppNo === a.oppNo; });
+      var key = c ? (c.mainContractNo || '—') : '—';
+      if (key !== grpKey) return;
+      var consKey = (a.consultant || '—') + (a.pct != null ? '(' + a.pct + '%)' : '');
+      if (!seenCons[consKey]) {
+        seenCons[consKey] = true;
+        sum += parseFloat(a.consultantPerformance) || 0;
+      }
+    });
   });
   return sum / 10000;
 }
