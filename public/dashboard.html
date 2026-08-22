@@ -2495,11 +2495,14 @@ function renderCards() {
   const following = baseApps.filter(a => a.status === '活跃').length;
   const lost = baseApps.filter(a => a.status === '丢失').length;
   const won = baseApps.filter(a => a.status === '签单').length;
-  // 顶部金额（与index.html一致）：admin/部门视角=新增金额；个人视角=签单+预计
-  const wonAppsArr = baseApps.filter(a => a.status === '签单');
+  // 顶部金额（与index.html一致）：
+  // admin/部门视角：签单=期间内合同签订金额（与年度指标实际值口径一致），预计/活跃等=新增金额
+  // 个人视角：签单+预计金额（保持原有逻辑）
+  const _wonAmt = _dedupView
+    ? _perfActual  // admin/部门：签单金额=年度指标实际值口径（合同签订金额，10万门槛）
+    : wonAppsArr.reduce((s, a) => s + amtOf(a), 0);  // 个人视角：签单按本人分配
   const expAppsArr = baseApps.filter(a => a.status === '预计');
   const newAppsArr = baseApps.filter(a => inRange(a.applyDate, getPeriodRange(getPeriodKey())));
-  const _wonAmt = wonAppsArr.reduce((s, a) => s + amtOf(a), 0);
   const _expAmt = expAppsArr.reduce((s, a) => s + amtOf(a), 0);
   const totalAmount = _dedupView ? newAppsArr.reduce((s, a) => s + amtOf(a), 0) : (_wonAmt + _expAmt);
 
