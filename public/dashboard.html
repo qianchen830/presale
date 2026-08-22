@@ -1609,7 +1609,16 @@ function inRange(dateStr, range) {
 
 function getFilteredApps() {
   const range = getPeriodRange(getPeriodKey());
-  return state.applications.filter(a => inRange(a.applyDate, range));
+  var apps = state.applications.filter(a => inRange(a.applyDate, range));
+  // 按oppNo去重：同一项目只保留一条
+  var seen = {};
+  apps = apps.filter(function(a) {
+    if (!a.oppNo) return true;
+    if (seen[a.oppNo]) return false;
+    seen[a.oppNo] = true;
+    return true;
+  });
+  return apps;
 }
 
 function getFilteredContracts() {
@@ -2447,16 +2456,12 @@ function renderCards() {
   const filtered = getFilteredApps();
   const all = getAllApps();
 
-  // 看板为admin全局汇总：按项目(oppNo)去重，商机号重复录入只计一次（首个为准）
-  const seenOpp = {};
-  const dd = filtered.filter(function(a) { if (a.oppNo && seenOpp[a.oppNo]) return false; if (a.oppNo) seenOpp[a.oppNo] = true; return true; });
-
-  const total = dd.length;
-  const newCount = dd.filter(a => inRange(a.applyDate, getPeriodRange(getPeriodKey()))).length;
-  const following = dd.filter(a => a.status === '活跃').length;
-  const lost = dd.filter(a => a.status === '丢失').length;
-  const won = dd.filter(a => a.status === '签单').length;
-  const totalAmount = dd.reduce((s, a) => s + amtOf(a), 0);
+  const total = filtered.length;
+  const newCount = filtered.filter(a => inRange(a.applyDate, getPeriodRange(getPeriodKey()))).length;
+  const following = filtered.filter(a => a.status === '活跃').length;
+  const lost = filtered.filter(a => a.status === '丢失').length;
+  const won = filtered.filter(a => a.status === '签单').length;
+  const totalAmount = filtered.reduce((s, a) => s + amtOf(a), 0);
 
   // 期间业绩目标进度（随年/季/月/周筛选联动；实际数从筛选后合同取，10万门槛，用presalePerformance）
   const _yearWon = getFilteredContracts().filter(function(c) { return (parseFloat(c.subAmount) || 0) >= 100000; });
