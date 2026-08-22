@@ -2876,8 +2876,6 @@ function renderCards() {
 
   // 顶部数量/金额：admin/部门视角与「新增」格子一致；个人视角保持全部申请口径
   var topCount = dedupView ? newApps.length : total;
-  console.log('[DEBUG]', 'apps=' + state.applications.length + ' newApps=' + newApps.length + ' topAmount=' + topAmount);
-  console.log('[DEBUG]', 'apps=' + state.applications.length + ' filtered=' + filtered.length + ' baseApps=' + baseApps.length + ' newApps=' + newApps.length + ' topAmount=' + topAmount + ' dedupView=' + dedupView + ' amtOfApp(0):' + (newApps.length ? amtOfApp(newApps[0]) : 'n/a'));
   var topAmount = dedupView ? newApps.reduce(function(s, a) { return s + amtOfApp(a); }, 0) : totalWonExpected;
 
   document.getElementById('cardOverview').innerHTML =
