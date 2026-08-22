@@ -1625,11 +1625,6 @@ function inRange(dateStr, range) {
   } catch (e) { return false; }
 }
 
-
-  const d = new Date(dateStr);
-  return d >= range.start && d <= range.end;
-}
-
 function getFilteredApps() {
   const range = getPeriodRange(getPeriodKey());
   var apps = state.applications.filter(a => inRange(a.applyDate, range));
