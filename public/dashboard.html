@@ -6873,14 +6873,14 @@ function showDetail(card, type) {
     } else if (type !== 'all' && type !== 'new') {
       apps = filtered.filter(a => a.status === statusMap[type]);
     }
-    // 明细按金额（签单→签单金额，预计/丢失→预计金额，其余→申请金额）由高到低排序
+    // 明细按申请日期升序（早的在前）
     apps.sort(function(x, y) {
-      function amtOf2(p) {
-        if (p.status === '签单') return parseFloat(p.signAmount) || 0;
-        if (p.status === '丢失' || p.status === '预计') return parseFloat(p.expectedSignAmount) || 0;
-        return parseFloat(p.applyAmount) || 0;
-      }
-      return amtOf2(y) - amtOf2(x);
+      var dx = x.applyDate ? new Date(x.applyDate) : null;
+      var dy = y.applyDate ? new Date(y.applyDate) : null;
+      if (!dx && !dy) return 0;
+      if (!dx) return -1;
+      if (!dy) return 1;
+      return dx - dy;
     });
     rows = apps.map(a => {
       // 查找该商机的业绩分配，汇总支持顾问及比例
@@ -6912,7 +6912,11 @@ function showDetail(card, type) {
     });
   } else if (card === 'target') {
     title = type === 'target' ? '年度指标明细' : '实际完成明细';
-    const signedContracts = getFilteredContracts();
+    const signedContracts = getFilteredContracts().slice().sort(function(a, b) {
+      var da = a.mainSignDate || a.signOpDate || a.yearMonth || '';
+      var db = b.mainSignDate || b.signOpDate || b.yearMonth || '';
+      return da < db ? -1 : (da > db ? 1 : 0);
+    });
     rows = signedContracts.map(c => ({
       '签单时间': c.mainSignDate || c.signOpDate || c.yearMonth || '—', '客户': c.signCustomerName || c.signCustomer || '—', '项目名称': c.projectName || (c.product || '—'),
       '商机号': c.oppNo || '—', '签单金额(万元)': fmtWan(c.presalePerformance), '产品': c.product || '—'
@@ -7038,14 +7042,14 @@ function showDetail(card, type) {
     title = '风险项目明细';
     const riskApps = filtered.filter(a => state.judgments.some(j => j.oppNo === a.oppNo && j.isRisk === '是'));
     const apps = type === 'all' ? riskApps : riskApps.filter(a => type === 'active' ? a.status === '活跃' : a.status === '暂停');
-    // 明细按金额（签单→签单金额，预计/丢失→预计金额，其余→申请金额）由高到低排序
+    // 明细按申请日期升序（早的在前）
     apps.sort(function(x, y) {
-      function amtOf2(p) {
-        if (p.status === '签单') return parseFloat(p.signAmount) || 0;
-        if (p.status === '丢失' || p.status === '预计') return parseFloat(p.expectedSignAmount) || 0;
-        return parseFloat(p.applyAmount) || 0;
-      }
-      return amtOf2(y) - amtOf2(x);
+      var dx = x.applyDate ? new Date(x.applyDate) : null;
+      var dy = y.applyDate ? new Date(y.applyDate) : null;
+      if (!dx && !dy) return 0;
+      if (!dx) return -1;
+      if (!dy) return 1;
+      return dx - dy;
     });
     rows = apps.map(a => {
       const j = state.judgments.find(j => j.oppNo === a.oppNo && j.isRisk === '是');
