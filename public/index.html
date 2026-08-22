@@ -1597,14 +1597,6 @@ function getFilteredApps() {
       apps = apps.filter(function(a) { return a.consultant === myName; });
     }
   }
-  // 按 oppNo 去重（同一商机号只保留一条，避免重复数据显示）
-  var seen = {};
-  apps = apps.filter(function(a) {
-    if (!a.oppNo) return true;
-    if (seen[a.oppNo]) return false;
-    seen[a.oppNo] = true;
-    return true;
-  });
   return apps;
 }
 
