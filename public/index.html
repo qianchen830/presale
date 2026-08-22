@@ -1539,18 +1539,16 @@ document.addEventListener('click', function(e) {
 
 function inRange(dateStr, range) {
   if (!dateStr) return false;
-  // 统一按本地时间解析，避免 UTC/本地时区差异
-  const parts = dateStr.split('-');
-  if (parts.length >= 2) {
-    const y = parseInt(parts[0]);
-    const m = parseInt(parts[1]);
-    const d = parts.length >= 3 ? parseInt(parts[2]) : 1;
-    const dt = new Date(y, m - 1, d);
-    return dt >= range.start && dt <= range.end;
-  }
-  const d = new Date(dateStr);
-  return d >= range.start && d <= range.end;
+  try {
+    var ds = dateStr.split("-");
+    var y = parseInt(ds[0]), m = parseInt(ds[1]) - 1, d = ds.length >= 3 ? parseInt(ds[2]) : 1;
+    var dt = new Date(y, m, d);
+    var r0 = range[0] instanceof Date ? range[0] : (range.start instanceof Date ? range.start : new Date(range[0]));
+    var r1 = range[1] instanceof Date ? range[1] : (range.end instanceof Date ? range.end : new Date(range[1]));
+    return dt >= r0 && dt <= r1;
+  } catch (e) { return false; }
 }
+
 
 function getFilteredApps() {
   const range = getPeriodRange(getPeriodKey());
