@@ -2550,6 +2550,7 @@ function renderCards() {
     _wonContracts.push(con);
     _wonAmt += (parseFloat(con.subAmount) || 0) / 10000;
   });
+  var _wonCount = won;  // 签单计数（申请日期口径）
   // 签单金额：admin/部门用合同口径(_wonAmt)，个人视角用amtOf(分配金额)
   var _wonAmt2 = _dedupView ? _wonAmt : (baseApps.filter(a => a.status === '签单').reduce((s, a) => s + amtOf(a), 0));
   const expAppsArr = baseApps.filter(a => a.status === '预计');
