@@ -1610,14 +1610,6 @@ function inRange(dateStr, range) {
 function getFilteredApps() {
   const range = getPeriodRange(getPeriodKey());
   var apps = state.applications.filter(a => inRange(a.applyDate, range));
-  // 按oppNo去重：同一项目只保留一条
-  var seen = {};
-  apps = apps.filter(function(a) {
-    if (!a.oppNo) return true;
-    if (seen[a.oppNo]) return false;
-    seen[a.oppNo] = true;
-    return true;
-  });
   return apps;
 }
 
