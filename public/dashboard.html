@@ -2519,6 +2519,7 @@ function renderCards() {
   const _perfActual = _yearWon.reduce(function(s, c) { return s + (parseFloat(c.subAmount) || 0); }, 0) / 10000;
   // 签单金额=_perfActual（期间内签订合同，subAmount≥10万，与年度指标口径一致）
   // 签单计数=申请日期口径
+  const won = baseApps.filter(a => a.status === '签单').length;  // 签单计数：申请日期口径
   var _wonAmt = _perfActual;
   var _wonCount = won;
   const expAppsArr = baseApps.filter(a => a.status === '预计');
