@@ -1378,45 +1378,7 @@ function buildWeekCalendar() {
       consultantHomeDept[e.name] = deptById[e.deptId];
     }
   });
-  var deptKeys = [...new Set(Object.values(consultantHomeDept))].sort();
-
-  function buildDeptFilterOptions(search) {
-    var s = (search || '').toLowerCase();
-    var html = '<button class="pd-opt' + (!state.filterDept && !s ? ' cur' : '') + '" onclick="clearDeptFilter()" style="color:var(--sf-text-secondary)">全部部门</button>';
-    deptKeys.forEach(function(d) {
-      if (s && !d.toLowerCase().includes(s)) return;
-      html += '<button class="pd-opt' + (state.filterDept === d ? ' cur' : '') + '" onclick="setDeptFilter(\'' + d.replace(/'/g, "\\'") + '\')">' + d + '</button>';
-    });
-    return html;
-  }
-
-  if (document.getElementById('panelDeptFilter')) {
-    var pDept = document.getElementById('panelDeptFilter');
-    var existingSearch = document.getElementById('deptFilterSearch');
-    if (!existingSearch) {
-      var inp = document.createElement('input');
-      inp.id = 'deptFilterSearch';
-      inp.type = 'text';
-      inp.placeholder = '搜索部门...';
-      inp.style = 'width:100%;padding:6px 8px;margin-bottom:6px;border:1px solid var(--sf-border);border-radius:4px;font-size:12px;box-sizing:border-box;outline:none;';
-      inp.addEventListener('input', function() {
-        var grid = pDept.querySelector('.pd-grid');
-        if (grid) grid.innerHTML = buildDeptFilterOptions(this.value);
-      });
-      inp.addEventListener('click', function(e) { e.stopPropagation(); });
-      pDept.insertBefore(inp, pDept.firstChild);
-    }
-    var grid = pDept.querySelector('.pd-grid');
-    if (!grid) { grid = document.createElement('div'); grid.className = 'pd-grid'; pDept.appendChild(grid); }
-    grid.innerHTML = buildDeptFilterOptions(document.getElementById('deptFilterSearch').value);
-  }
-  document.getElementById('lblDeptFilter').textContent = (state.filterDept || '全部部门');
-
-  // 顾问过滤下拉：按顾问归属部门过滤（部门选中时只显示归属该部门的顾问；部门未选时显示全部）
-  var consInDept = state.filterDept
-    ? Object.keys(consultantHomeDept).filter(function(c) { return consultantHomeDept[c] === state.filterDept; })
-    : Object.keys(consultantHomeDept);
-  consInDept.sort();
+  // 部门/顾问过滤下拉已移除，不再渲染
 }
 
 function jumpToToday() {
@@ -1499,47 +1461,6 @@ function clearMonth() {
   state.month = null;
   state.weekNum = null;
   state.selectedAppId = null;
-  closeAllDD();
-  buildPeriodPanels();
-  autoSave();
-  render();
-}
-
-// ===== 部门/顾问过滤 =====
-function clearDeptFilter() {
-  state.filterDept = null;
-  state.filterConsultant = null;
-  state.selectedAppId = null;
-  closeAllDD();
-  buildPeriodPanels();
-  autoSave();
-  render();
-}
-
-function setDeptFilter(dept) {
-  state.filterDept = dept || null;
-  state.filterConsultant = null;
-  state.selectedAppId = null;
-  closeAllDD();
-  buildPeriodPanels();
-  autoSave();
-  render();
-}
-
-function clearConsultantFilter() {
-  state.filterConsultant = null;
-  state.selectedAppId = null;
-  closeAllDD();
-  buildPeriodPanels();
-  autoSave();
-  render();
-}
-
-function setConsultantFilter(name) {
-  state.filterConsultant = name || null;
-  state.selectedAppId = null;
-  // 切换顾问时同步清除部门过滤，避免叠加导致看不到该顾问数据
-  state.filterDept = null;
   closeAllDD();
   buildPeriodPanels();
   autoSave();
