@@ -2518,8 +2518,35 @@ function renderCards() {
   const _yearWon = getFilteredContracts().filter(function(c) { return (parseFloat(c.subAmount) || 0) >= 100000; });
   const _perfActual = _yearWon.reduce(function(s, c) { return s + (parseFloat(c.subAmount) || 0); }, 0) / 10000;
   // 签单计数+金额：admin/部门视角=期间内合同签订口径（与年度指标实际值完全一致）；个人视角=申请记录
-  const won = baseApps.filter(a => a.status === '签单').length;  // 签单计数：申请日期口径（与index.html一致）
-  const _wonAmt = _dedupView ? _perfActual : (baseApps.filter(a => a.status === '签单')).reduce((s, a) => s + amtOf(a), 0);
+  // 签单计数：申请日期口径（与index.html一致）
+  const won = baseApps.filter(a => a.status === '签单').length;
+  // 签单金额：admin/部门视角=合同签订日期口径（与年度指标实际值、index.html签单完全一致）
+  var _wonAmt = 0;
+  if (_dedupView) {
+    var conOppSet = {};
+    var range = getPeriodRange(getPeriodKey());
+    (state.contracts || []).forEach(function(con) {
+      if ((parseFloat(con.subAmount) || 0) < 100000) return;
+      if (!con.mainSignDate && !con.signOpDate && !con.yearMonth) return;
+      var m = null;
+      if (con.mainSignDate) { var d = new Date(con.mainSignDate); if (!isNaN(d)) m = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'); }
+      if (!m && con.signOpDate) { var d2 = new Date(con.signOpDate); if (!isNaN(d2)) m = d2.getFullYear() + '-' + String(d2.getMonth()+1).padStart(2,'0'); }
+      if (!m && con.yearMonth) m = String(con.yearMonth);
+      if (!m) return;
+      var parts = m.split('-');
+      var pk = getPeriodKey().split('_');
+      if (pk[0] === 'year' && parseInt(parts[0]) !== parseInt(pk[1])) return;
+      if (pk[0] === 'quarter') { var qn = parseInt(pk[2]); var mon = parseInt(parts[1]); if (Math.floor((mon-1)/3)+1 !== qn || parseInt(parts[0]) !== parseInt(pk[1])) return; }
+      if (pk[0] === 'month') { var pkparts = getPeriodRange(getPeriodKey()); if (!inRange(m+'-01', pkparts)) return; }
+      if (pk[0] === 'week') { if (!inRange(con.mainSignDate || con.signOpDate, range)) return; }
+      if (!con.oppNo) return;
+      if (conOppSet[con.oppNo]) return;
+      conOppSet[con.oppNo] = true;
+      _wonAmt += (parseFloat(con.subAmount) || 0) / 10000;
+    });
+  } else {
+    _wonAmt = (baseApps.filter(a => a.status === '签单')).reduce((s, a) => s + amtOf(a), 0);
+  }
   const expAppsArr = baseApps.filter(a => a.status === '预计');
   const newAppsArr = baseApps.filter(a => inRange(a.applyDate, getPeriodRange(getPeriodKey())));
   const _expAmt = _dedupView
