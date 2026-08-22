@@ -2871,7 +2871,6 @@ function renderCards() {
     : wonApps.reduce(function(s, a) { return s + amtOfApp(a); }, 0);
   // 签单计数：申请日期口径，与金额分开显示
   var wonCount = dedupView ? wonApps.length : wonApps.length;
-  console.log('[DEBUG index renderCards]', 'getPeriodKey():', getPeriodKey(), 'dedupView:', dedupView, 'isAdminView:', isAdminView, 'filtered.length:', filtered.length, 'wonApps.length:', wonApps.length, 'wonAmt:', wonAmt, 'getCardsAnnualActual(2026):', getCardsAnnualActual(2026, filtered), 'wonCount:', wonCount);
   const expectedAmt = expectedApps.reduce(function(s, a) { return s + amtOfApp(a); }, 0);
   const totalWonExpected = wonAmt + expectedAmt;
 
