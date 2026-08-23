@@ -2872,10 +2872,10 @@ function renderCards() {
     }
     return 0;
   };
-  // 签单金额（与年度指标实际值完全一致，dedupView时用合同口径，个人视角用申请记录口径）
+  // 签单金额（与年度指标实际值完全一致，dedupView时用合同口径，个人视角统一用个人分配口径）
   var wonAmt = dedupView
     ? getCardsAnnualActual(parseInt(getPeriodKey().split('_')[1]), filtered)
-    : wonApps.reduce(function(s, a) { return s + amtOfApp(a); }, 0);
+    : _personalAllocActual(parseInt(getPeriodKey().split('_')[1]), null);
   // 签单计数：申请日期口径，与金额分开显示
   var wonCount = dedupView ? wonApps.length : wonApps.length;
   const expectedAmt = expectedApps.reduce(function(s, a) { return s + amtOfApp(a); }, 0);
