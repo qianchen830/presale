@@ -2740,13 +2740,15 @@ function getCardsContracts(filteredApps) {
 }
 
 // 是否个人视角（普通账号：非admin且无部门查看权限）
+// _currentUser未加载时保守返回true，避免首次渲染用错误的dedupView分支（合同subAmount口径会丢失分配业绩）
 function _isPersonalScope() {
-  return _currentUser && _currentUser.role !== 'admin' && !(_currentUser.view_depts && _currentUser.view_depts.length > 0);
+  if (!_currentUser) return true;  // 未加载完时默认个人视角，等数据加载完成后再用正确判断
+  return _currentUser.role !== 'admin' && !(_currentUser.view_depts && _currentUser.view_depts.length > 0);
 }
 
 // 个人视角：业绩分配中分配给自己的金额（按mainContractNo+顾问+百分比去重，单位元→万元）
 function _personalAllocActual(year, quarterIdx) {
-  var myName = _currentUser.displayName || _currentUser.username;
+  var myName = (_currentUser && (_currentUser.displayName || _currentUser.username)) || state.consultant || '';
   var sum = 0;
   var seen = {}; // key = mainContractNo + '|' + consKey
   (state.allocations || []).forEach(function(a) {
