@@ -2507,6 +2507,30 @@ function render() {
 /* ----- CARDS ----- */
 /* 按顾问统计业绩分配中的顾问业绩（年度/季度实际数） */
 
+/* 个人视角：统计 allocations 中本人的 consultantPerformance（与 index.html _personalAllocActual 完全一致） */
+function _personalAllocActual(year, quarterIdx) {
+  var myName = (_dashUser && (_dashUser.displayName || _dashUser.username)) || '';
+  var sum = 0;
+  var seen = {};
+  (state.allocations || []).forEach(function(a) {
+    if (a.consultant !== myName) return;
+    var m = a.month || '';
+    var parts = m.split('-');
+    if (parts.length < 2) return;
+    if (parseInt(parts[0]) !== year) return;
+    if (quarterIdx != null && Math.floor((parseInt(parts[1]) - 1) / 3) + 1 !== quarterIdx) return;
+    var c = state.contracts.find(function(r) { return r.id === a.contractId; });
+    if (!c && a.oppNo) c = state.contracts.find(function(r) { return r.oppNo === a.oppNo; });
+    var grpKey = c ? (c.mainContractNo || '—') : '—';
+    var consKey = (a.consultant || '—') + (a.pct != null ? '(' + a.pct + '%)' : '');
+    var uniqKey = grpKey + '|' + consKey;
+    if (!seen[uniqKey]) {
+      seen[uniqKey] = true;
+      sum += parseFloat(a.consultantPerformance) || 0;
+    }
+  });
+  return sum / 10000;
+}
 
 function renderCards() {
   const filtered = getFilteredApps();
@@ -2527,42 +2551,52 @@ function renderCards() {
   const newCount = baseApps.filter(a => inRange(a.applyDate, getPeriodRange(getPeriodKey()))).length;
   const following = baseApps.filter(a => a.status === '活跃').length;
   const lost = baseApps.filter(a => a.status === '丢失').length;
-  // 期间业绩目标进度（随年/季/月/周筛选联动；实际数从筛选后合同取，10万门槛，用subAmount，与售前管理系统一致）
-  const _yearWon = getFilteredContracts().filter(function(c) { return (parseFloat(c.subAmount) || 0) >= 100000; });
-  const _perfActual = _yearWon.reduce(function(s, c) { return s + (parseFloat(c.subAmount) || 0); }, 0) / 10000;
-  // 签单金额=_perfActual（期间内签订合同，subAmount≥10万，与年度指标口径一致）
+  // 期间业绩目标进度：个人视图用 allocations 中本人份额（与 index.html 年度指标口径一致），admin/部门视图用合同 subAmount
+  var _pk = getPeriodKey().split('_');
+  var _pkYear = parseInt(_pk[1]);
+  var _perfActual = 0;
+  if (_dedupView) {
+    // admin/部门视角：筛选期内签订合同，subAmount≥10万
+    const _yearWon = getFilteredContracts().filter(function(c) { return (parseFloat(c.subAmount) || 0) >= 100000; });
+    _perfActual = _yearWon.reduce(function(s, c) { return s + (parseFloat(c.subAmount) || 0); }, 0) / 10000;
+  } else {
+    // 个人视角： allocations 中本人的 consultantPerformance（与 index.html _personalAllocActual 一致）
+    _perfActual = _personalAllocActual(_pkYear, null);
+  }
   // 签单计数=申请日期口径
   const won = baseApps.filter(a => a.status === '签单').length;  // 签单计数：申请日期口径（与index一致）
-  // 签单金额：与index.html getCardsAnnualActual完全一致的逻辑——Q12026签订合同(>=10万)且oppNo在申请记录中
+  // 签单金额：个人视图用 allocations 本人份额（与年度指标一致），admin/部门视图用合同 subAmount
   var _wonAmt = 0;
-  var _wonContracts = [];
-  var conOppSet = {};
-  var appOppNos = {};
-  (state.applications || []).forEach(function(a) { if (a.oppNo) appOppNos[(a.oppNo || '').trim()] = true; });
-  (state.contracts || []).forEach(function(con) {
-    if ((parseFloat(con.subAmount) || 0) < 100000) return;
-    if (!con.oppNo || !appOppNos[(con.oppNo || '').trim()]) return;  // oppNo必须在申请记录中（与index一致）
-    if (conOppSet[con.oppNo]) return;  // 按oppNo去重（与index一致）
-    var m = null;
-    if (con.mainSignDate) { var dd = new Date(con.mainSignDate); if (!isNaN(dd)) m = dd.getFullYear() + '-' + String(dd.getMonth()+1).padStart(2,'0'); }
-    if (!m && con.signOpDate) { var dd2 = new Date(con.signOpDate); if (!isNaN(dd2)) m = dd2.getFullYear() + '-' + String(dd2.getMonth()+1).padStart(2,'0'); }
-    if (!m && con.yearMonth) m = String(con.yearMonth);
-    if (!m) return;
-    var parts = m.split('-');
-    var pk = getPeriodKey().split('_');
-    var pkYear = parseInt(pk[1]);
-    var conYear = parseInt(parts[0]);
-    var conMonth = parseInt(parts[1]);
-    var inPeriod = false;
-    if (pk[0] === 'year' && conYear === pkYear) inPeriod = true;
-    else if (pk[0] === 'quarter') { var qn = parseInt(pk[2]); if (conYear === pkYear && Math.floor((conMonth-1)/3)+1 === qn) inPeriod = true; }
-    else if (pk[0] === 'month') { var r = getPeriodRange(getPeriodKey()); if (inRange(m+'-01', r)) inPeriod = true; }
-    else if (pk[0] === 'week') { if (inRange(con.mainSignDate || con.signOpDate, getPeriodRange(getPeriodKey()))) inPeriod = true; }
-    if (!inPeriod) return;
-    conOppSet[con.oppNo] = true;
-    _wonContracts.push(con);
-    _wonAmt += (parseFloat(con.subAmount) || 0) / 10000;
-  });
+  if (_dedupView) {
+    // admin/部门视角：与 _perfActual 相同口径的合同 subAmount
+    var conOppSet = {};
+    var appOppNos = {};
+    (state.applications || []).forEach(function(a) { if (a.oppNo) appOppNos[(a.oppNo || '').trim()] = true; });
+    (state.contracts || []).forEach(function(con) {
+      if ((parseFloat(con.subAmount) || 0) < 100000) return;
+      if (!con.oppNo || !appOppNos[(con.oppNo || '').trim()]) return;
+      if (conOppSet[con.oppNo]) return;
+      var m = null;
+      if (con.mainSignDate) { var dd = new Date(con.mainSignDate); if (!isNaN(dd)) m = dd.getFullYear() + '-' + String(dd.getMonth()+1).padStart(2,'0'); }
+      if (!m && con.signOpDate) { var dd2 = new Date(con.signOpDate); if (!isNaN(dd2)) m = dd2.getFullYear() + '-' + String(dd2.getMonth()+1).padStart(2,'0'); }
+      if (!m && con.yearMonth) m = String(con.yearMonth);
+      if (!m) return;
+      var parts = m.split('-');
+      var conYear = parseInt(parts[0]);
+      var conMonth = parseInt(parts[1]);
+      var inPeriod = false;
+      if (_pk[0] === 'year' && conYear === _pkYear) inPeriod = true;
+      else if (_pk[0] === 'quarter') { var qn = parseInt(_pk[2]); if (conYear === _pkYear && Math.floor((conMonth-1)/3)+1 === qn) inPeriod = true; }
+      else if (_pk[0] === 'month') { var r = getPeriodRange(getPeriodKey()); if (inRange(m+'-01', r)) inPeriod = true; }
+      else if (_pk[0] === 'week') { if (inRange(con.mainSignDate || con.signOpDate, getPeriodRange(getPeriodKey()))) inPeriod = true; }
+      if (!inPeriod) return;
+      conOppSet[con.oppNo] = true;
+      _wonAmt += (parseFloat(con.subAmount) || 0) / 10000;
+    });
+  } else {
+    // 个人视角：用 allocations 本人份额（与 _perfActual 一致）
+    _wonAmt = _personalAllocActual(_pkYear, null);
+  }
   var _wonCount = won;  // 签单计数（申请日期口径）
   // 签单金额：全部用 baseApps 中签单申请的 amtOf 之和（个人=分配，部门/admin=合同口径）
   var _wonAmt2 = baseApps.filter(a => a.status === '签单').reduce((s, a) => s + amtOf(a), 0);
@@ -2572,7 +2606,6 @@ function renderCards() {
     ? expAppsArr.reduce((s, a) => s + amtOf(a), 0)  // admin/部门：预计按申请日期过滤
     : expAppsArr.reduce((s, a) => s + amtOf(a), 0);
   const totalAmount = _dedupView ? newAppsArr.reduce((s, a) => s + amtOf(a), 0) : (_wonAmt2 + _expAmt);
-  const _pk = getPeriodKey().split('_');
   let tgtLabel = '年度目标';
   let tgtVal = parseFloat(state.annualTarget) || 0;
   if (_pk[0] === 'quarter') {
