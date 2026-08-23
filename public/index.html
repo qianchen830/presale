@@ -1106,7 +1106,7 @@ async function apiGetState() {
     if (!res.ok) throw new Error('HTTP ' + res.status);
     var data = await res.json();
     _serverSyncOk = true;
-    return data.state || null;
+    return data;
   } catch(e) {
     console.warn('从服务器加载失败，使用本地缓存:', e);
     _serverSyncOk = false;
@@ -2498,6 +2498,8 @@ function exportBackup() {
 /* ===== 合并 state ===== */
 function applyStateObj(obj, keepExistingData) {
   if (!obj || typeof obj !== 'object') return false;
+  // 兼容：apiGetState 可能返回 {state, user} 或纯 state，自动 unwrap
+  if (obj.state) obj = obj.state;
   // 如果服务器数据比当前 embedded HTML 数据少（常见于导出后未重新从服务器加载），
   // 则保留 embedded HTML 中的数据，只同步服务器有而本地没有的记录
   if (keepExistingData && obj.applications && state.applications && obj.applications.length < state.applications.length) {
@@ -2539,10 +2541,15 @@ function applyStateObj(obj, keepExistingData) {
 
 async function loadState() {
   var loaded = false;
-  var serverState = await apiGetState();
-  if (serverState) {
+  var serverData = await apiGetState();
+  if (serverData && serverData.state) {
+    // 在 applyStateObj 之前设置 _currentUser（其内会调用 renderCards），确保首次渲染用正确的个人/部门视角
+    if (serverData.user) {
+      _currentUser = serverData.user;
+      _currentUser.view_depts = Array.isArray(serverData.user.viewDepts) ? serverData.user.viewDepts : [];
+    }
     // 传入 true：当 embedded HTML 数据比服务器更丰富时，保留 embedded 数据
-    loaded = applyStateObj(serverState, true);
+    loaded = applyStateObj(serverData.state, true);
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
     return loaded;
   }
@@ -2740,13 +2747,12 @@ function getCardsContracts(filteredApps) {
 }
 
 // 是否个人视角（普通账号：非admin且无部门查看权限）
-// _currentUser未加载时保守返回true，避免首次渲染用错误的dedupView分支（合同subAmount口径会丢失分配业绩）
 function _isPersonalScope() {
-  if (!_currentUser) return true;  // 未加载完时默认个人视角，等数据加载完成后再用正确判断
-  return _currentUser.role !== 'admin' && !(_currentUser.view_depts && _currentUser.view_depts.length > 0);
+  return _currentUser && _currentUser.role !== 'admin' && !(_currentUser.view_depts && _currentUser.view_depts.length > 0);
 }
 
 // 个人视角：业绩分配中分配给自己的金额（按mainContractNo+顾问+百分比去重，单位元→万元）
+// _currentUser未加载时用state.consultant兜底（服务器session中的显示名），避免首次渲染崩溃
 function _personalAllocActual(year, quarterIdx) {
   var myName = (_currentUser && (_currentUser.displayName || _currentUser.username)) || state.consultant || '';
   var sum = 0;
@@ -2837,7 +2843,7 @@ function renderCards() {
   //   签单/预计/活跃/丢失/暂停：个人视角优先本人分配份额，无分配则用合同subAmount（10万门槛）；部门/admin视角直接用合同subAmount
   const amtOfApp = function(a) {
     if (a.status === '签单' || a.status === '预计' || a.status === '活跃' || a.status === '丢失' || a.status === '暂停') {
-      var myName = _isPersonalScope() ? (_currentUser.displayName || _currentUser.username) : null;
+      var myName = _isPersonalScope() ? ((_currentUser && (_currentUser.displayName || _currentUser.username)) || state.consultant || '') : null;
       if (myName) {
         // 个人视角：先查本人分配份额
         var matched = (state.allocations || []).filter(function(al) {
@@ -4544,8 +4550,8 @@ async function deleteRecord(collection, id) {
     if (!r.ok) { var d = await r.json(); alert('删除失败：' + (d.error || r.status)); return; }
     // 删除成功后从服务器重新拉数据再渲染
     var fresh = await apiGetState();
-    if (fresh) {
-      state = Object.assign({}, state, fresh);
+    if (fresh && fresh.state) {
+      state = Object.assign({}, state, fresh.state);
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
     } else {
       window.location.reload();
