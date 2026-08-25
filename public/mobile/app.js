@@ -340,6 +340,13 @@ const app = createApp({
         showToast('加载数据失败: ' + e.message);
       } finally {
         state.loading = false;
+      // 调试：显示当前用户和合同数据
+      setTimeout(() => {
+        const me = state.user?.displayName || state.user?.username || '';
+        const cons = state.fullState?.contracts || [];
+        const fc = (typeof filteredContracts !== 'undefined' && filteredContracts.value) ? filteredContracts.value : [];
+        window.alert(`用户: ${me}\n总合同: ${cons.length}\n可见合同: ${fc.length}\n合同oppNo: ${fc.map(c=>c.oppNo+'('+c.subAmount+')').join(', ')}`);
+      }, 500);
       }
     }
 
