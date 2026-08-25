@@ -756,12 +756,12 @@ const app = createApp({
     const dashboardAnnualTarget = computed(() => {
       const year = state.year;
       const target = userTargets.annualTargets[year] || state.fullState?.annualTarget || 0;
-      return target > 0 ? (target / 10000).toFixed(1) : '—';
+      return target > 0 ? target : '—';
     });
     const dashboardProgress = computed(() => {
       const target = userTargets.annualTargets[state.year] || state.fullState?.annualTarget || 0;
       if (!target) return -1;
-      return Math.round((dashboardWonAmount.value / (target / 10000)) * 100);
+      return Math.round((dashboardWonAmount.value / target) * 100);
     });
 
     const debugInfo = computed(() => {
