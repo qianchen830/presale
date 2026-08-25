@@ -743,19 +743,37 @@ const app = createApp({
       await loadMe();
     });
 
+    // Dashboard 计算属性
+    const dashboardWonAmount = computed(() => {
+      return (filteredContracts.value || []).reduce((s,c) => {
+        const sa = parseFloat(c.subAmount) || 0;
+        return s + (sa >= 100000 ? (parseFloat(c.presalePerformance) || 0) : 0);
+      }, 0) / 10000;
+    });
+    const dashboardTotalAmount = computed(() => {
+      return (filteredContracts.value || []).reduce((s,c) => s + (parseFloat(c.subAmount) || 0), 0) / 10000;
+    });
+    const dashboardAnnualTarget = computed(() => {
+      const year = state.year;
+      const target = userTargets.annualTargets[year] || state.fullState?.annualTarget || 0;
+      return target > 0 ? (target / 10000).toFixed(1) : '—';
+    });
+    const dashboardProgress = computed(() => {
+      const target = userTargets.annualTargets[state.year] || state.fullState?.annualTarget || 0;
+      if (!target) return -1;
+      return Math.round((dashboardWonAmount.value / (target / 10000)) * 100);
+    });
+
     const debugInfo = computed(() => {
       const year = state.year;
-      // 合同金额：不按年份过滤（用户可见的所有合同）
-      const won = (filteredContracts.value || []).reduce((s,c) => s + ((parseFloat(c.subAmount)||0) >= 100000 ? (parseFloat(c.presalePerformance)||0) : 0), 0) / 10000;
-      const totalAmt = (filteredContracts.value || []).reduce((s,c) => s + (parseFloat(c.subAmount)||0), 0) / 10000;
-      const firstC = filteredContracts.value[0] ? { oppNo: filteredContracts.value[0].oppNo, sa: filteredContracts.value[0].subAmount, pp: filteredContracts.value[0].presalePerformance } : null;
-      return { total: filteredContracts.value.length, won: won.toFixed(1), totalAmt: totalAmt.toFixed(1), target: userTargets.annualTargets[year], year, firstC };
+      return { total: filteredContracts.value.length, won: dashboardWonAmount.value.toFixed(1), target: userTargets.annualTargets[year], year };
     });
 
     return {
       state, loginUsername, loginPassword, loginLoading,
       doLogin, doLogout, loadState,
       dashboardStats,
+      dashboardWonAmount, dashboardTotalAmount, dashboardAnnualTarget, dashboardProgress,
       filteredApps, filteredContracts, myFollows, myJudgments, mySalesQs, myAllocs,
       listRecords, groupedRecords,
       formData, formLoading,
@@ -853,28 +871,28 @@ const app = createApp({
       <div class="dt-money-row">
         <div class="dt-money-item">
           <div class="dt-money-lbl">签单金额</div>
-          <div class="dt-money-val dt-text-primary" v-text="(filteredContracts.reduce((s,c) => s+(parseFloat(c.subAmount)||0)>=100000?(parseFloat(c.presalePerformance)||0):0, 0)/10000).toFixed(1) + ' 万'"></div>
+              <div class="dt-money-val dt-text-primary" v-text="dashboardWonAmount + ' 万'"></div>
         </div>
         <div class="dt-money-divider"></div>
         <div class="dt-money-item">
           <div class="dt-money-lbl">合同总额</div>
-          <div class="dt-money-val" v-text="(filteredContracts.reduce((s,c) => s+(parseFloat(c.subAmount)||0), 0)/10000).toFixed(1) + ' 万'"></div>
+          <div class="dt-money-val" v-text="dashboardTotalAmount + ' 万'"></div>
         </div>
         <div class="dt-money-divider"></div>
         <div class="dt-money-item">
           <div class="dt-money-lbl">年度目标</div>
-          <div class="dt-money-val dt-text-muted" v-text="(userTargets.annualTargets[state.year] || state.fullState?.annualTarget || 0) > 0 ? (userTargets.annualTargets[state.year] || state.fullState?.annualTarget || 0)/10000 + ' 万' : '—'"></div>
+          <div class="dt-money-val dt-text-muted" v-text="dashboardAnnualTarget"></div>
         </div>
       </div>
 
       <!-- 进度条（如果有目标） -->
-      <div v-if="(userTargets.annualTargets[state.year] || state.fullState?.annualTarget || 0) > 0" class="dt-progress-card">
+      <div v-if="dashboardProgress >= 0" class="dt-progress-card">
         <div class="dt-progress-label">
           <span>年度完成率</span>
-          <span class="dt-text-primary dt-font-bold">{{ ((filteredContracts.filter(c => new Date(c.mainSignDate||0).getFullYear()===state.year).reduce((s,c) => s+((parseFloat(c.subAmount)||0)>=100000?(parseFloat(c.presalePerformance)||0):0), 0)/10000) / ((userTargets.annualTargets[state.year] || state.fullState?.annualTarget || 0)/10000) * 100).toFixed(0) }}%</span>
+          <span class="dt-text-primary dt-font-bold">{{ dashboardProgress }}%</span>
         </div>
         <div class="dt-progress-bar">
-          <div class="dt-progress-fill dt-bg-primary" :style="{ width: Math.min((filteredContracts.filter(c => new Date(c.mainSignDate||0).getFullYear()===state.year).reduce((s,c) => s+((parseFloat(c.subAmount)||0)>=100000?(parseFloat(c.presalePerformance)||0):0), 0)/10000) / ((userTargets.annualTargets[state.year] || state.fullState?.annualTarget || 0)/10000) * 100, 100) + '%' }"></div>
+          <div class="dt-progress-fill dt-bg-primary" :style="{ width: Math.min(dashboardProgress, 100) + '%' }"></div>
         </div>
       </div>
 
