@@ -300,13 +300,11 @@ const app = createApp({
       try {
         const d = await API.getState();
         state.fullState = d.state;
-        console.log('[DEBUG] fullState loaded:', {
-          applications: (d.state?.applications||[]).length,
-          followUps: (d.state?.followUps||[]).length,
-          judgments: (d.state?.judgments||[]).length,
-          salesQuestions: (d.state?.salesQuestions||[]).length,
-          allocations: (d.state?.allocations||[]).length,
-        });
+        const fu = (d.state?.followUps||[]).length;
+        const jg = (d.state?.judgments||[]).length;
+        const sq = (d.state?.salesQuestions||[]).length;
+        const al = (d.state?.allocations||[]).length;
+        
         // admin 需要加载用户列表
         if (state.user?.role === 'admin') {
           await loadAdminUsers();
@@ -373,10 +371,10 @@ const app = createApp({
       const tab = state.activeListTab;
       if (tab === 'applications') return filteredApps.value;
       if (tab === 'contracts') return filteredContracts.value;
-      if (tab === 'followUps') return filterRecords(myFollows.value, { year: state.year, search: state.searchText });
-      if (tab === 'judgments') return filterRecords(myJudgments.value, { year: state.year, search: state.searchText });
-      if (tab === 'salesQuestions') return filterRecords(mySalesQs.value, { year: state.year, search: state.searchText });
-      if (tab === 'allocations') return filterRecords(myAllocs.value, { year: state.year, search: state.searchText });
+      if (tab === 'followUps') return filterRecords(myFollows.value, { search: state.searchText });
+      if (tab === 'judgments') return filterRecords(myJudgments.value, { search: state.searchText });
+      if (tab === 'salesQuestions') return filterRecords(mySalesQs.value, { search: state.searchText });
+      if (tab === 'allocations') return filterRecords(myAllocs.value, { search: state.searchText });
       return [];
     });
 
