@@ -370,7 +370,7 @@ const app = createApp({
         new Date(a.applyDate || 0).getFullYear() === year && !a.deleted
       );
       const cons = (state.fullState.contracts || []).filter(c =>
-        new Date(c.mainSignDate || c.signDate || 0).getFullYear() === year && !c.deleted
+        new Date(c.mainSignDate || 0).getFullYear() === year && !c.deleted
       );
       const won = apps.filter(a => a.status === '签单').length;
       const lost = apps.filter(a => a.status === '丢失').length;
@@ -836,6 +836,7 @@ const app = createApp({
       </div>
 
       <!-- 金额指标 -->
+      <!-- 🔧 调试: wonAmount={{ dashboardStats.wonAmount?.toFixed(1) }} totalAmount={{ dashboardStats.totalAmount?.toFixed(1) }} annualTarget={{ dashboardStats.annualTarget }} year={{ state.year }} -->
       <div class="dt-money-row">
         <div class="dt-money-item">
           <div class="dt-money-lbl">签单金额</div>
