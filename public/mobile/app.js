@@ -836,7 +836,9 @@ const app = createApp({
       </div>
 
       <!-- 金额指标 -->
-      <!-- 🔧 调试: wonAmount={{ dashboardStats.wonAmount?.toFixed(1) }} totalAmount={{ dashboardStats.totalAmount?.toFixed(1) }} annualTarget={{ dashboardStats.annualTarget }} year={{ state.year }} -->
+      <div style="background:#111;border:1px solid #333;color:#0f0;font-size:11px;padding:3px 8px;margin-bottom:8px;font-family:monospace">
+        DEBUG: won={{ dashboardStats.wonAmount?.toFixed(1) }}万 total={{ dashboardStats.totalAmount?.toFixed(1) }}万 target={{ dashboardStats.annualTarget }}万 year={{ state.year }}
+      </div>
       <div class="dt-money-row">
         <div class="dt-money-item">
           <div class="dt-money-lbl">签单金额</div>
