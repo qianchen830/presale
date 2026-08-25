@@ -746,6 +746,13 @@ const app = createApp({
       await loadMe();
     });
 
+    const debugInfo = computed(() => {
+      const year = state.year;
+      const c2026 = (filteredContracts.value || []).filter(c => new Date(c.mainSignDate||0).getFullYear() === year);
+      const won = c2026.reduce((s,c) => s + ((parseFloat(c.subAmount)||0) >= 100000 ? (parseFloat(c.presalePerformance)||0) : 0), 0) / 10000;
+      return { total: filteredContracts.value.length, c2026: c2026.length, won: won.toFixed(1), target: userTargets.annualTargets[year], year };
+    });
+
     return {
       state, loginUsername, loginPassword, loginLoading,
       doLogin, doLogout, loadState,
