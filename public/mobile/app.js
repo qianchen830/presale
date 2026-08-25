@@ -986,16 +986,28 @@ const app = createApp({
         </div>
       </div>
 
-      <!-- 菜单 -->
-      <div class="profile-menu">
-        <div class="profile-menu-item" @click="openModal('selfProfile','edit',{})">
-          <div class="menu-icon-wrap" style="background:rgba(102,126,234,0.15)">✏️</div>
-          <div class="menu-text">
-            <div class="menu-title">编辑个人信息</div>
-            <div class="menu-sub">修改显示名、部门</div>
-          </div>
-          <div class="menu-arrow">›</div>
+      <!-- 修改密码（直接在页面内） -->
+      <div class="profile-pwd-section">
+        <div class="profile-section-title">🔑 修改密码</div>
+        <div class="profile-pwd-field">
+          <div class="dt-form-label">旧密码</div>
+          <input type="password" class="dt-input" v-model="oldPwd" placeholder="请输入旧密码" />
         </div>
+        <div class="profile-pwd-field">
+          <div class="dt-form-label">新密码</div>
+          <input type="password" class="dt-input" v-model="newPwd" placeholder="至少6位" />
+        </div>
+        <div class="profile-pwd-field">
+          <div class="dt-form-label">确认新密码</div>
+          <input type="password" class="dt-input" v-model="confirmPwd" placeholder="再输入一次" @keyup.enter="doChangePassword" />
+        </div>
+        <button class="dt-btn dt-btn-primary dt-btn-full" :disabled="pwdLoading" @click="doChangePassword">
+          {{ pwdLoading ? '修改中…' : '确认修改密码' }}
+        </button>
+      </div>
+
+      <!-- 退出登录 -->
+      <div class="profile-menu">
         <div class="profile-menu-item" @click="doLogout">
           <div class="menu-icon-wrap" style="background:rgba(239,68,68,0.12)">🚪</div>
           <div class="menu-text">

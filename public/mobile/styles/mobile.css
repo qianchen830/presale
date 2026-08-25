@@ -1769,3 +1769,22 @@ body::after {
   width: 100%;
   margin-top: 4px;
 }
+
+/* ── Profile 修改密码 ── */
+.profile-pwd-section {
+  margin: 0 14px 12px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 18px;
+  padding: 16px;
+}
+
+.profile-section-title {
+  font-size: 14px; font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 14px;
+}
+
+.profile-pwd-field { margin-bottom: 10px; }
+
+.dt-btn-full { width: 100%; margin-top: 4px; }
