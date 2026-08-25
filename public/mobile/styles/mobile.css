@@ -1808,3 +1808,55 @@ body::after {
 .profile-pwd-field { margin-bottom: 10px; }
 
 .dt-btn-full { width: 100%; margin-top: 4px; }
+
+/* ── 个人信息弹窗（只读信息区） ── */
+.profile-info-section {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.profile-info-row {
+  display: flex;
+  align-items: center;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.profile-info-row:last-child { border-bottom: none; }
+
+.profile-info-lbl {
+  width: 70px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.profile-info-val {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+/* ── 密码修改区 ── */
+.profile-pwd-area {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.profile-pwd-title {
+  font-size: 14px; font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 14px;
+}
+
+.profile-pwd-row { margin-bottom: 12px; }
+
+.profile-pwd-row:last-of-type { margin-bottom: 14px; }

@@ -1450,60 +1450,49 @@ const app = createApp({
 
         <!-- ── 个人信息（只读信息 + 改密码） ── -->
         <template v-else-if="state.modal.name === 'selfProfile'">
-          <!-- 信息卡 -->
-          <div class="detail-card">
-            <div class="detail-card-row">
-              <div class="detail-cell">
-                <div class="detail-lbl">用户名</div>
-                <div class="detail-val mono" v-text="state.user.username"></div>
-              </div>
-              <div class="detail-cell">
-                <div class="detail-lbl">角色</div>
-                <div class="detail-val" v-text="state.user.role === 'admin' ? '管理员' : '顾问'"></div>
-              </div>
+          <div class="profile-info-section">
+            <div class="profile-info-row">
+              <div class="profile-info-lbl">用户名</div>
+              <div class="profile-info-val" v-text="state.user.username"></div>
             </div>
-            <div class="detail-card-row">
-              <div class="detail-cell">
-                <div class="detail-lbl">显示名</div>
-                <div class="detail-val" v-text="state.user.displayName || state.user.username"></div>
-              </div>
-              <div class="detail-cell">
-                <div class="detail-lbl">部门</div>
-                <div class="detail-val" v-text="state.user.department || '—'"></div>
-              </div>
+            <div class="profile-info-row">
+              <div class="profile-info-lbl">角色</div>
+              <div class="profile-info-val" v-text="state.user.role === 'admin' ? '管理员' : '顾问'"></div>
+            </div>
+            <div class="profile-info-row">
+              <div class="profile-info-lbl">显示名</div>
+              <div class="profile-info-val" v-text="state.user.displayName || state.user.username"></div>
+            </div>
+            <div class="profile-info-row">
+              <div class="profile-info-lbl">部门</div>
+              <div class="profile-info-val" v-text="state.user.department || '—'"></div>
             </div>
           </div>
 
-          <!-- 修改密码 -->
-          <div class="pwd-section">
-            <div class="pwd-title">🔑 修改密码</div>
-            <!-- 旧密码 -->
-            <div class="pwd-field">
+          <div class="profile-pwd-area">
+            <div class="profile-pwd-title">🔑 修改密码</div>
+            <div class="profile-pwd-row">
               <div class="dt-form-label">旧密码</div>
               <div class="pwd-input-wrap">
                 <input :type="showOldPwd ? 'text' : 'password'" class="dt-input" v-model="oldPwd" placeholder="请输入旧密码" autocomplete="current-password" />
-                <span class="pwd-eye" @click="showOldPwd = !showOldPwd" v-text="showOldPwd ? '🙈' : '👁️'"></span>
+                <span class="pwd-eye" @click="showOldPwd = !showOldPwd">{{ showOldPwd ? '🙈' : '👁️' }}</span>
               </div>
             </div>
-            <!-- 新密码 -->
-            <div class="pwd-field">
+            <div class="profile-pwd-row">
               <div class="dt-form-label">新密码</div>
               <div class="pwd-input-wrap">
                 <input :type="showNewPwd ? 'text' : 'password'" class="dt-input" v-model="newPwd" placeholder="至少6位" autocomplete="new-password" />
-                <span class="pwd-eye" @click="showNewPwd = !showNewPwd" v-text="showNewPwd ? '🙈' : '👁️'"></span>
+                <span class="pwd-eye" @click="showNewPwd = !showNewPwd">{{ showNewPwd ? '🙈' : '👁️' }}</span>
               </div>
             </div>
-            <!-- 确认密码 -->
-            <div class="pwd-field">
+            <div class="profile-pwd-row">
               <div class="dt-form-label">确认新密码</div>
               <div class="pwd-input-wrap">
                 <input :type="showConfirmPwd ? 'text' : 'password'" class="dt-input" v-model="confirmPwd" placeholder="再输入一次" @keyup.enter="doChangePassword" autocomplete="new-password" />
-                <span class="pwd-eye" @click="showConfirmPwd = !showConfirmPwd" v-text="showConfirmPwd ? '🙈' : '👁️'"></span>
+                <span class="pwd-eye" @click="showConfirmPwd = !showConfirmPwd">{{ showConfirmPwd ? '🙈' : '👁️' }}</span>
               </div>
             </div>
-            <button class="dt-btn dt-btn-primary dt-btn-full" :disabled="pwdLoading" @click="doChangePassword">
-              {{ pwdLoading ? '修改中…' : '确认修改密码' }}
-            </button>
+            <button class="dt-btn dt-btn-primary dt-btn-full" :disabled="pwdLoading" @click="doChangePassword">{{ pwdLoading ? '修改中…' : '确认修改密码' }}</button>
           </div>
         </template>
 
