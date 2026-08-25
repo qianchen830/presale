@@ -1285,9 +1285,9 @@ const app = createApp({
           <div class="dt-form-hint">填入数字即可，单位：万元。季度分解由系统自动按比例计算。</div>
           <div class="dt-form-group" style="margin-top:12px">
             <div class="dt-form-label">季度分解（系统自动计算）</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">
-              <div v-for="q in ['Q1','Q2','Q3','Q4']" :key="q" style="background:#f5f5f5;border-radius:6px;padding:8px 10px">
-                <div style="color:#888;font-size:12px">{{ q }}</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px">
+              <div v-for="q in ['Q1','Q2','Q3','Q4']" :key="q" style="border:1px solid #e0e0e0;border-radius:6px;padding:8px 10px">
+                <div style="color:#888;font-size:12px">{{ q }} ({{ userTargets.quarterPcts[q] || 25 }}%)</div>
                 <div style="font-size:16px;font-weight:bold;color:#333">{{ getComputedQuarterTarget(q) }} 万</div>
               </div>
             </div>
