@@ -1246,6 +1246,25 @@ const app = createApp({
           <button class="dt-btn dt-btn-default dt-btn-block" style="margin-top:12px" @click="pickerStep = null">取消并直接新建</button>
         </template>
 
+        <!-- 设置年度目标（edit mode，不需要关联申请） -->
+        <template v-if="state.modal.name === 'setTargets'">
+          <div class="dt-form-group">
+            <div class="dt-form-label">{{ state.year }} 年度目标（万元）</div>
+            <input type="number" class="dt-input" v-model.number="userTargets.annualTargets[state.year]" placeholder="例如：500" step="10" />
+          </div>
+          <div class="dt-form-hint">填入数字即可，单位：万元</div>
+          <div class="dt-form-group" style="margin-top:12px">
+            <div class="dt-form-label">季度分解（万元）</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <div v-for="q in ['Q1','Q2','Q3','Q4']" :key="q" class="dt-q-input-wrap">
+                <div class="dt-form-label" style="margin-bottom:4px">{{ q }}</div>
+                <input type="number" class="dt-input" v-model.number="userTargets.quarterTargets[q]" placeholder="0" step="5" />
+              </div>
+            </div>
+          </div>
+          <button class="dt-btn dt-btn-primary dt-btn-full" style="margin-top:16px" @click="saveUserTargets(); closeModal();">保存目标</button>
+        </template>
+
         <!-- ══════════ 详情视图 ══════════ -->
         <template v-if="state.modal.mode === 'view'">
 
@@ -1511,25 +1530,6 @@ const app = createApp({
                 </div>
               </div>
             </div>
-          </template>
-
-          <!-- 设置年度目标 -->
-          <template v-else-if="state.modal.name === 'setTargets'">
-            <div class="dt-form-group">
-              <div class="dt-form-label">{{ state.year }} 年度目标（万元）</div>
-              <input type="number" class="dt-input" v-model.number="userTargets.annualTargets[state.year]" placeholder="例如：500" step="10" />
-            </div>
-            <div class="dt-form-hint">填入数字即可，单位：万元</div>
-            <div class="dt-form-group" style="margin-top:12px">
-              <div class="dt-form-label">季度分解（万元）</div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-                <div v-for="q in ['Q1','Q2','Q3','Q4']" :key="q" class="dt-q-input-wrap">
-                  <div class="dt-form-label" style="margin-bottom:4px">{{ q }}</div>
-                  <input type="number" class="dt-input" v-model.number="userTargets.quarterTargets[q]" placeholder="0" step="5" />
-                </div>
-              </div>
-            </div>
-            <button class="dt-btn dt-btn-primary dt-btn-full" style="margin-top:16px" @click="saveUserTargets(); closeModal();">保存目标</button>
           </template>
 
         <!-- 个人信息 -->
