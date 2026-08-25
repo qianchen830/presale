@@ -840,6 +840,9 @@ const app = createApp({
       <div style="background:#111;border:1px solid #333;color:#0f0;font-size:11px;padding:3px 8px;margin-bottom:8px;font-family:monospace">
         allC={{ (state.fullState?.contracts||[]).length }} fc={{ filteredContracts.length }} yr={{ state.year }} target={{ userTargets.annualTargets[state.year] }}
       </div>
+      <div style="background:#111;border:1px solid #333;color:#0f0;font-size:11px;padding:3px 8px;margin-bottom:8px;font-family:monospace">
+        contracts={{ (state.fullState?.contracts||[]).length }} fc={{ filteredContracts.length }} won={{ (filteredContracts.filter(c=>new Date(c.mainSignDate||0).getFullYear()===state.year).reduce((s,c)=>s+((parseFloat(c.subAmount)||0)>=100000?(parseFloat(c.presalePerformance)||0):0,0)/10000).toFixed(1) }} target={{ userTargets.annualTargets[state.year] }} contractsList={{ filteredContracts.map(c=>({o:c.oppNo,s:c.subAmount,p:c.presalePerformance,d:c.mainSignDate})).slice(0,3) }}
+      </div>
       <div class="dt-money-row">
         <div class="dt-money-item">
           <div class="dt-money-lbl">签单金额</div>
