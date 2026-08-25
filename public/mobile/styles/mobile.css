@@ -1873,3 +1873,51 @@ body::after {
 }
 
 .dt-modal-overlay { touch-action: pan-y; }
+
+/* ── 列表分组（申请为主体，子记录嵌套） ── */
+.dt-sep { color: var(--text-muted); margin: 0 3px; }
+
+.dt-app-group {
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.dt-app-group:last-child { border-bottom: none; }
+
+.dt-app-group-hd {
+  display: flex;
+  align-items: center;
+  padding: 10px 4px 8px 4px;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+.dt-app-group-info { flex: 1; min-width: 0; }
+
+.dt-app-group-name {
+  font-size: 14px; font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.dt-app-group-meta {
+  font-size: 12px; color: var(--text-muted);
+  margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.dt-app-group-empty {
+  font-size: 12px; color: var(--text-muted);
+  padding: 6px 4px 6px 16px;
+  font-style: italic;
+}
+
+.dt-sub-row {
+  padding-left: 12px !important;
+  border-bottom: 1px solid rgba(255,255,255,0.03) !important;
+}
+
+.dt-list-desc {
+  font-size: 12px; color: var(--text-secondary);
+  margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 100%;
+}

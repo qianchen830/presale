@@ -367,15 +367,36 @@ const app = createApp({
     const mySalesQs = computed(() => getVisibleRecords('salesQuestions'));
     const myAllocs = computed(() => getVisibleRecords('allocations'));
 
-    const listRecords = computed(() => {
-      const tab = state.activeListTab;
-      if (tab === 'applications') return filteredApps.value;
-      if (tab === 'contracts') return filteredContracts.value;
-      if (tab === 'followUps') return filterRecords(myFollows.value, { search: state.searchText });
-      if (tab === 'judgments') return filterRecords(myJudgments.value, { search: state.searchText });
-      if (tab === 'salesQuestions') return filterRecords(mySalesQs.value, { search: state.searchText });
-      if (tab === 'allocations') return filterRecords(myAllocs.value, { search: state.searchText });
-      return [];
+    // 非申请 tab：用 groupedRecords（申请为主体，子记录嵌套在申请下）
+    // 结构：[ { app: {...}, subs: [...] } ]
+    const groupedRecords = computed(() => {
+      if (state.activeListTab === 'applications' || state.activeListTab === 'contracts') {
+        return state.activeListTab === 'applications' ? filteredApps.value.map(a => ({ app: a, subs: [] })) : filteredContracts.value.map(c => ({ app: c, subs: [] }));
+      }
+      const moduleMap = {
+        followUps: { data: myFollows.value, key: 'oppNo', icon: '📋' },
+        judgments: { data: myJudgments.value, key: 'oppNo', icon: '🔍' },
+        salesQuestions: { data: mySalesQs.value, key: 'oppNo', icon: '💬' },
+        allocations: { data: myAllocs.value, key: 'oppNo', icon: '💰' },
+      };
+      const cfg = moduleMap[state.activeListTab];
+      if (!cfg) return [];
+      const kw = (state.searchText || '').toLowerCase();
+      const subs = filterRecords(cfg.data, { search: kw });
+      // 按 oppNo 分组，找对应 application
+      const appMap = {};
+      (state.fullState?.applications || []).forEach(a => { appMap[a.oppNo] = a; });
+      const groups = {};
+      subs.forEach(s => {
+        const oppNo = s[cfg.key];
+        if (!groups[oppNo]) groups[oppNo] = { app: appMap[oppNo] || { oppNo, customer: '(未知申请)', projectName: '' }, subs: [] };
+        groups[oppNo].subs.push(s);
+      });
+      // 排序：最新关联的排前面
+      return Object.values(groups).sort((a, b) => {
+        const da = new Date(a.app.applyDate || 0); const db = new Date(b.app.applyDate || 0);
+        return db - da;
+      });
     });
 
     // ── Modal ──
@@ -693,7 +714,7 @@ const app = createApp({
       doLogin, doLogout, loadState,
       dashboardStats,
       filteredApps, filteredContracts, myFollows, myJudgments, mySalesQs, myAllocs,
-      listRecords,
+      listRecords, groupedRecords,
       formData, formLoading,
       openModal, closeModal, maybeCloseModal,
       oldPwd, newPwd, confirmPwd, showOldPwd, showNewPwd, showConfirmPwd,
@@ -872,28 +893,98 @@ const app = createApp({
 
       <!-- 记录列表 -->
       <div class="dt-list">
-        <div v-if="listRecords.length === 0" class="dt-empty">
-          <div class="dt-empty-icon">📭</div>
-          <div class="dt-empty-text">暂无数据</div>
-        </div>
-        <div v-for="r in listRecords" :key="r.id" class="dt-list-row" @click="openModal(listTabToModal(state.activeListTab),'view',r)">
-          <div v-if="state.activeListTab === 'applications'" class="dt-list-info" style="flex:1">
-            <div class="dt-list-title" v-text="(r.customer||'') + (r.projectName ? ' / '+r.projectName : '')"></div>
-            <div class="dt-list-sub" v-text="(r.oppNo||'') + ' | ' + (r.product||'') + ' | ' + (r.currentStage||'')"></div>
+
+        <!-- 申请/合同：扁平列表 -->
+        <template v-if="state.activeListTab === 'applications' || state.activeListTab === 'contracts'">
+          <div v-if="listRecords.length === 0" class="dt-empty">
+            <div class="dt-empty-icon">📭</div>
+            <div class="dt-empty-text">暂无数据</div>
           </div>
-          <div v-else-if="state.activeListTab === 'contracts'" class="dt-list-info" style="flex:1">
-            <div class="dt-list-title" v-text="r.signCustomerName || r.signCustomer"></div>
-            <div class="dt-list-sub" v-text="fmtMoney(r.subAmount) + '元 | ' + fmtDate(r.mainSignDate)"></div>
+          <div v-for="r in listRecords" :key="r.id" class="dt-list-row" @click="openModal(listTabToModal(state.activeListTab),'view',r)">
+            <div v-if="state.activeListTab === 'applications'" class="dt-list-info" style="flex:1">
+              <div class="dt-list-title" v-text="(r.customer||'') + (r.projectName ? ' / '+r.projectName : '')"></div>
+              <div class="dt-list-sub">
+                <span v-text="r.oppNo"></span>
+                <span class="dt-sep">·</span>
+                <span v-text="r.consultant || r.applicant || ''"></span>
+                <span class="dt-sep">·</span>
+                <span v-text="r.product||''"></span>
+              </div>
+              <div class="dt-list-sub" style="margin-top:2px">
+                <span class="dt-badge" :class="getStatusBadge(r.status)" v-text="r.status" style="margin-right:6px"></span>
+                <span v-text="r.currentStage||''"></span>
+              </div>
+            </div>
+            <div v-else class="dt-list-info" style="flex:1">
+              <div class="dt-list-title" v-text="r.signCustomerName || r.signCustomer"></div>
+              <div class="dt-list-sub">
+                <span v-text="r.oppNo"></span>
+                <span class="dt-sep">·</span>
+                <span v-text="fmtMoney(r.subAmount)"></span>元
+                <span class="dt-sep">·</span>
+                <span v-text="fmtDate(r.mainSignDate)"></span>
+              </div>
+            </div>
+            <div class="dt-list-arrow">›</div>
           </div>
-          <div v-else class="dt-list-info" style="flex:1">
-            <div class="dt-list-title" v-text="getListItemTitle(r, state.activeListTab)"></div>
-            <div class="dt-list-sub" v-text="getListItemSub(r, state.activeListTab)"></div>
+        </template>
+
+        <!-- 跟进/判断/问答/分配：按申请分组，子记录展开显示 -->
+        <template v-else>
+          <div v-if="groupedRecords.length === 0" class="dt-empty">
+            <div class="dt-empty-icon">📭</div>
+            <div class="dt-empty-text">暂无数据</div>
           </div>
-          <div v-if="state.activeListTab === 'applications'" class="dt-list-badge">
-            <span class="dt-badge" :class="getStatusBadge(r.status)" v-text="r.status"></span>
+          <div v-for="group in groupedRecords" :key="group.app.oppNo" class="dt-app-group">
+            <!-- 父申请卡片 -->
+            <div class="dt-app-group-hd" @click="openModal('app','view', group.app)">
+              <div class="dt-app-group-info">
+                <div class="dt-app-group-name" v-text="(group.app.customer||'') + (group.app.projectName ? ' / '+group.app.projectName : '')"></div>
+                <div class="dt-app-group-meta">
+                  <span v-text="group.app.oppNo"></span>
+                  <span class="dt-sep">·</span>
+                  <span v-text="group.app.consultant || group.app.applicant || ''"></span>
+                  <span class="dt-sep">·</span>
+                  <span v-text="group.app.product||''"></span>
+                </div>
+                <div class="dt-app-group-meta" v-if="group.app.status">
+                  <span class="dt-badge" :class="getStatusBadge(group.app.status)" v-text="group.app.status" style="margin-right:6px"></span>
+                  <span v-text="group.app.currentStage||''"></span>
+                </div>
+              </div>
+              <div class="dt-list-arrow">›</div>
+            </div>
+            <!-- 子记录列表 -->
+            <div v-if="group.subs.length === 0" class="dt-app-group-empty">暂无记录</div>
+            <div v-for="sub in group.subs" :key="sub.id" class="dt-list-row dt-sub-row" @click="openModal(listTabToModal(state.activeListTab),'view',sub)">
+              <div class="dt-list-info" style="flex:1">
+                <!-- 跟进: 工作项+日期 -->
+                <template v-if="state.activeListTab === 'followUps'">
+                  <div class="dt-list-title" v-text="sub.workItem"></div>
+                  <div class="dt-list-sub" v-text="fmtDate(sub.followDate) + (sub.hours ? ' · '+sub.hours+'h' : '')"></div>
+                  <div v-if="sub.summary" class="dt-list-desc" v-text="sub.summary"></div>
+                </template>
+                <!-- 判断: 阶段+竞争对手 -->
+                <template v-else-if="state.activeListTab === 'judgments'">
+                  <div class="dt-list-title" v-text="(sub.currentStage||'判断') + (sub.competitor ? ' · 竞对:'+sub.competitor : '')"></div>
+                  <div class="dt-list-sub" v-text="fmtDate(sub.updatedAt)"></div>
+                </template>
+                <!-- 问答: 问题摘要 -->
+                <template v-else-if="state.activeListTab === 'salesQuestions'">
+                  <div class="dt-list-title" v-text="sub.seq ? 'Q'+sub.seq+': '+(sub.question||'') : (sub.question||'')"></div>
+                  <div class="dt-list-sub dt-list-desc" v-text="sub.answer ? '→ '+sub.answer : '→ 待回答'"></div>
+                </template>
+                <!-- 分配: 顾问+金额 -->
+                <template v-else-if="state.activeListTab === 'allocations'">
+                  <div class="dt-list-title" v-text="(sub.consultant||'顾问') + (sub.department ? ' · '+sub.department : '')"></div>
+                  <div class="dt-list-sub" v-text="fmtMoney(sub.consultantPerformance)+'元 · '+sub.month"></div>
+                </template>
+              </div>
+              <div class="dt-list-arrow">›</div>
+            </div>
           </div>
-          <div class="dt-list-arrow">›</div>
-        </div>
+        </template>
+
       </div>
 
       <!-- FAB: 只有申请 tab 能直接新建，其他模块必须从父记录进入 -->
