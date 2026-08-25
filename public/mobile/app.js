@@ -330,13 +330,7 @@ const app = createApp({
         showToast('加载数据失败: ' + e.message);
       } finally {
         state.loading = false;
-      // 调试：显示当前用户和合同数据
-      setTimeout(() => {
-        const me = state.user?.displayName || state.user?.username || '';
-        const cons = state.fullState?.contracts || [];
-        const fc = (typeof filteredContracts !== 'undefined' && filteredContracts.value) ? filteredContracts.value : [];
-        window.alert(`用户: ${me}\n总合同: ${cons.length}\n可见合同: ${fc.length}\n合同oppNo: ${fc.map(c=>c.oppNo+'(subAmount='+c.subAmount+')').join(', ')}\n\n服务器原始合同:\n${cons.map(c=>c.oppNo+' subAmount='+c.subAmount+' deleted='+c.deleted).join('\n')}`);
-      }, 500);
+
       }
     }
 
@@ -764,10 +758,7 @@ const app = createApp({
       return Math.round((dashboardWonAmount.value / target) * 100);
     });
 
-    const debugInfo = computed(() => {
-      const year = state.year;
-      return { total: filteredContracts.value.length, won: dashboardWonAmount.value.toFixed(1), target: userTargets.annualTargets[year], year };
-    });
+
 
     return {
       state, loginUsername, loginPassword, loginLoading,
@@ -779,7 +770,6 @@ const app = createApp({
       formData, formLoading,
       openModal, closeModal, maybeCloseModal,
       userTargets, loadUserTargets, saveUserTargets,
-      debugInfo,
       oldPwd, newPwd, confirmPwd, showOldPwd, showNewPwd, showConfirmPwd,
       doChangePassword, pwdLoading,
       getListItemTitle, getListItemSub,
@@ -864,9 +854,6 @@ const app = createApp({
       <!-- 签单金额 / 合同总额 / 年度目标（内联计算，不依赖有问题的 dashboardStats） -->
       <div style="background:#111;border:1px solid #333;color:#0f0;font-size:11px;padding:3px 8px;margin-bottom:8px;font-family:monospace">
         allC={{ (state.fullState?.contracts||[]).length }} fc={{ filteredContracts.length }} yr={{ state.year }} target={{ userTargets.annualTargets[state.year] }}
-      </div>
-      <div style="background:#111;border:1px solid #333;color:#0f0;font-size:11px;padding:3px 8px;margin-bottom:8px;font-family:monospace">
-        DEBUG: won={{ dashboardWonAmount.toFixed(1) }}万 total={{ dashboardTotalAmount.toFixed(1) }}万 target={{ userTargets.annualTargets[state.year] || 0 }}
       </div>
       <div class="dt-money-row">
         <div class="dt-money-item">
