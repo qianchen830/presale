@@ -388,7 +388,7 @@ const app = createApp({
     const myVisibleApps = computed(() => getVisibleRecords('applications'));
     const myVisibleContracts = computed(() => getVisibleRecords('contracts'));
     const filteredApps = computed(() => filterRecords(myVisibleApps.value, { year: state.year, status: state.filterStatus, search: state.searchText }));
-    const filteredContracts = computed(() => filterRecords(myVisibleContracts.value, { year: state.year, search: state.searchText }));
+    const filteredContracts = computed(() => filterRecords(myVisibleContracts.value, { search: state.searchText }));
     const myFollows = computed(() => getVisibleRecords('followUps'));
     const myJudgments = computed(() => getVisibleRecords('judgments'));
     const mySalesQs = computed(() => getVisibleRecords('salesQuestions'));
