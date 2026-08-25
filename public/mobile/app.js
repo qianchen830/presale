@@ -58,12 +58,14 @@ const state = reactive({
     const userTargets = reactive({
       annualTargets: {}, // { year: amount }
       quarterTargets: {}, // { Q1: amount, ... }
+      quarterPcts: { Q1: 25, Q2: 25, Q3: 25, Q4: 25 }, // { Q1: pct, ... }
     });
     async function loadUserTargets() {
       try {
         const d = await API.getUserTargets();
         userTargets.annualTargets = d.annualTargets || {};
         userTargets.quarterTargets = d.quarterTargets || {};
+        userTargets.quarterPcts = (d.quarterPcts && Object.keys(d.quarterPcts).length > 0) ? d.quarterPcts : { Q1: 25, Q2: 25, Q3: 25, Q4: 25 };
       } catch(e) { /* ignore */ }
     }
     async function saveUserTargets() {
@@ -82,8 +84,8 @@ const state = reactive({
       const year = state.year;
       const annual = parseFloat(userTargets.annualTargets[year] || 0);
       if (!annual) return '0.0';
-      const pcts = { Q1: 25, Q2: 25, Q3: 25, Q4: 25 }; // 固定各25%
-      return (annual * pcts[quarter] / 100).toFixed(1);
+      const pcts = userTargets.quarterPcts || { Q1: 25, Q2: 25, Q3: 25, Q4: 25 };
+      return (annual * (parseFloat(pcts[quarter]) || 0) / 100).toFixed(1);
     }
 
     // ── 年份切换后自动刷新目标数据 ──
