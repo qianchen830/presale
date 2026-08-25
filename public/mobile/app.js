@@ -510,6 +510,40 @@ const app = createApp({
 
     function closeModal() { state.modal = null; }
 
+    // 拖拽关闭（防止误触）
+    const dragStartY = ref(0);
+    const dragOffset = ref(0);
+    const isDragging = ref(false);
+    const dragOpened = ref(false);
+
+    function onModalTouchStart(e) {
+      dragStartY.value = e.touches[0].clientY;
+      dragOffset.value = 0;
+      isDragging.value = true;
+      dragOpened.value = false;
+    }
+    function onModalTouchMove(e) {
+      if (!isDragging.value) return;
+      const delta = e.touches[0].clientY - dragStartY.value;
+      dragOffset.value = delta > 0 ? delta : 0;
+      if (delta > 80) dragOpened.value = true;
+    }
+    function onModalTouchEnd() {
+      if (!isDragging.value) return;
+      isDragging.value = false;
+      if (dragOpened.value) {
+        closeModal();
+      }
+      dragOffset.value = 0;
+    }
+
+    // 关闭前检查是否有未保存内容
+    function maybeCloseModal() {
+      const isForm = state.modal && state.modal.mode !== 'view';
+      if (isForm && !confirm('内容未保存，确定关闭？')) return;
+      closeModal();
+    }
+
     async function saveRecord() {
       if (!state.modal) return;
       formLoading.value = true;
@@ -656,7 +690,7 @@ const app = createApp({
       filteredApps, filteredContracts, myFollows, myJudgments, mySalesQs, myAllocs,
       listRecords,
       formData, formLoading,
-      openModal, closeModal, saveRecord, deleteRecord, saveSelfProfile,
+      openModal, closeModal, maybeCloseModal,
       oldPwd, newPwd, confirmPwd, showOldPwd, showNewPwd, showConfirmPwd,
       doChangePassword, pwdLoading,
       getListItemTitle, getListItemSub,
@@ -1025,11 +1059,13 @@ const app = createApp({
   </div>
 
   <!-- ══════════ MODAL ══════════ -->
-  <div v-if="state.modal" class="dt-modal-overlay" @click.self="closeModal">
-    <div class="dt-modal" @click.stop>
+  <div v-if="state.modal" class="dt-modal-overlay" @click.self="maybeCloseModal">
+    <div class="dt-modal" @click.stop
+         @touchstart="onModalTouchStart" @touchmove="onModalTouchMove" @touchend="onModalTouchEnd">
 
       <!-- Modal Header -->
-      <div class="dt-modal-hd">
+      <div class="dt-modal-hd" :class="{'dt-modal-hd-dragging': dragOffset > 30}">
+        <div class="dt-modal-pull-bar"></div>
         <div class="dt-modal-title">
           <span v-if="state.modal.mode === 'create'">新建</span>
           <span v-else-if="state.modal.mode === 'view'">详情</span>

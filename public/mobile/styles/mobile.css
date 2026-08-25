@@ -1860,3 +1860,16 @@ body::after {
 .profile-pwd-row { margin-bottom: 12px; }
 
 .profile-pwd-row:last-of-type { margin-bottom: 14px; }
+
+/* ── Modal 防误触：下拉拖拽关闭 ── */
+.dt-modal-pull-bar {
+  width: 36px; height: 4px;
+  background: rgba(255,255,255,0.3);
+  border-radius: 2px;
+  margin: 0 auto 8px;
+}
+.dt-modal-hd-dragging .dt-modal-pull-bar {
+  background: rgba(255,255,255,0.6);
+}
+
+.dt-modal-overlay { touch-action: pan-y; }
