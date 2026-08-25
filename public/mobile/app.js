@@ -599,7 +599,7 @@ const app = createApp({
     async function saveSelfProfile() {
       formLoading.value = true;
       try {
-        await API.updateUser(state.user.userId, {
+        await API.updateMyProfile({
           display_name: formData.display_name,
           department: formData.department,
         });
@@ -610,6 +610,29 @@ const app = createApp({
         showToast(e.message);
       } finally {
         formLoading.value = false;
+      }
+    }
+
+    // 改密码
+    const oldPwd = ref('');
+    const newPwd = ref('');
+    const confirmPwd = ref('');
+    const pwdLoading = ref(false);
+
+    async function doChangePassword() {
+      if (!oldPwd.value) { showToast('请输入旧密码'); return; }
+      if (!newPwd.value) { showToast('请输入新密码'); return; }
+      if (newPwd.value.length < 6) { showToast('新密码至少6位'); return; }
+      if (newPwd.value !== confirmPwd.value) { showToast('两次新密码不一致'); return; }
+      pwdLoading.value = true;
+      try {
+        await API.changeMyPassword(oldPwd.value, newPwd.value);
+        showToast('密码修改成功');
+        oldPwd.value = ''; newPwd.value = ''; confirmPwd.value = '';
+      } catch (e) {
+        showToast(e.message);
+      } finally {
+        pwdLoading.value = false;
       }
     }
 
@@ -631,6 +654,7 @@ const app = createApp({
       listRecords,
       formData, formLoading,
       openModal, closeModal, saveRecord, deleteRecord, saveSelfProfile,
+      oldPwd, newPwd, confirmPwd, doChangePassword, pwdLoading,
       getListItemTitle, getListItemSub,
       getStatusBadge, fmtMoney, fmtDate, getDeptName, getEmpName,
       changeYear, listTabToModal, modalTitle, getFieldsForModal,
@@ -1420,22 +1444,71 @@ const app = createApp({
           </div>
         </template>
 
-        <!-- ── 个人信息编辑 ── -->
+        <!-- ── 个人信息查看/编辑 ── -->
         <template v-else-if="state.modal.name === 'selfProfile'">
-          <div class="dt-form">
-            <div class="dt-form-group">
-              <div class="dt-form-label">用户名</div>
-              <input type="text" class="dt-input dt-input-disabled" v-model="formData.username" disabled />
+          <!-- 查看模式：信息卡 -->
+          <template v-if="state.modal.mode === 'view'">
+            <div class="detail-card">
+              <div class="detail-card-row">
+                <div class="detail-cell">
+                  <div class="detail-lbl">用户名</div>
+                  <div class="detail-val mono" v-text="state.user.username"></div>
+                </div>
+                <div class="detail-cell">
+                  <div class="detail-lbl">角色</div>
+                  <div class="detail-val" v-text="state.user.role === 'admin' ? '管理员' : '顾问'"></div>
+                </div>
+              </div>
+              <div class="detail-card-row">
+                <div class="detail-cell">
+                  <div class="detail-lbl">显示名</div>
+                  <div class="detail-val" v-text="state.user.displayName || state.user.username"></div>
+                </div>
+                <div class="detail-cell">
+                  <div class="detail-lbl">部门</div>
+                  <div class="detail-val" v-text="state.user.department || '—'"></div>
+                </div>
+              </div>
             </div>
-            <div class="dt-form-group">
-              <div class="dt-form-label">显示名 <span style="color:#EF4444">*</span></div>
-              <input type="text" class="dt-input" v-model="formData.display_name" />
+
+            <!-- 改密码 -->
+            <div class="pwd-section">
+              <div class="pwd-title">🔑 修改密码</div>
+              <div class="pwd-field">
+                <div class="dt-form-label">旧密码</div>
+                <input type="password" class="dt-input" v-model="oldPwd" placeholder="请输入旧密码" />
+              </div>
+              <div class="pwd-field">
+                <div class="dt-form-label">新密码</div>
+                <input type="password" class="dt-input" v-model="newPwd" placeholder="至少6位" />
+              </div>
+              <div class="pwd-field">
+                <div class="dt-form-label">确认新密码</div>
+                <input type="password" class="dt-input" v-model="confirmPwd" placeholder="再输入一次" @keyup.enter="doChangePassword" />
+              </div>
+              <button class="dt-btn dt-btn-primary dt-btn-block" :disabled="pwdLoading" @click="doChangePassword">
+                {{ pwdLoading ? '修改中…' : '确认修改密码' }}
+              </button>
             </div>
-            <div class="dt-form-group">
-              <div class="dt-form-label">部门</div>
-              <input type="text" class="dt-input" v-model="formData.department" />
+          </template>
+
+          <!-- 编辑模式：表单 -->
+          <template v-if="state.modal.mode === 'edit'">
+            <div class="dt-form">
+              <div class="dt-form-group">
+                <div class="dt-form-label">用户名</div>
+                <input type="text" class="dt-input dt-input-disabled" v-model="formData.username" disabled />
+              </div>
+              <div class="dt-form-group">
+                <div class="dt-form-label">显示名 <span style="color:#EF4444">*</span></div>
+                <input type="text" class="dt-input" v-model="formData.display_name" />
+              </div>
+              <div class="dt-form-group">
+                <div class="dt-form-label">部门</div>
+                <input type="text" class="dt-input" v-model="formData.department" />
+              </div>
             </div>
-          </div>
+          </template>
         </template>
 
       </div>

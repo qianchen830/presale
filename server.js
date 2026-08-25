@@ -677,6 +677,15 @@ app.get('/api/users/me-record', requireAuth, (req, res) => {
   res.json({ users: [{ id: u.id, username: u.username, display_name: u.display_name, role: u.role, department: u.department, view_depts: viewDepts, created_at: u.created_at }] });
 });
 
+// ---- 用户修改自己的信息 ----
+app.put('/api/users/me', requireAuth, (req, res) => {
+  const { display_name, department } = req.body || {};
+  if (display_name !== undefined) db.prepare("UPDATE users SET display_name = ? WHERE id = ?").run(display_name, req.session.userId);
+  if (department !== undefined)     db.prepare("UPDATE users SET department = ? WHERE id = ?").run(department, req.session.userId);
+  saveDbs();
+  res.json({ ok: true });
+});
+
 // ---- 用户改自己的密码 ----
 app.post('/api/auth/change-password', requireAuth, (req, res) => {
   const { oldPassword, newPassword } = req.body || {};

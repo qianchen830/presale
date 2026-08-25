@@ -50,6 +50,10 @@ window.API = {
   async deleteUser(id) { return this.request('DELETE', `/admin/users/${id}`); },
   async updateUserPassword(id, password) { return this.request('PUT', `/admin/users/${id}/password`, { password }); },
 
+  // ── 个人信息 ──
+  async updateMyProfile(data) { return this.request('PUT', '/users/me', data); },
+  async changeMyPassword(oldPassword, newPassword) { return this.request('POST', '/auth/change-password', { oldPassword, newPassword }); },
+
   // ── 管理员：部门 ──
   async getDepts() { return this.request('GET', '/admin/departments'); },
   async createDept(data) { return this.request('POST', '/admin/departments', data); },

@@ -1745,3 +1745,27 @@ body::after {
   font-size: 18px; color: var(--text-muted);
   flex-shrink: 0;
 }
+
+/* ── 改密码区块 ── */
+.pwd-section {
+  margin-top: 14px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.pwd-title {
+  font-size: 14px; font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 14px;
+}
+
+.pwd-field {
+  margin-bottom: 10px;
+}
+
+.dt-btn-block {
+  width: 100%;
+  margin-top: 4px;
+}
