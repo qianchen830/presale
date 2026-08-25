@@ -471,6 +471,13 @@ const app = createApp({
           // 合同/跟进/判断/问答/分配：先选关联申请或合同
           pickerStep.value = name;
         }
+      } else if (name === 'selfProfile') {
+        // 个人信息编辑/查看：用当前登录用户数据填充表单
+        Object.assign(formData, {
+          username: state.user?.username || '',
+          display_name: state.user?.displayName || state.user?.username || '',
+          department: state.user?.department || '',
+        });
       } else {
         // 查看/编辑模式
         Object.assign(formData, { ...data });
@@ -1530,13 +1537,13 @@ const app = createApp({
         <template v-if="state.modal.mode === 'view' && state.modal.name === 'selfProfile'">
           <button class="dt-btn dt-btn-primary" @click="state.modal.mode = 'edit'">编辑</button>
         </template>
-        <!-- 编辑个人信息 -->
+        <!-- 编辑个人信息（独立，不走通用表单footer） -->
         <template v-if="state.modal.mode === 'edit' && state.modal.name === 'selfProfile'">
           <button class="dt-btn dt-btn-default" @click="closeModal">取消</button>
           <button class="dt-btn dt-btn-primary" :disabled="formLoading" @click="saveSelfProfile">{{ formLoading ? '保存中…' : '保存' }}</button>
         </template>
-        <!-- 新建/编辑 表单 -->
-        <template v-if="state.modal.mode !== 'view'">
+        <!-- 新建/编辑 表单（排除 selfProfile，它有独立的 footer） -->
+        <template v-if="state.modal.mode !== 'view' && state.modal.name !== 'selfProfile'">
           <button class="dt-btn dt-btn-default" @click="closeModal">取消</button>
           <button class="dt-btn dt-btn-primary" :disabled="formLoading" @click="saveRecord">{{ formLoading ? '保存中…' : '保存' }}</button>
         </template>
