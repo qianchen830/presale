@@ -77,6 +77,15 @@ const state = reactive({
       } catch(e) { showToast('保存失败: ' + e.message); }
     }
 
+    // 根据年度目标和固定比例计算季度分解
+    function getComputedQuarterTarget(quarter) {
+      const year = state.year;
+      const annual = parseFloat(userTargets.annualTargets[year] || 0);
+      if (!annual) return '0.0';
+      const pcts = { Q1: 25, Q2: 25, Q3: 25, Q4: 25 }; // 固定各25%
+      return (annual * pcts[quarter] / 100).toFixed(1);
+    }
+
     // ── 年份切换后自动刷新目标数据 ──
     watch(() => state.year, () => { loadUserTargets(); });
 
@@ -769,7 +778,7 @@ const app = createApp({
       listRecords, groupedRecords,
       formData, formLoading,
       openModal, closeModal, maybeCloseModal,
-      userTargets, loadUserTargets, saveUserTargets,
+      userTargets, loadUserTargets, saveUserTargets, getComputedQuarterTarget,
       oldPwd, newPwd, confirmPwd, showOldPwd, showNewPwd, showConfirmPwd,
       doChangePassword, pwdLoading,
       getListItemTitle, getListItemSub,
@@ -1269,10 +1278,18 @@ const app = createApp({
         <template v-if="state.modal.name === 'setTargets'">
           <div class="dt-form-group">
             <div class="dt-form-label">{{ state.year }} 年度目标（万元）</div>
-            <input type="number" class="dt-input" v-model.number="userTargets.annualTargets[state.year]" placeholder="例如：500" step="10" />
+            <input type="number" class="dt-input" v-model.number="userTargets.annualTargets[state.year]" placeholder="例如：500" step="10" @blur="saveUserTargets()" />
           </div>
           <div class="dt-form-hint">填入数字即可，单位：万元。季度分解由系统自动按比例计算。</div>
-          <button class="dt-btn dt-btn-primary dt-btn-full" style="margin-top:16px" @click="saveUserTargets(); closeModal();">保存目标</button>
+          <div class="dt-form-group" style="margin-top:12px">
+            <div class="dt-form-label">季度分解（系统自动计算）</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">
+              <div v-for="q in ['Q1','Q2','Q3','Q4']" :key="q" style="background:#f5f5f5;border-radius:6px;padding:8px 10px">
+                <div style="color:#888;font-size:12px">{{ q }}</div>
+                <div style="font-size:16px;font-weight:bold;color:#333">{{ getComputedQuarterTarget(q) }} 万</div>
+              </div>
+            </div>
+          </div>
         </template>
 
         <!-- ══════════ 详情视图 ══════════ -->
