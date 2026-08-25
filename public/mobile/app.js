@@ -866,7 +866,7 @@ const app = createApp({
         allC={{ (state.fullState?.contracts||[]).length }} fc={{ filteredContracts.length }} yr={{ state.year }} target={{ userTargets.annualTargets[state.year] }}
       </div>
       <div style="background:#111;border:1px solid #333;color:#0f0;font-size:11px;padding:3px 8px;margin-bottom:8px;font-family:monospace">
-        DEBUG: total={{ debugInfo.total }} won={{ debugInfo.won }}万 totalAmt={{ debugInfo.totalAmt }}万 target={{ debugInfo.target }}万
+        DEBUG: won={{ dashboardWonAmount.toFixed(1) }}万 total={{ dashboardTotalAmount.toFixed(1) }}万 target={{ userTargets.annualTargets[state.year] || 0 }}
       </div>
       <div class="dt-money-row">
         <div class="dt-money-item">
