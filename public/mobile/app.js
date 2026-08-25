@@ -325,6 +325,16 @@ const app = createApp({
     const formData = reactive({});
     const formLoading = ref(false);
 
+    // 申请关联合同（申请详情页用）
+    const relatedContracts = computed(() => {
+      if (state.modal?.name !== 'app' || state.modal?.mode !== 'view') return [];
+      const appId = formData.id;
+      if (!appId) return [];
+      return (state.fullState?.contracts || []).filter(c =>
+        String(c.appId) === String(appId) || c.appId === appId
+      );
+    });
+
     function openModal(name, mode = 'create', data = {}, extra = {}) {
       state.modal = { name, mode, data, extra };
       Object.keys(formData).forEach(k => delete formData[k]);
@@ -835,6 +845,19 @@ const app = createApp({
               <div class="dt-detail-val" v-else v-text="formData[field.key] || '—'"></div>
             </div>
           </div>
+          <!-- 申请关联合同列表 -->
+          <template v-if="state.modal.name === 'app' && relatedContracts.length > 0">
+            <div class="dt-divider"></div>
+            <div class="dt-section-title" style="margin-bottom:10px">关联合同</div>
+            <div v-for="c in relatedContracts" :key="c.id" class="dt-record-row" @click="openModal('contract','view',c)">
+              <div style="flex:1;min-width:0">
+                <div class="dt-list-title" v-text="c.signCustomerName || c.signCustomer || '—'"></div>
+                <div class="dt-list-sub" v-text="fmtMoney(c.subAmount) + '元 | ' + fmtDate(c.mainSignDate)"></div>
+              </div>
+              <div class="dt-list-arrow">›</div>
+            </div>
+          </template>
+          <div v-if="state.modal.name === 'app' && relatedContracts.length === 0" class="dt-empty-cell">暂无关联合同</div>
         </template>
 
         <!-- ── 申请表单 ── -->

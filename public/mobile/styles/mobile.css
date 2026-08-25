@@ -1246,3 +1246,59 @@ body::after {
   background: var(--glass-border);
   margin: 12px 0;
 }
+
+/* ── 底部 Tab Bar ── */
+.dt-tabbar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: calc(60px + var(--safe-bottom));
+  padding-bottom: var(--safe-bottom);
+  background: rgba(10, 10, 26, 0.92);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border-top: 1px solid var(--glass-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  z-index: 100;
+  box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.4);
+}
+
+.dt-tabbar .dt-tab-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 16px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  border-radius: 12px;
+  color: var(--text-muted);
+  min-width: 56px;
+  position: relative;
+}
+
+.dt-tabbar .dt-tab-item:active { transform: scale(0.88); }
+
+.dt-tabbar .dt-tab-item.active {
+  color: var(--neon-blue);
+}
+
+.dt-tabbar .dt-tab-item.active .dt-tab-icon {
+  transform: scale(1.15) translateY(-2px);
+  filter: drop-shadow(0 0 8px var(--neon-blue));
+}
+
+.dt-tab-icon {
+  font-size: 20px;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.25s;
+  line-height: 1;
+}
+
+.dt-tab-lbl {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
