@@ -863,9 +863,6 @@ const app = createApp({
 
       <!-- 金额指标 -->
       <!-- 签单金额 / 合同总额 / 年度目标（内联计算，不依赖有问题的 dashboardStats） -->
-      <div style="background:#111;border:1px solid #333;color:#0f0;font-size:11px;padding:3px 8px;margin-bottom:8px;font-family:monospace">
-        allC={{ (state.fullState?.contracts||[]).length }} fc={{ filteredContracts.length }} yr={{ state.year }} target={{ userTargets.annualTargets[state.year] }}
-      </div>
       <div class="dt-money-row">
         <div class="dt-money-item">
           <div class="dt-money-lbl">签单金额</div>
