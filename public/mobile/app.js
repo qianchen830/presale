@@ -369,8 +369,8 @@ const app = createApp({
       const apps = (state.fullState.applications || []).filter(a =>
         new Date(a.applyDate || 0).getFullYear() === year && !a.deleted
       );
-      const cons = (state.fullState.contracts || []).filter(c =>
-        new Date(c.mainSignDate || 0).getFullYear() === year && !c.deleted
+      const cons = filteredContracts.value.filter(c =>
+        new Date(c.mainSignDate || 0).getFullYear() === year
       );
       const won = apps.filter(a => a.status === '签单').length;
       const lost = apps.filter(a => a.status === '丢失').length;
@@ -384,7 +384,7 @@ const app = createApp({
       const annualTargets = state.fullState.annualTargets || {};
       const quarterTargets = state.fullState.quarterTargets || {};
       const quarterPcts = state.fullState.quarterPcts || {};
-      const annualTarget = parseFloat(annualTargets[year] || state.fullState.annualTarget || 0);
+      const annualTarget = parseFloat(annualTargets[year] || userTargets.annualTargets[year] || state.fullState.annualTarget || 0);
       return { total: apps.length, won, lost, activeCount, totalAmount, wonAmount, annualTarget, annualTargets, quarterTargets, quarterPcts };
     });
 
@@ -836,9 +836,6 @@ const app = createApp({
       </div>
 
       <!-- 金额指标 -->
-      <div style="background:#111;border:1px solid #333;color:#0f0;font-size:11px;padding:3px 8px;margin-bottom:8px;font-family:monospace">
-        DEBUG: won={{ dashboardStats.wonAmount?.toFixed(1) }}万 total={{ dashboardStats.totalAmount?.toFixed(1) }}万 target={{ dashboardStats.annualTarget }}万 year={{ state.year }}
-      </div>
       <div class="dt-money-row">
         <div class="dt-money-item">
           <div class="dt-money-lbl">签单金额</div>
