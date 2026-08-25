@@ -58,14 +58,14 @@ const state = reactive({
     const userTargets = reactive({
       annualTargets: {}, // { year: amount }
       quarterTargets: {}, // { Q1: amount, ... }
-      quarterPcts: { Q1: 25, Q2: 25, Q3: 25, Q4: 25 }, // { Q1: pct, ... }
+      quarterPcts: { Q1: 16, Q2: 27, Q3: 23, Q4: 34 }, // { Q1: pct, ... }
     });
     async function loadUserTargets() {
       try {
         const d = await API.getUserTargets();
         userTargets.annualTargets = d.annualTargets || {};
         userTargets.quarterTargets = d.quarterTargets || {};
-        userTargets.quarterPcts = (d.quarterPcts && Object.keys(d.quarterPcts).length > 0) ? d.quarterPcts : { Q1: 25, Q2: 25, Q3: 25, Q4: 25 };
+        userTargets.quarterPcts = (d.quarterPcts && Object.keys(d.quarterPcts).length > 0) ? d.quarterPcts : { Q1: 16, Q2: 27, Q3: 23, Q4: 34 };
       } catch(e) { /* ignore */ }
     }
     async function saveUserTargets() {
@@ -84,7 +84,7 @@ const state = reactive({
       const year = state.year;
       const annual = parseFloat(userTargets.annualTargets[year] || 0);
       if (!annual) return '0.0';
-      const pcts = userTargets.quarterPcts || { Q1: 25, Q2: 25, Q3: 25, Q4: 25 };
+      const pcts = userTargets.quarterPcts || { Q1: 16, Q2: 27, Q3: 23, Q4: 34 };
       return (annual * (parseFloat(pcts[quarter]) || 0) / 100).toFixed(1);
     }
 
