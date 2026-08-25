@@ -69,11 +69,11 @@ const state = reactive({
     async function saveUserTargets() {
       try {
         await API.putUserTargets({
-          annualTargets: { ...userTargets.annualTargets },
-          quarterTargets: { ...userTargets.quarterTargets },
+          annualTargets: JSON.parse(JSON.stringify(userTargets.annualTargets)),
+          quarterTargets: JSON.parse(JSON.stringify(userTargets.quarterTargets)),
         });
         showToast('目标保存成功');
-        await loadState();
+        await loadUserTargets();
       } catch(e) { showToast('保存失败: ' + e.message); }
     }
 
@@ -836,6 +836,9 @@ const app = createApp({
       </div>
 
       <!-- 金额指标 -->
+      <div style="background:#111;border:1px solid #333;color:#0f0;font-size:11px;padding:3px 8px;margin-bottom:8px;font-family:monospace">
+        userTargets.annualTargets[2026]={{ userTargets.annualTargets[2026] }} | userTargets.annualTargets={{ JSON.stringify(userTargets.annualTargets) }}
+      </div>
       <div class="dt-money-row">
         <div class="dt-money-item">
           <div class="dt-money-lbl">签单金额</div>
