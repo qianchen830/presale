@@ -836,37 +836,32 @@ const app = createApp({
       </div>
 
       <!-- 金额指标 -->
-      <div style="background:#111;border:1px solid #333;color:#0f0;font-size:11px;padding:3px 8px;margin-bottom:8px;font-family:monospace">
-        DS: won={{ dashboardStats.wonAmount?.toFixed(1) }} total={{ dashboardStats.totalAmount?.toFixed(1) }} target={{ dashboardStats.annualTarget }} year={{ state.year }} fu={{ userTargets.annualTargets[state.year] }} | fullState={{ !!state.fullState }}
-      </div>
-      <div style="background:#111;border:1px solid #333;color:#0f0;font-size:11px;padding:3px 8px;margin-bottom:8px;font-family:monospace">
-        DS.won={{ dashboardStats.wonAmount?.toFixed(1) }} DS.total={{ dashboardStats.totalAmount?.toFixed(1) }} DS.target={{ dashboardStats.annualTarget }} directTarget={{ (userTargets.annualTargets[state.year] || state.fullState?.annualTarget || 0) }}
-      </div>
+      <!-- 签单金额 / 合同总额 / 年度目标（内联计算，不依赖有问题的 dashboardStats） -->
       <div class="dt-money-row">
         <div class="dt-money-item">
           <div class="dt-money-lbl">签单金额</div>
-          <div class="dt-money-val dt-text-primary" v-text="dashboardStats.wonAmount.toFixed(1) + ' 万'"></div>
+          <div class="dt-money-val dt-text-primary" v-text="(filteredContracts.filter(c => new Date(c.mainSignDate||0).getFullYear()===state.year).reduce((s,c) => s+(parseFloat(c.subAmount)||0)>=100000?(parseFloat(c.presalePerformance)||0):0, 0)/10000).toFixed(1) + ' 万'"></div>
         </div>
         <div class="dt-money-divider"></div>
         <div class="dt-money-item">
           <div class="dt-money-lbl">合同总额</div>
-          <div class="dt-money-val" v-text="dashboardStats.totalAmount.toFixed(1) + ' 万'"></div>
+          <div class="dt-money-val" v-text="(filteredContracts.filter(c => new Date(c.mainSignDate||0).getFullYear()===state.year).reduce((s,c) => s+(parseFloat(c.subAmount)||0), 0)/10000).toFixed(1) + ' 万'"></div>
         </div>
         <div class="dt-money-divider"></div>
         <div class="dt-money-item">
           <div class="dt-money-lbl">年度目标</div>
-          <div class="dt-money-val dt-text-muted" v-text="dashboardStats.annualTarget > 0 ? (dashboardStats.annualTarget/10000).toFixed(1)+' 万' : '—'"></div>
+          <div class="dt-money-val dt-text-muted" v-text="(userTargets.annualTargets[state.year] || state.fullState?.annualTarget || 0) > 0 ? (userTargets.annualTargets[state.year] || state.fullState?.annualTarget || 0)/10000 + ' 万' : '—'"></div>
         </div>
       </div>
 
       <!-- 进度条（如果有目标） -->
-      <div v-if="dashboardStats.annualTarget > 0" class="dt-progress-card">
+      <div v-if="(userTargets.annualTargets[state.year] || state.fullState?.annualTarget || 0) > 0" class="dt-progress-card">
         <div class="dt-progress-label">
           <span>年度完成率</span>
-          <span class="dt-text-primary dt-font-bold">{{ ((dashboardStats.wonAmount / (dashboardStats.annualTarget/10000)) * 100).toFixed(0) }}%</span>
+          <span class="dt-text-primary dt-font-bold">{{ ((filteredContracts.filter(c => new Date(c.mainSignDate||0).getFullYear()===state.year).reduce((s,c) => s+((parseFloat(c.subAmount)||0)>=100000?(parseFloat(c.presalePerformance)||0):0), 0)/10000) / ((userTargets.annualTargets[state.year] || state.fullState?.annualTarget || 0)/10000) * 100).toFixed(0) }}%</span>
         </div>
         <div class="dt-progress-bar">
-          <div class="dt-progress-fill dt-bg-primary" :style="{ width: Math.min((dashboardStats.wonAmount / (dashboardStats.annualTarget/10000)) * 100, 100) + '%' }"></div>
+          <div class="dt-progress-fill dt-bg-primary" :style="{ width: Math.min((filteredContracts.filter(c => new Date(c.mainSignDate||0).getFullYear()===state.year).reduce((s,c) => s+((parseFloat(c.subAmount)||0)>=100000?(parseFloat(c.presalePerformance)||0):0), 0)/10000) / ((userTargets.annualTargets[state.year] || state.fullState?.annualTarget || 0)/10000) * 100, 100) + '%' }"></div>
         </div>
       </div>
 
