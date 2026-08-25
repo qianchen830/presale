@@ -363,6 +363,24 @@ app.use(session({
   cookie: { maxAge: 7 * 24 * 60 * 60 * 1000, httpOnly: true, sameSite: 'lax' }
 }));
 
+// ---- 根路径：User-Agent 自动识别移动端/PC端 ----
+
+function isMobileDevice(req) {
+  const ua = req.headers['user-agent'] || '';
+  return /Android|iPhone|iPad|iPod|Mobile|microMessenger|WeChat|Windows Phone/i.test(ua);
+}
+
+app.get('/', (req, res) => {
+  const ua = req.headers['user-agent'] || '';
+  // 日志：方便调试
+  console.log(`[${new Date().toISOString()}] / -> ${isMobileDevice(req) ? 'MOBILE' : 'PC'} | UA: ${ua.slice(0, 80)}`);
+  if (isMobileDevice(req)) {
+    res.sendFile(path.join(__dirname, 'public', 'mobile', 'index.html'));
+  } else {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  }
+});
+
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders(res, filePath) {
     if (filePath.endsWith('.html')) {
