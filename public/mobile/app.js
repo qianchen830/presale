@@ -923,26 +923,54 @@ const app = createApp({
 
     <!-- ── Profile ── -->
     <div v-if="state.activeTab === 'profile'" class="dt-page">
-      <div class="dt-profile-card">
-        <div class="dt-profile-avatar" v-text="(state.user.displayName || state.user.username || '?').slice(0,1)"></div>
-        <div class="dt-profile-name" v-text="state.user.displayName || state.user.username"></div>
-        <div class="dt-profile-role" v-text="state.user.role === 'admin' ? '👑 管理员' : '👤 普通用户'"></div>
-        <div class="dt-profile-dept" v-text="state.user.department || '未设置部门'"></div>
-      </div>
-      <div class="dt-list" style="margin-top:12px">
-        <div class="dt-list-row" @click="openModal('selfProfile','edit',{})">
-          <div class="dt-admin-icon" style="background:#EFF6FF">✏️</div>
-          <div class="dt-list-info" style="flex:1">
-            <div class="dt-list-title">编辑个人信息</div>
-            <div class="dt-list-sub">修改显示名、部门</div>
-          </div>
-          <div class="dt-list-arrow">›</div>
+      <!-- 头像区 -->
+      <div class="profile-hero">
+        <div class="profile-avatar-ring">
+          <div class="profile-avatar" v-text="(state.user.displayName || state.user.username || '?').slice(0,1)"></div>
         </div>
-        <div class="dt-list-row" @click="doLogout" style="border-top: 8px solid #F3F4F6">
-          <div class="dt-admin-icon" style="background:#FEE2E2">🚪</div>
-          <div class="dt-list-info" style="flex:1">
-            <div class="dt-list-title dt-text-danger">退出登录</div>
+        <div class="profile-name" v-text="state.user.displayName || state.user.username"></div>
+        <div class="profile-badges">
+          <span class="profile-badge" :class="state.user.role === 'admin' ? 'badge-admin' : 'badge-user'">
+            {{ state.user.role === 'admin' ? '👑 管理员' : '👤 顾问' }}
+          </span>
+          <span v-if="state.user.department" class="profile-badge badge-dept" v-text="state.user.department"></span>
+        </div>
+      </div>
+
+      <!-- 本年统计 -->
+      <div class="profile-stats">
+        <div class="stat-item">
+          <div class="stat-num" v-text="dashboardStats.total"></div>
+          <div class="stat-lbl">我的申请</div>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <div class="stat-num" v-text="dashboardStats.won"></div>
+          <div class="stat-lbl">签单</div>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <div class="stat-num dt-text-primary" v-text="fmtMoney(dashboardStats.wonAmount)"></div>
+          <div class="stat-lbl">签单金额</div>
+        </div>
+      </div>
+
+      <!-- 菜单 -->
+      <div class="profile-menu">
+        <div class="profile-menu-item" @click="openModal('selfProfile','edit',{})">
+          <div class="menu-icon-wrap" style="background:rgba(102,126,234,0.15)">✏️</div>
+          <div class="menu-text">
+            <div class="menu-title">编辑个人信息</div>
+            <div class="menu-sub">修改显示名、部门</div>
           </div>
+          <div class="menu-arrow">›</div>
+        </div>
+        <div class="profile-menu-item" @click="doLogout">
+          <div class="menu-icon-wrap" style="background:rgba(239,68,68,0.12)">🚪</div>
+          <div class="menu-text">
+            <div class="menu-title dt-text-danger">退出登录</div>
+          </div>
+          <div class="menu-arrow">›</div>
         </div>
       </div>
     </div>
