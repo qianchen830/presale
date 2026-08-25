@@ -914,20 +914,6 @@ const app = createApp({
         </div>
       </div>
 
-      <!-- 我的合同摘要 -->
-      <div class="dt-section-card">
-        <div class="dt-section-hd">
-          <span class="dt-section-title">我的合同</span>
-          <span class="dt-section-more" @click="state.activeTab='list'; state.activeListTab='contracts'">查看全部 ›</span>
-        </div>
-        <div v-if="filteredContracts.length === 0" class="dt-empty-cell">暂无数据</div>
-        <div v-for="c in filteredContracts.slice(0, 5)" :key="c.id" class="dt-list-row" @click="openModal('contract','view',c)">
-          <div class="dt-list-info">
-            <div class="dt-list-title" v-text="c.signCustomerName || c.signCustomer"></div>
-            <div class="dt-list-sub" v-text="fmtMoney(c.subAmount) + '元 | ' + fmtDate(c.mainSignDate)"></div>
-          </div>
-        </div>
-      </div>
     </div>
 
     <!-- ── List ── -->
