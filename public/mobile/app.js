@@ -783,24 +783,24 @@ const app = createApp({
         <input class="dt-search-input" v-model="state.searchText" placeholder="搜索客户/商机号/项目…" />
       </div>
 
-      <!-- 模块 tab -->
-      <div class="dt-tab-nav">
-        <div class="dt-tab-item" :class="{ active: state.activeListTab === 'applications' }" @click="state.activeListTab = 'applications'">申请</div>
-        <div class="dt-tab-item" :class="{ active: state.activeListTab === 'contracts' }" @click="state.activeListTab = 'contracts'">合同</div>
-        <div class="dt-tab-item" :class="{ active: state.activeListTab === 'followUps' }" @click="state.activeListTab = 'followUps'">跟进</div>
-        <div class="dt-tab-item" :class="{ active: state.activeListTab === 'judgments' }" @click="state.activeListTab = 'judgments'">判断</div>
-        <div class="dt-tab-item" :class="{ active: state.activeListTab === 'salesQuestions' }" @click="state.activeListTab = 'salesQuestions'">问答</div>
-        <div class="dt-tab-item" :class="{ active: state.activeListTab === 'allocations' }" @click="state.activeListTab = 'allocations'">分配</div>
+      <!-- 模块 Tab（胶囊可滚动） -->
+      <div class="dt-mod-nav">
+        <div class="dt-mod-item" :class="{ active: state.activeListTab === 'applications' }" @click="state.activeListTab = 'applications'">申请</div>
+        <div class="dt-mod-item" :class="{ active: state.activeListTab === 'contracts' }" @click="state.activeListTab = 'contracts'">合同</div>
+        <div class="dt-mod-item" :class="{ active: state.activeListTab === 'followUps' }" @click="state.activeListTab = 'followUps'">跟进</div>
+        <div class="dt-mod-item" :class="{ active: state.activeListTab === 'judgments' }" @click="state.activeListTab = 'judgments'">判断</div>
+        <div class="dt-mod-item" :class="{ active: state.activeListTab === 'salesQuestions' }" @click="state.activeListTab = 'salesQuestions'">问答</div>
+        <div class="dt-mod-item" :class="{ active: state.activeListTab === 'allocations' }" @click="state.activeListTab = 'allocations'">分配</div>
       </div>
 
-      <!-- 状态过滤（仅申请） -->
-      <div v-if="state.activeListTab === 'applications'" class="dt-chip-row">
-        <div class="dt-chip" :class="{ active: !state.filterStatus }" @click="state.filterStatus = ''">全部</div>
-        <div class="dt-chip" :class="{ active: state.filterStatus === '活跃' }" @click="state.filterStatus = '活跃'">活跃</div>
-        <div class="dt-chip" :class="{ active: state.filterStatus === '签单' }" @click="state.filterStatus = '签单'">签单</div>
-        <div class="dt-chip" :class="{ active: state.filterStatus === '暂停' }" @click="state.filterStatus = '暂停'">暂停</div>
-        <div class="dt-chip" :class="{ active: state.filterStatus === '丢失' }" @click="state.filterStatus = '丢失'">丢失</div>
-        <div class="dt-chip" :class="{ active: state.filterStatus === '关闭' }" @click="state.filterStatus = '关闭'">关闭</div>
+      <!-- 状态过滤（仅申请 tab） -->
+      <div v-if="state.activeListTab === 'applications'" class="dt-status-row">
+        <div class="dt-status-pill" :class="{ active: !state.filterStatus }" @click="state.filterStatus = ''">全部</div>
+        <div class="dt-status-pill" :class="{ active: state.filterStatus === '活跃' }" @click="state.filterStatus = '活跃'">活跃</div>
+        <div class="dt-status-pill" :class="{ active: state.filterStatus === '签单' }" @click="state.filterStatus = '签单'">签单</div>
+        <div class="dt-status-pill" :class="{ active: state.filterStatus === '暂停' }" @click="state.filterStatus = '暂停'">暂停</div>
+        <div class="dt-status-pill" :class="{ active: state.filterStatus === '丢失' }" @click="state.filterStatus = '丢失'">丢失</div>
+        <div class="dt-status-pill" :class="{ active: state.filterStatus === '关闭' }" @click="state.filterStatus = '关闭'">关闭</div>
       </div>
 
       <!-- 记录列表 -->
@@ -1013,141 +1013,273 @@ const app = createApp({
           <button class="dt-btn dt-btn-default dt-btn-block" style="margin-top:12px" @click="pickerStep = null">取消并直接新建</button>
         </template>
 
-        <!-- ── 申请/合同/跟进/判断/问答/分配 详情 ── -->
+        <!-- ══════════ 详情视图 ══════════ -->
         <template v-if="state.modal.mode === 'view'">
+
           <!-- 申请详情 -->
           <template v-if="state.modal.name === 'app'">
-            <div class="dt-detail-list">
-              <div v-for="field in getFieldsForModal('app')" :key="field.key" class="dt-detail-row">
-                <div class="dt-detail-lbl" v-text="field.label"></div>
-                <div class="dt-detail-val" v-if="field.type === 'select'" v-text="formData[field.key] || '—'"></div>
-                <div class="dt-detail-val dt-text-primary dt-font-bold" v-else-if="field.key === 'subAmount'" v-text="fmtMoney(formData[field.key]) + '元'"></div>
-                <div class="dt-detail-val" v-else-if="field.type === 'number'" v-text="fmtMoney(formData[field.key])"></div>
-                <div class="dt-detail-val" v-else v-text="formData[field.key] || '—'"></div>
+            <!-- 基本信息卡片 -->
+            <div class="detail-card">
+              <div class="detail-card-row">
+                <div class="detail-cell">
+                  <div class="detail-lbl">状态</div>
+                  <div class="detail-val"><span class="dt-badge" :class="getStatusBadge(formData.status)" v-text="formData.status"></span></div>
+                </div>
+                <div class="detail-cell">
+                  <div class="detail-lbl">申请人</div>
+                  <div class="detail-val" v-text="formData.applicant || '—'"></div>
+                </div>
+              </div>
+              <div class="detail-card-row">
+                <div class="detail-cell">
+                  <div class="detail-lbl">客户</div>
+                  <div class="detail-val" v-text="formData.customer || '—'"></div>
+                </div>
+                <div class="detail-cell">
+                  <div class="detail-lbl">项目</div>
+                  <div class="detail-val" v-text="formData.projectName || '—'"></div>
+                </div>
+              </div>
+              <div class="detail-card-row">
+                <div class="detail-cell">
+                  <div class="detail-lbl">产品</div>
+                  <div class="detail-val" v-text="formData.product || '—'"></div>
+                </div>
+                <div class="detail-cell">
+                  <div class="detail-lbl">当前阶段</div>
+                  <div class="detail-val" v-text="formData.currentStage || '—'"></div>
+                </div>
+              </div>
+              <div class="detail-card-row single">
+                <div class="detail-cell full">
+                  <div class="detail-lbl">商机编号</div>
+                  <div class="detail-val mono" v-text="formData.oppNo || '—'"></div>
+                </div>
               </div>
             </div>
+
             <!-- 关联合同 -->
-            <template v-if="relatedContracts.length > 0">
-              <div class="dt-divider"></div>
-              <div class="dt-section-title" style="margin-bottom:10px">📄 关联合同 ({{ relatedContracts.length }})</div>
-              <div v-for="c in relatedContracts" :key="c.id" class="dt-record-row" @click="openModal('contract','view',c)">
-                <div style="flex:1;min-width:0">
-                  <div class="dt-list-title" v-text="c.signCustomerName || c.signCustomer || '—'"></div>
-                  <div class="dt-list-sub" v-text="fmtMoney(c.subAmount) + '元 | ' + fmtDate(c.mainSignDate)"></div>
-                </div>
-                <div class="dt-list-arrow">›</div>
+            <div class="rel-section">
+              <div class="rel-section-hd">📄 关联合同 <span v-if="relatedContracts.length > 0" class="rel-count" v-text="relatedContracts.length"></span></div>
+              <div v-if="relatedContracts.length === 0" class="rel-empty">暂无关联合同</div>
+              <div v-for="c in relatedContracts" :key="c.id" class="rel-card" @click="openModal('contract','view',c)">
+                <div class="rel-card-main" v-text="c.signCustomerName || c.signCustomer || '—'"></div>
+                <div class="rel-card-sub" v-text="fmtMoney(c.subAmount) + '元 | ' + fmtDate(c.mainSignDate)"></div>
               </div>
-            </template>
-            <div v-if="relatedContracts.length === 0" class="dt-empty-cell">暂无关联合同</div>
+            </div>
+
             <!-- 关联跟进 -->
-            <template v-if="relatedFollows.length > 0">
-              <div class="dt-divider"></div>
-              <div class="dt-section-title" style="margin-bottom:10px">📋 关联跟进 ({{ relatedFollows.length }})</div>
-              <div v-for="f in relatedFollows" :key="f.id" class="dt-record-row" @click="openModal('follow','view',f)">
-                <div style="flex:1;min-width:0">
-                  <div class="dt-list-title" v-text="f.workItem || '跟进记录'"></div>
-                  <div class="dt-list-sub" v-text="fmtDate(f.followDate) + ' | ' + (f.hours||'')+'h'"></div>
-                </div>
-                <div class="dt-list-arrow">›</div>
+            <div class="rel-section">
+              <div class="rel-section-hd">📋 关联跟进 <span v-if="relatedFollows.length > 0" class="rel-count" v-text="relatedFollows.length"></span></div>
+              <div v-if="relatedFollows.length === 0" class="rel-empty">暂无关联跟进</div>
+              <div v-for="f in relatedFollows" :key="f.id" class="rel-card" @click="openModal('follow','view',f)">
+                <div class="rel-card-main" v-text="f.workItem || '跟进记录'"></div>
+                <div class="rel-card-sub" v-text="fmtDate(f.followDate) + ' | ' + (f.hours||'')+'h'"></div>
               </div>
-            </template>
+            </div>
+
             <!-- 关联判断 -->
-            <template v-if="relatedJudgments.length > 0">
-              <div class="dt-divider"></div>
-              <div class="dt-section-title" style="margin-bottom:10px">🔍 关联判断 ({{ relatedJudgments.length }})</div>
-              <div v-for="j in relatedJudgments" :key="j.id" class="dt-record-row" @click="openModal('judgment','view',j)">
-                <div style="flex:1;min-width:0">
-                  <div class="dt-list-title" v-text="j.currentStage || '判断记录'"></div>
-                  <div class="dt-list-sub" v-text="fmtDate(j.updatedAt) + ' | 竞争对手: ' + (j.competitor||'—')"></div>
-                </div>
-                <div class="dt-list-arrow">›</div>
+            <div class="rel-section">
+              <div class="rel-section-hd">🔍 关联判断 <span v-if="relatedJudgments.length > 0" class="rel-count" v-text="relatedJudgments.length"></span></div>
+              <div v-if="relatedJudgments.length === 0" class="rel-empty">暂无关联判断</div>
+              <div v-for="j in relatedJudgments" :key="j.id" class="rel-card" @click="openModal('judgment','view',j)">
+                <div class="rel-card-main" v-text="j.currentStage || '判断记录'"></div>
+                <div class="rel-card-sub" v-text="fmtDate(j.updatedAt) + ' | 竞争对手: ' + (j.competitor||'—')"></div>
               </div>
-            </template>
-            <!-- 关联问答 -->
-            <template v-if="relatedSalesQs.length > 0">
-              <div class="dt-divider"></div>
-              <div class="dt-section-title" style="margin-bottom:10px">💬 关联问答 ({{ relatedSalesQs.length }})</div>
-              <div v-for="q in relatedSalesQs" :key="q.id" class="dt-record-row" @click="openModal('salesQ','view',q)">
-                <div style="flex:1;min-width:0">
-                  <div class="dt-list-title" v-text="'Q'+q.seq+': '+(q.question||'').slice(0,30)"></div>
-                  <div class="dt-list-sub" v-text="(q.answer||'').slice(0,40)"></div>
-                </div>
-                <div class="dt-list-arrow">›</div>
+            </div>
+
+            <!-- 关联问答列表 -->
+            <div class="rel-section">
+              <div class="rel-section-hd">💬 关联问答 <span v-if="relatedSalesQs.length > 0" class="rel-count" v-text="relatedSalesQs.length"></span></div>
+              <div v-if="relatedSalesQs.length === 0" class="rel-empty">暂无关联问答</div>
+              <div v-for="q in relatedSalesQs" :key="q.id" class="rel-card" @click="openModal('salesQ','view',q)">
+                <div class="rel-card-main" v-text="'Q'+q.seq+': '+(q.question||'').slice(0,40)"></div>
+                <div class="rel-card-sub" v-text="(q.answer||'待回答').slice(0,50)"></div>
               </div>
-            </template>
+            </div>
           </template>
 
           <!-- 合同详情 -->
           <template v-if="state.modal.name === 'contract'">
-            <div class="dt-detail-list">
-              <div v-for="field in getFieldsForModal('contract')" :key="field.key" class="dt-detail-row">
-                <div class="dt-detail-lbl" v-text="field.label"></div>
-                <div class="dt-detail-val" v-if="field.type === 'select'" v-text="formData[field.key] || '—'"></div>
-                <div class="dt-detail-val dt-text-primary dt-font-bold" v-else-if="field.key === 'subAmount'" v-text="fmtMoney(formData[field.key]) + '元'"></div>
-                <div class="dt-detail-val" v-else-if="field.type === 'number'" v-text="fmtMoney(formData[field.key])"></div>
-                <div class="dt-detail-val" v-else v-text="formData[field.key] || '—'"></div>
+            <div class="detail-card">
+              <div class="detail-card-row">
+                <div class="detail-cell">
+                  <div class="detail-lbl">签约客户</div>
+                  <div class="detail-val" v-text="formData.signCustomerName || formData.signCustomer || '—'"></div>
+                </div>
+                <div class="detail-cell">
+                  <div class="detail-lbl">合同金额</div>
+                  <div class="detail-val dt-text-primary dt-font-bold" v-text="fmtMoney(formData.subAmount) + '元'"></div>
+                </div>
+              </div>
+              <div class="detail-card-row">
+                <div class="detail-cell">
+                  <div class="detail-lbl">产品</div>
+                  <div class="detail-val" v-text="formData.product || '—'"></div>
+                </div>
+                <div class="detail-cell">
+                  <div class="detail-lbl">签订日期</div>
+                  <div class="detail-val" v-text="fmtDate(formData.mainSignDate)"></div>
+                </div>
+              </div>
+              <div class="detail-card-row single">
+                <div class="detail-cell full">
+                  <div class="detail-lbl">关联商机号</div>
+                  <div class="detail-val mono" v-text="formData.oppNo || '—'"></div>
+                </div>
               </div>
             </div>
+
             <!-- 关联分配 -->
-            <template v-if="relatedAllocs.length > 0">
-              <div class="dt-divider"></div>
-              <div class="dt-section-title" style="margin-bottom:10px">💰 关联业绩分配 ({{ relatedAllocs.length }})</div>
-              <div v-for="a in relatedAllocs" :key="a.id" class="dt-record-row" @click="openModal('allocation','view',a)">
-                <div style="flex:1;min-width:0">
-                  <div class="dt-list-title" v-text="a.month+' / '+a.quarter"></div>
-                  <div class="dt-list-sub" v-text="'顾问业绩: '+fmtMoney(a.consultantPerformance)+'元 | 比例: '+(a.pct||'—')+'%'"></div>
-                </div>
-                <div class="dt-list-arrow">›</div>
+            <div class="rel-section">
+              <div class="rel-section-hd">💰 关联业绩分配 <span v-if="relatedAllocs.length > 0" class="rel-count" v-text="relatedAllocs.length"></span></div>
+              <div v-if="relatedAllocs.length === 0" class="rel-empty">暂无关联分配</div>
+              <div v-for="a in relatedAllocs" :key="a.id" class="rel-card" @click="openModal('allocation','view',a)">
+                <div class="rel-card-main" v-text="a.month + ' / ' + a.quarter"></div>
+                <div class="rel-card-sub" v-text="'顾问业绩: ' + fmtMoney(a.consultantPerformance) + '元 | 比例: ' + (a.pct||'—') + '%'"></div>
               </div>
-            </template>
-            <div v-if="relatedAllocs.length === 0" class="dt-empty-cell">暂无关联分配</div>
+            </div>
           </template>
 
           <!-- 跟进详情 -->
           <template v-if="state.modal.name === 'follow'">
-            <div class="dt-detail-list">
-              <div v-for="field in getFieldsForModal('follow')" :key="field.key" class="dt-detail-row">
-                <div class="dt-detail-lbl" v-text="field.label"></div>
-                <div class="dt-detail-val" v-if="field.type === 'textarea'" v-text="formData[field.key] || '—'"></div>
-                <div class="dt-detail-val" v-else-if="field.type === 'number'" v-text="fmtMoney(formData[field.key])"></div>
-                <div class="dt-detail-val" v-else v-text="formData[field.key] || '—'"></div>
+            <div class="detail-card">
+              <div class="detail-card-row">
+                <div class="detail-cell">
+                  <div class="detail-lbl">商机号</div>
+                  <div class="detail-val mono" v-text="formData.oppNo || '—'"></div>
+                </div>
+                <div class="detail-cell">
+                  <div class="detail-lbl">日期</div>
+                  <div class="detail-val" v-text="fmtDate(formData.followDate)"></div>
+                </div>
+              </div>
+              <div class="detail-card-row single">
+                <div class="detail-cell full">
+                  <div class="detail-lbl">工作事项</div>
+                  <div class="detail-val" v-text="formData.workItem || '—'"></div>
+                </div>
+              </div>
+              <div class="detail-card-row single">
+                <div class="detail-cell full">
+                  <div class="detail-lbl">成果总结</div>
+                  <div class="detail-val" v-text="formData.summary || '—'"></div>
+                </div>
+              </div>
+              <div class="detail-card-row single">
+                <div class="detail-cell full">
+                  <div class="detail-lbl">下一步工作</div>
+                  <div class="detail-val" v-text="formData.nextWork || '—'"></div>
+                </div>
+              </div>
+              <div class="detail-card-row">
+                <div class="detail-cell">
+                  <div class="detail-lbl">耗用工时</div>
+                  <div class="detail-val" v-text="(formData.hours||'') + 'h'"></div>
+                </div>
+                <div class="detail-cell">
+                  <div class="detail-lbl">预计时间</div>
+                  <div class="detail-val" v-text="fmtDate(formData.nextDate)"></div>
+                </div>
               </div>
             </div>
           </template>
 
           <!-- 判断详情 -->
           <template v-if="state.modal.name === 'judgment'">
-            <div class="dt-detail-list">
-              <div v-for="field in getFieldsForModal('judgment')" :key="field.key" class="dt-detail-row">
-                <div class="dt-detail-lbl" v-text="field.label"></div>
-                <div class="dt-detail-val" v-if="field.type === 'textarea'" v-text="formData[field.key] || '—'"></div>
-                <div class="dt-detail-val" v-else v-text="formData[field.key] || '—'"></div>
+            <div class="detail-card">
+              <div class="detail-card-row">
+                <div class="detail-cell">
+                  <div class="detail-lbl">商机号</div>
+                  <div class="detail-val mono" v-text="formData.oppNo || '—'"></div>
+                </div>
+                <div class="detail-cell">
+                  <div class="detail-lbl">当前阶段</div>
+                  <div class="detail-val" v-text="formData.currentStage || '—'"></div>
+                </div>
+              </div>
+              <div class="detail-card-row">
+                <div class="detail-cell">
+                  <div class="detail-lbl">竞争对手</div>
+                  <div class="detail-val" v-text="formData.competitor || '—'"></div>
+                </div>
+                <div class="detail-cell">
+                  <div class="detail-lbl">判断日期</div>
+                  <div class="detail-val" v-text="fmtDate(formData.judgmentDate)"></div>
+                </div>
+              </div>
+              <div class="detail-card-row single">
+                <div class="detail-cell full">
+                  <div class="detail-lbl">判断结论</div>
+                  <div class="detail-val" v-text="formData.result || '—'"></div>
+                </div>
               </div>
             </div>
           </template>
 
-          <!-- 问答详情 -->
+          <!-- 问答详情（对话卡片样式） -->
           <template v-if="state.modal.name === 'salesQ'">
-            <div class="dt-detail-list">
-              <div v-for="field in getFieldsForModal('salesQ')" :key="field.key" class="dt-detail-row">
-                <div class="dt-detail-lbl" v-text="field.label"></div>
-                <div class="dt-detail-val" v-if="field.type === 'textarea'" v-text="formData[field.key] || '—'"></div>
-                <div class="dt-detail-val" v-else v-text="formData[field.key] || '—'"></div>
+            <div class="detail-card">
+              <div class="detail-card-row">
+                <div class="detail-cell">
+                  <div class="detail-lbl">商机号</div>
+                  <div class="detail-val mono" v-text="formData.oppNo || '—'"></div>
+                </div>
+                <div class="detail-cell">
+                  <div class="detail-lbl">序号</div>
+                  <div class="detail-val" v-text="formData.seq || '—'"></div>
+                </div>
               </div>
+            </div>
+            <!-- 问题气泡 -->
+            <div class="qa-bubble qa-question">
+              <div class="qa-bubble-label">❓ 问题</div>
+              <div class="qa-bubble-text" v-text="formData.question || '—'"></div>
+            </div>
+            <!-- 回答气泡 -->
+            <div class="qa-bubble qa-answer">
+              <div class="qa-bubble-label">💡 回答</div>
+              <div class="qa-bubble-text" v-text="formData.answer || '待回答...'"></div>
+            </div>
+            <!-- 备注 -->
+            <div v-if="formData.note" class="qa-note">
+              <div class="qa-note-label">📎 备注</div>
+              <div class="qa-note-text" v-text="formData.note"></div>
             </div>
           </template>
 
           <!-- 分配详情 -->
           <template v-if="state.modal.name === 'allocation'">
-            <div class="dt-detail-list">
-              <div v-for="field in getFieldsForModal('allocation')" :key="field.key" class="dt-detail-row">
-                <div class="dt-detail-lbl" v-text="field.label"></div>
-                <div class="dt-detail-val dt-text-primary dt-font-bold" v-if="field.key === 'consultantPerformance'" v-text="fmtMoney(formData[field.key]) + '元'"></div>
-                <div class="dt-detail-val" v-else-if="field.type === 'number'" v-text="fmtMoney(formData[field.key])"></div>
-                <div class="dt-detail-val" v-else v-text="formData[field.key] || '—'"></div>
+            <div class="detail-card">
+              <div class="detail-card-row">
+                <div class="detail-cell">
+                  <div class="detail-lbl">顾问</div>
+                  <div class="detail-val" v-text="formData.consultant || '—'"></div>
+                </div>
+                <div class="detail-cell">
+                  <div class="detail-lbl">业绩</div>
+                  <div class="detail-val dt-text-primary dt-font-bold" v-text="fmtMoney(formData.consultantPerformance) + '元'"></div>
+                </div>
+              </div>
+              <div class="detail-card-row">
+                <div class="detail-cell">
+                  <div class="detail-lbl">季度</div>
+                  <div class="detail-val" v-text="formData.quarter || '—'"></div>
+                </div>
+                <div class="detail-cell">
+                  <div class="detail-lbl">月份</div>
+                  <div class="detail-val" v-text="formData.month || '—'"></div>
+                </div>
+              </div>
+              <div class="detail-card-row single">
+                <div class="detail-cell full">
+                  <div class="detail-lbl">关联商机号</div>
+                  <div class="detail-val mono" v-text="formData.oppNo || '—'"></div>
+                </div>
               </div>
             </div>
           </template>
+
         </template>
 
         <!-- ── 申请表单 ── -->
