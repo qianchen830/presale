@@ -1427,6 +1427,32 @@ const app = createApp({
                   <div class="detail-val" v-text="formData.subPerformance != null ? fmtMoney(formData.subPerformance) + '元' : '—'"></div>
                 </div>
               </div>
+              <div class="detail-card-row">
+                <div class="detail-cell">
+                  <div class="detail-lbl">实际成本</div>
+                  <div class="detail-val" v-text="formData.actualCost != null ? fmtMoney(formData.actualCost) + '元' : '—'"></div>
+                </div>
+                <div class="detail-cell">
+                  <div class="detail-lbl">伙伴结算</div>
+                  <div class="detail-val" v-text="formData.partnerSettle || '—'"></div>
+                </div>
+              </div>
+              <div class="detail-card-row">
+                <div class="detail-cell">
+                  <div class="detail-lbl">签约商机编号</div>
+                  <div class="detail-val mono" v-text="formData.signOppNo || '—'"></div>
+                </div>
+                <div class="detail-cell">
+                  <div class="detail-lbl">工时商机号</div>
+                  <div class="detail-val mono" v-text="formData.workOrderNo || '—'"></div>
+                </div>
+              </div>
+              <div class="detail-card-row single">
+                <div class="detail-cell full">
+                  <div class="detail-lbl">主合同编号</div>
+                  <div class="detail-val mono" v-text="formData.mainContractNo || '—'"></div>
+                </div>
+              </div>
               <div class="detail-card-row single" v-if="formData.remarks">
                 <div class="detail-cell full">
                   <div class="detail-lbl">备注</div>
