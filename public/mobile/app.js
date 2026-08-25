@@ -147,22 +147,12 @@ function getVisibleRecords(module) {
     return alive.filter(r => r.applicant === me || r.consultant === me);
   }
   if (module === 'contracts') {
-    // 合同通过 oppNo 关联到申请，看申请人是否是本人
-    const myOppNos = new Set(
-      (state.fullState?.applications || [])
-        .filter(a => !a.deleted && (a.applicant === me || a.consultant === me))
-        .map(a => a.oppNo)
-    );
-    return alive.filter(r => myOppNos.has(r.oppNo));
+    // 服务器端 filterStateByUser 已经做过权限过滤，直接返回全部可见合同
+    return alive;
   }
   if (module === 'followUps' || module === 'judgments' || module === 'salesQuestions') {
-    // 这些模块通过 oppNo 关联到申请
-    const myOppNos = new Set(
-      (state.fullState?.applications || [])
-        .filter(a => !a.deleted && (a.applicant === me || a.consultant === me))
-        .map(a => a.oppNo)
-    );
-    return alive.filter(r => myOppNos.has(r.oppNo));
+    // 服务器端已做过权限过滤，直接返回
+    return alive;
   }
   if (module === 'allocations') {
     // 分配通过 contractId 关联到合同，合同再关联到申请
@@ -345,7 +335,7 @@ const app = createApp({
         const me = state.user?.displayName || state.user?.username || '';
         const cons = state.fullState?.contracts || [];
         const fc = (typeof filteredContracts !== 'undefined' && filteredContracts.value) ? filteredContracts.value : [];
-        window.alert(`用户: ${me}\n总合同: ${cons.length}\n可见合同: ${fc.length}\n合同oppNo: ${fc.map(c=>c.oppNo+'('+c.subAmount+')').join(', ')}`);
+        window.alert(`用户: ${me}\n总合同: ${cons.length}\n可见合同: ${fc.length}\n合同oppNo: ${fc.map(c=>c.oppNo+'(subAmount='+c.subAmount+')').join(', ')}\n\n服务器原始合同:\n${cons.map(c=>c.oppNo+' subAmount='+c.subAmount+' deleted='+c.deleted).join('\n')}`);
       }, 500);
       }
     }
