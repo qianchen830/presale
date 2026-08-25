@@ -755,6 +755,7 @@ const app = createApp({
       formData, formLoading,
       openModal, closeModal, maybeCloseModal,
       userTargets, loadUserTargets, saveUserTargets,
+      debugInfo,
       oldPwd, newPwd, confirmPwd, showOldPwd, showNewPwd, showConfirmPwd,
       doChangePassword, pwdLoading,
       getListItemTitle, getListItemSub,
@@ -841,7 +842,7 @@ const app = createApp({
         allC={{ (state.fullState?.contracts||[]).length }} fc={{ filteredContracts.length }} yr={{ state.year }} target={{ userTargets.annualTargets[state.year] }}
       </div>
       <div style="background:#111;border:1px solid #333;color:#0f0;font-size:11px;padding:3px 8px;margin-bottom:8px;font-family:monospace">
-        contracts={{ (state.fullState?.contracts||[]).length }} fc={{ filteredContracts.length }} won={{ (filteredContracts.filter(c=>new Date(c.mainSignDate||0).getFullYear()===state.year).reduce((s,c)=>s+((parseFloat(c.subAmount)||0)>=100000?(parseFloat(c.presalePerformance)||0):0,0)/10000).toFixed(1) }} target={{ userTargets.annualTargets[state.year] }} contractsList={{ filteredContracts.map(c=>({o:c.oppNo,s:c.subAmount,p:c.presalePerformance,d:c.mainSignDate})).slice(0,3) }}
+        DEBUG: total={{ debugInfo.total }} c2026={{ debugInfo.c2026 }} won={{ debugInfo.won }}万 target={{ debugInfo.target }}万 yr={{ debugInfo.year }}
       </div>
       <div class="dt-money-row">
         <div class="dt-money-item">
