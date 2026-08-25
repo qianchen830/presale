@@ -1302,3 +1302,56 @@ body::after {
   font-weight: 700;
   letter-spacing: 0.3px;
 }
+
+/* ── 快捷录入选择器 ── */
+.picker-hint {
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 12px 0 8px;
+  line-height: 1.5;
+}
+
+.picker-list {
+  max-height: 360px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-right: 4px;
+}
+
+.picker-item {
+  display: flex;
+  align-items: center;
+  padding: 13px 14px;
+  border-radius: 14px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  cursor: pointer;
+  gap: 12px;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.picker-item:active {
+  transform: scale(0.98);
+  background: var(--bg-card-hover);
+}
+
+.picker-item .dt-list-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.picker-item .dt-list-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
