@@ -617,6 +617,9 @@ const app = createApp({
     const oldPwd = ref('');
     const newPwd = ref('');
     const confirmPwd = ref('');
+    const showOldPwd = ref(false);
+    const showNewPwd = ref(false);
+    const showConfirmPwd = ref(false);
     const pwdLoading = ref(false);
 
     async function doChangePassword() {
@@ -654,7 +657,8 @@ const app = createApp({
       listRecords,
       formData, formLoading,
       openModal, closeModal, saveRecord, deleteRecord, saveSelfProfile,
-      oldPwd, newPwd, confirmPwd, doChangePassword, pwdLoading,
+      oldPwd, newPwd, confirmPwd, showOldPwd, showNewPwd, showConfirmPwd,
+      doChangePassword, pwdLoading,
       getListItemTitle, getListItemSub,
       getStatusBadge, fmtMoney, fmtDate, getDeptName, getEmpName,
       changeYear, listTabToModal, modalTitle, getFieldsForModal,
@@ -1473,17 +1477,29 @@ const app = createApp({
           <!-- 修改密码 -->
           <div class="pwd-section">
             <div class="pwd-title">🔑 修改密码</div>
+            <!-- 旧密码 -->
             <div class="pwd-field">
               <div class="dt-form-label">旧密码</div>
-              <input type="password" class="dt-input" v-model="oldPwd" placeholder="请输入旧密码" />
+              <div class="pwd-input-wrap">
+                <input :type="showOldPwd ? 'text' : 'password'" class="dt-input" v-model="oldPwd" placeholder="请输入旧密码" autocomplete="current-password" />
+                <span class="pwd-eye" @click="showOldPwd = !showOldPwd" v-text="showOldPwd ? '🙈' : '👁️'"></span>
+              </div>
             </div>
+            <!-- 新密码 -->
             <div class="pwd-field">
               <div class="dt-form-label">新密码</div>
-              <input type="password" class="dt-input" v-model="newPwd" placeholder="至少6位" />
+              <div class="pwd-input-wrap">
+                <input :type="showNewPwd ? 'text' : 'password'" class="dt-input" v-model="newPwd" placeholder="至少6位" autocomplete="new-password" />
+                <span class="pwd-eye" @click="showNewPwd = !showNewPwd" v-text="showNewPwd ? '🙈' : '👁️'"></span>
+              </div>
             </div>
+            <!-- 确认密码 -->
             <div class="pwd-field">
               <div class="dt-form-label">确认新密码</div>
-              <input type="password" class="dt-input" v-model="confirmPwd" placeholder="再输入一次" @keyup.enter="doChangePassword" />
+              <div class="pwd-input-wrap">
+                <input :type="showConfirmPwd ? 'text' : 'password'" class="dt-input" v-model="confirmPwd" placeholder="再输入一次" @keyup.enter="doChangePassword" autocomplete="new-password" />
+                <span class="pwd-eye" @click="showConfirmPwd = !showConfirmPwd" v-text="showConfirmPwd ? '🙈' : '👁️'"></span>
+              </div>
             </div>
             <button class="dt-btn dt-btn-primary dt-btn-full" :disabled="pwdLoading" @click="doChangePassword">
               {{ pwdLoading ? '修改中…' : '确认修改密码' }}
