@@ -638,6 +638,8 @@ const app = createApp({
       APP_FIELDS, CONTRACT_FIELDS, FOLLOW_FIELDS, JUDGMENT_FIELDS,
       SALES_Q_FIELDS, ALLOCATION_FIELDS, DEPT_FIELDS, EMP_FIELDS,
       USER_FIELDS_ADMIN, USER_FIELDS_SELF,
+      relatedContracts, relatedFollows, relatedJudgments, relatedSalesQs, relatedAllocs,
+      pickerStep, pickerSearch, pickerList, doPickerSelect,
     };
   },
 
