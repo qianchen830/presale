@@ -1389,7 +1389,17 @@ const app = createApp({
               </div>
               <div class="detail-card-row">
                 <div class="detail-cell">
-                  <div class="detail-lbl">产品</div>
+                  <div class="detail-lbl">客户经理</div>
+                  <div class="detail-val" v-text="formData.accountMgr || '—'"></div>
+                </div>
+                <div class="detail-cell">
+                  <div class="detail-lbl">销售部门</div>
+                  <div class="detail-val" v-text="formData.salesDept || '—'"></div>
+                </div>
+              </div>
+              <div class="detail-card-row">
+                <div class="detail-cell">
+                  <div class="detail-lbl">所购产品</div>
                   <div class="detail-val" v-text="formData.product || '—'"></div>
                 </div>
                 <div class="detail-cell">
@@ -1397,10 +1407,30 @@ const app = createApp({
                   <div class="detail-val" v-text="fmtDate(formData.mainSignDate)"></div>
                 </div>
               </div>
-              <div class="detail-card-row single">
-                <div class="detail-cell full">
+              <div class="detail-card-row">
+                <div class="detail-cell">
                   <div class="detail-lbl">关联商机号</div>
                   <div class="detail-val mono" v-text="formData.oppNo || '—'"></div>
+                </div>
+                <div class="detail-cell">
+                  <div class="detail-lbl">是否云订阅</div>
+                  <div class="detail-val" v-text="formData.isCloudSub || '—'"></div>
+                </div>
+              </div>
+              <div class="detail-card-row">
+                <div class="detail-cell">
+                  <div class="detail-lbl">售前合同业绩</div>
+                  <div class="detail-val dt-text-primary" v-text="formData.presalePerformance != null ? fmtMoney(formData.presalePerformance) + '元' : '—'"></div>
+                </div>
+                <div class="detail-cell">
+                  <div class="detail-lbl">订阅业绩</div>
+                  <div class="detail-val" v-text="formData.subPerformance != null ? fmtMoney(formData.subPerformance) + '元' : '—'"></div>
+                </div>
+              </div>
+              <div class="detail-card-row single" v-if="formData.remarks">
+                <div class="detail-cell full">
+                  <div class="detail-lbl">备注</div>
+                  <div class="detail-val" v-text="formData.remarks"></div>
                 </div>
               </div>
             </div>
