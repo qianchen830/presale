@@ -52,6 +52,7 @@ const state = reactive({
   activeAdminSub: '',
   // 当前操作弹窗
   modal: null,         // { name, mode, data, extra }
+  modalHistory: [], // 弹窗历史，关闭时恢复上一层
 });
 
 // ── 个人年度/季度目标 ──
@@ -523,6 +524,10 @@ const app = createApp({
 
     // 快捷录入：先选关联记录，再填表单
     function openModal(name, mode = 'create', data = {}, extra = {}) {
+      // 从查看状态打开新弹窗时，保存当前弹窗到历史
+      if (state.modal && mode === 'view') {
+        state.modalHistory.push({ name: state.modal.name, mode: state.modal.mode, data: state.modal.data, extra: state.modal.extra });
+      }
       state.modal = { name, mode, data, extra };
       Object.keys(formData).forEach(k => delete formData[k]);
       pickerStep.value = null;
@@ -573,7 +578,13 @@ const app = createApp({
       pickerSearch.value = '';
     }
 
-    function closeModal() { state.modal = null; }
+    function closeModal() {
+      if (state.modalHistory.length > 0) {
+        state.modal = state.modalHistory.pop();
+        return;
+      }
+      state.modal = null;
+    }
 
     // 拖拽关闭（防止误触）
     const dragStartY = ref(0);
