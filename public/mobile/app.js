@@ -750,7 +750,8 @@ const app = createApp({
       const year = state.year;
       const c2026 = (filteredContracts.value || []).filter(c => new Date(c.mainSignDate||0).getFullYear() === year);
       const won = c2026.reduce((s,c) => s + ((parseFloat(c.subAmount)||0) >= 100000 ? (parseFloat(c.presalePerformance)||0) : 0), 0) / 10000;
-      return { total: filteredContracts.value.length, c2026: c2026.length, won: won.toFixed(1), target: userTargets.annualTargets[year], year };
+      const firstC = filteredContracts.value[0] ? { oppNo: filteredContracts.value[0].oppNo, sa: filteredContracts.value[0].subAmount, pp: filteredContracts.value[0].presalePerformance } : null;
+      return { total: filteredContracts.value.length, c2026: c2026.length, won: won.toFixed(1), target: userTargets.annualTargets[year], year, firstC };
     });
 
     return {
@@ -849,7 +850,7 @@ const app = createApp({
         allC={{ (state.fullState?.contracts||[]).length }} fc={{ filteredContracts.length }} yr={{ state.year }} target={{ userTargets.annualTargets[state.year] }}
       </div>
       <div style="background:#111;border:1px solid #333;color:#0f0;font-size:11px;padding:3px 8px;margin-bottom:8px;font-family:monospace">
-        DEBUG: total={{ debugInfo.total }} c2026={{ debugInfo.c2026 }} won={{ debugInfo.won }}万 target={{ debugInfo.target }}万 yr={{ debugInfo.year }}
+        DEBUG: total={{ debugInfo.total }} c2026={{ debugInfo.c2026 }} won={{ debugInfo.won }}万 target={{ debugInfo.target }}万 | fc0={{ debugInfo.firstC ? debugInfo.firstC.oppNo + ' sa=' + debugInfo.firstC.sa + ' pp=' + debugInfo.firstC.pp : 'none' }}
       </div>
       <div class="dt-money-row">
         <div class="dt-money-item">
