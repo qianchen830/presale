@@ -829,8 +829,8 @@ const app = createApp({
         </div>
       </div>
 
-      <!-- FAB -->
-      <div class="dt-fab" @click="openModal(listTabToModal(state.activeListTab),'create',{})">+</div>
+      <!-- FAB: 只有申请 tab 能直接新建，其他模块必须从父记录进入 -->
+      <div v-if="state.activeTab === 'list' && state.activeListTab === 'applications'" class="dt-fab" @click="openModal('app','create',{})">+</div>
     </div>
 
     <!-- ── Admin ── -->
@@ -1282,14 +1282,34 @@ const app = createApp({
 
       <!-- Modal Footer -->
       <div class="dt-modal-ft">
-        <button v-if="state.modal.mode === 'view' && state.modal.name !== 'selfProfile'" class="dt-btn dt-btn-danger" :disabled="formLoading" @click="deleteRecord">删除</button>
-        <button v-if="state.modal.mode !== 'view'" class="dt-btn dt-btn-default" @click="closeModal">取消</button>
-        <button v-if="state.modal.mode !== 'view'" class="dt-btn dt-btn-primary" :disabled="formLoading" @click="saveRecord">
-          {{ formLoading ? '保存中…' : '保存' }}
-        </button>
-        <button v-if="state.modal.mode === 'view' && state.modal.name !== 'selfProfile'" class="dt-btn dt-btn-primary" @click="state.modal.mode = 'edit'">编辑</button>
-        <button v-if="state.modal.mode === 'view' && state.modal.name === 'selfProfile'" class="dt-btn dt-btn-primary" @click="state.modal.mode = 'edit'">编辑</button>
-        <button v-if="state.modal.mode === 'edit' && state.modal.name === 'selfProfile'" class="dt-btn dt-btn-primary" :disabled="formLoading" @click="saveSelfProfile">保存</button>
+        <!-- 查看/编辑申请详情 → 快捷入口：新建关联记录 -->
+        <template v-if="state.modal.mode === 'view' && state.modal.name === 'app'">
+          <button class="dt-btn dt-btn-default" @click="openModal('contract','create',{})">+ 合同</button>
+          <button class="dt-btn dt-btn-default" @click="openModal('follow','create',{})">+ 跟进</button>
+          <button class="dt-btn dt-btn-default" @click="openModal('judgment','create',{})">+ 判断</button>
+          <button class="dt-btn dt-btn-default" @click="openModal('salesQ','create',{})">+ 问答</button>
+        </template>
+        <!-- 查看合同详情 → 快捷入口：新建分配 -->
+        <template v-if="state.modal.mode === 'view' && state.modal.name === 'contract'">
+          <button class="dt-btn dt-btn-default" @click="openModal('allocation','create',{})">+ 分配</button>
+        </template>
+        <!-- 个人信息 -->
+        <template v-if="state.modal.mode === 'view' && state.modal.name === 'selfProfile'">
+          <button class="dt-btn dt-btn-primary" @click="state.modal.mode = 'edit'">编辑</button>
+        </template>
+        <!-- 编辑个人信息 -->
+        <template v-if="state.modal.mode === 'edit' && state.modal.name === 'selfProfile'">
+          <button class="dt-btn dt-btn-default" @click="closeModal">取消</button>
+          <button class="dt-btn dt-btn-primary" :disabled="formLoading" @click="saveSelfProfile">{{ formLoading ? '保存中…' : '保存' }}</button>
+        </template>
+        <!-- 新建/编辑 表单 -->
+        <template v-if="state.modal.mode !== 'view'">
+          <button class="dt-btn dt-btn-default" @click="closeModal">取消</button>
+          <button class="dt-btn dt-btn-primary" :disabled="formLoading" @click="saveRecord">{{ formLoading ? '保存中…' : '保存' }}</button>
+        </template>
+        <!-- 查看时允许删除（除个人信息外） -->
+        <button v-if="state.modal.mode === 'view' && state.modal.name !== 'selfProfile' && state.modal.name !== 'app' && state.modal.name !== 'contract'" class="dt-btn dt-btn-danger" :disabled="formLoading" @click="deleteRecord">删除</button>
+        <!-- 申请/合同详情：footer 只有快捷入口，删除放别处 -->
       </div>
     </div>
   </div>

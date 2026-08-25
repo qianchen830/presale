@@ -871,30 +871,27 @@ body::after {
 
 .dt-modal-box {
   width: 100%;
-  max-height: 92vh;
+  max-height: 88vh;
   background: rgba(12, 12, 32, 0.97);
   backdrop-filter: blur(32px) saturate(180%);
   -webkit-backdrop-filter: blur(32px) saturate(180%);
   border: 1px solid var(--glass-border);
   border-bottom: none;
   border-radius: 24px 24px 0 0;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
   animation: modalSlideUp 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
-}
-
-@keyframes modalSlideUp {
-  from { transform: translateY(60px); opacity: 0; }
-  to   { transform: translateY(0); opacity: 1; }
 }
 
 .dt-modal-hd {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 20px 0;
+  padding: 18px 18px 0;
+  flex-shrink: 0;
+  background: rgba(12, 12, 32, 0.98);
   position: sticky;
   top: 0;
-  background: rgba(12, 12, 32, 0.98);
   z-index: 1;
 }
 
@@ -918,14 +915,30 @@ body::after {
 
 .dt-modal-close:active { transform: scale(0.88); background: var(--glass-bg-strong); }
 
-.dt-modal-bd { padding: 16px 20px; }
+.dt-modal-bd {
+  padding: 14px 16px;
+  overflow-y: auto;
+  flex: 1;
+  overscroll-behavior: contain;
+}
 
 .dt-modal-ft {
-  padding: 12px 20px calc(16px + var(--safe-bottom));
+  padding: 10px 16px calc(12px + var(--safe-bottom));
   display: flex;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
+  flex-shrink: 0;
+  background: rgba(12, 12, 32, 0.98);
+  border-top: 1px solid var(--glass-border);
   position: sticky;
+  bottom: 0;
+}
+
+@keyframes modalSlideUp {
+  from { transform: translateY(60px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
   bottom: 0;
   background: rgba(12, 12, 32, 0.98);
   border-top: 1px solid var(--glass-border);
