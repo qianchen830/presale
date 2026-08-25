@@ -471,13 +471,6 @@ const app = createApp({
           // 合同/跟进/判断/问答/分配：先选关联申请或合同
           pickerStep.value = name;
         }
-      } else if (name === 'selfProfile') {
-        // 个人信息编辑/查看：用当前登录用户数据填充表单
-        Object.assign(formData, {
-          username: state.user?.username || '',
-          display_name: state.user?.displayName || state.user?.username || '',
-          department: state.user?.department || '',
-        });
       } else {
         // 查看/编辑模式
         Object.assign(formData, { ...data });
@@ -986,28 +979,16 @@ const app = createApp({
         </div>
       </div>
 
-      <!-- 修改密码（直接在页面内） -->
-      <div class="profile-pwd-section">
-        <div class="profile-section-title">🔑 修改密码</div>
-        <div class="profile-pwd-field">
-          <div class="dt-form-label">旧密码</div>
-          <input type="password" class="dt-input" v-model="oldPwd" placeholder="请输入旧密码" />
-        </div>
-        <div class="profile-pwd-field">
-          <div class="dt-form-label">新密码</div>
-          <input type="password" class="dt-input" v-model="newPwd" placeholder="至少6位" />
-        </div>
-        <div class="profile-pwd-field">
-          <div class="dt-form-label">确认新密码</div>
-          <input type="password" class="dt-input" v-model="confirmPwd" placeholder="再输入一次" @keyup.enter="doChangePassword" />
-        </div>
-        <button class="dt-btn dt-btn-primary dt-btn-full" :disabled="pwdLoading" @click="doChangePassword">
-          {{ pwdLoading ? '修改中…' : '确认修改密码' }}
-        </button>
-      </div>
-
-      <!-- 退出登录 -->
+      <!-- 菜单 -->
       <div class="profile-menu">
+        <div class="profile-menu-item" @click="openModal('selfProfile','view',{})">
+          <div class="menu-icon-wrap" style="background:rgba(251,191,36,0.12)">🔑</div>
+          <div class="menu-text">
+            <div class="menu-title">修改密码</div>
+            <div class="menu-sub">修改登录密码</div>
+          </div>
+          <div class="menu-arrow">›</div>
+        </div>
         <div class="profile-menu-item" @click="doLogout">
           <div class="menu-icon-wrap" style="background:rgba(239,68,68,0.12)">🚪</div>
           <div class="menu-text">
@@ -1463,71 +1444,51 @@ const app = createApp({
           </div>
         </template>
 
-        <!-- ── 个人信息查看/编辑 ── -->
+        <!-- ── 个人信息（只读信息 + 改密码） ── -->
         <template v-else-if="state.modal.name === 'selfProfile'">
-          <!-- 查看模式：信息卡 -->
-          <template v-if="state.modal.mode === 'view'">
-            <div class="detail-card">
-              <div class="detail-card-row">
-                <div class="detail-cell">
-                  <div class="detail-lbl">用户名</div>
-                  <div class="detail-val mono" v-text="state.user.username"></div>
-                </div>
-                <div class="detail-cell">
-                  <div class="detail-lbl">角色</div>
-                  <div class="detail-val" v-text="state.user.role === 'admin' ? '管理员' : '顾问'"></div>
-                </div>
+          <!-- 信息卡 -->
+          <div class="detail-card">
+            <div class="detail-card-row">
+              <div class="detail-cell">
+                <div class="detail-lbl">用户名</div>
+                <div class="detail-val mono" v-text="state.user.username"></div>
               </div>
-              <div class="detail-card-row">
-                <div class="detail-cell">
-                  <div class="detail-lbl">显示名</div>
-                  <div class="detail-val" v-text="state.user.displayName || state.user.username"></div>
-                </div>
-                <div class="detail-cell">
-                  <div class="detail-lbl">部门</div>
-                  <div class="detail-val" v-text="state.user.department || '—'"></div>
-                </div>
+              <div class="detail-cell">
+                <div class="detail-lbl">角色</div>
+                <div class="detail-val" v-text="state.user.role === 'admin' ? '管理员' : '顾问'"></div>
               </div>
             </div>
+            <div class="detail-card-row">
+              <div class="detail-cell">
+                <div class="detail-lbl">显示名</div>
+                <div class="detail-val" v-text="state.user.displayName || state.user.username"></div>
+              </div>
+              <div class="detail-cell">
+                <div class="detail-lbl">部门</div>
+                <div class="detail-val" v-text="state.user.department || '—'"></div>
+              </div>
+            </div>
+          </div>
 
-            <!-- 改密码 -->
-            <div class="pwd-section">
-              <div class="pwd-title">🔑 修改密码</div>
-              <div class="pwd-field">
-                <div class="dt-form-label">旧密码</div>
-                <input type="password" class="dt-input" v-model="oldPwd" placeholder="请输入旧密码" />
-              </div>
-              <div class="pwd-field">
-                <div class="dt-form-label">新密码</div>
-                <input type="password" class="dt-input" v-model="newPwd" placeholder="至少6位" />
-              </div>
-              <div class="pwd-field">
-                <div class="dt-form-label">确认新密码</div>
-                <input type="password" class="dt-input" v-model="confirmPwd" placeholder="再输入一次" @keyup.enter="doChangePassword" />
-              </div>
-              <button class="dt-btn dt-btn-primary dt-btn-block" :disabled="pwdLoading" @click="doChangePassword">
-                {{ pwdLoading ? '修改中…' : '确认修改密码' }}
-              </button>
+          <!-- 修改密码 -->
+          <div class="pwd-section">
+            <div class="pwd-title">🔑 修改密码</div>
+            <div class="pwd-field">
+              <div class="dt-form-label">旧密码</div>
+              <input type="password" class="dt-input" v-model="oldPwd" placeholder="请输入旧密码" />
             </div>
-          </template>
-
-          <!-- 编辑模式：表单 -->
-          <template v-if="state.modal.mode === 'edit'">
-            <div class="dt-form">
-              <div class="dt-form-group">
-                <div class="dt-form-label">用户名</div>
-                <input type="text" class="dt-input dt-input-disabled" v-model="formData.username" disabled />
-              </div>
-              <div class="dt-form-group">
-                <div class="dt-form-label">显示名 <span style="color:#EF4444">*</span></div>
-                <input type="text" class="dt-input" v-model="formData.display_name" />
-              </div>
-              <div class="dt-form-group">
-                <div class="dt-form-label">部门</div>
-                <input type="text" class="dt-input" v-model="formData.department" />
-              </div>
+            <div class="pwd-field">
+              <div class="dt-form-label">新密码</div>
+              <input type="password" class="dt-input" v-model="newPwd" placeholder="至少6位" />
             </div>
-          </template>
+            <div class="pwd-field">
+              <div class="dt-form-label">确认新密码</div>
+              <input type="password" class="dt-input" v-model="confirmPwd" placeholder="再输入一次" @keyup.enter="doChangePassword" />
+            </div>
+            <button class="dt-btn dt-btn-primary dt-btn-full" :disabled="pwdLoading" @click="doChangePassword">
+              {{ pwdLoading ? '修改中…' : '确认修改密码' }}
+            </button>
+          </div>
         </template>
 
       </div>
@@ -1545,23 +1506,17 @@ const app = createApp({
         <template v-if="state.modal.mode === 'view' && state.modal.name === 'contract'">
           <button class="dt-btn dt-btn-default" @click="openModal('allocation','create',{})">+ 分配</button>
         </template>
-        <!-- 个人信息 -->
-        <template v-if="state.modal.mode === 'view' && state.modal.name === 'selfProfile'">
-          <button class="dt-btn dt-btn-primary" @click="state.modal.mode = 'edit'">编辑</button>
+        <!-- 个人信息弹窗：只有关闭按钮 -->
+        <template v-if="state.modal.name === 'selfProfile'">
+          <button class="dt-btn dt-btn-default" @click="closeModal">关闭</button>
         </template>
-        <!-- 编辑个人信息（独立，不走通用表单footer） -->
-        <template v-if="state.modal.mode === 'edit' && state.modal.name === 'selfProfile'">
-          <button class="dt-btn dt-btn-default" @click="closeModal">取消</button>
-          <button class="dt-btn dt-btn-primary" :disabled="formLoading" @click="saveSelfProfile">{{ formLoading ? '保存中…' : '保存' }}</button>
-        </template>
-        <!-- 新建/编辑 表单（排除 selfProfile，它有独立的 footer） -->
+        <!-- 新建/编辑 表单（排除 selfProfile） -->
         <template v-if="state.modal.mode !== 'view' && state.modal.name !== 'selfProfile'">
           <button class="dt-btn dt-btn-default" @click="closeModal">取消</button>
           <button class="dt-btn dt-btn-primary" :disabled="formLoading" @click="saveRecord">{{ formLoading ? '保存中…' : '保存' }}</button>
         </template>
-        <!-- 查看时允许删除（除个人信息外） -->
+        <!-- 查看时允许删除（除申请/合同/selfProfile外） -->
         <button v-if="state.modal.mode === 'view' && state.modal.name !== 'selfProfile' && state.modal.name !== 'app' && state.modal.name !== 'contract'" class="dt-btn dt-btn-danger" :disabled="formLoading" @click="deleteRecord">删除</button>
-        <!-- 申请/合同详情：footer 只有快捷入口，删除放别处 -->
       </div>
     </div>
   </div>
