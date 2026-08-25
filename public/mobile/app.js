@@ -369,6 +369,13 @@ const app = createApp({
 
     // 非申请 tab：用 groupedRecords（申请为主体，子记录嵌套在申请下）
     // 结构：[ { app: {...}, subs: [...] } ]
+    const listRecords = computed(() => {
+      const tab = state.activeListTab;
+      if (tab === 'applications') return filteredApps.value;
+      if (tab === 'contracts') return filteredContracts.value;
+      return []; // follow/judgment/salesQ/alloc use groupedRecords instead
+    });
+
     const groupedRecords = computed(() => {
       if (state.activeListTab === 'applications' || state.activeListTab === 'contracts') {
         return state.activeListTab === 'applications' ? filteredApps.value.map(a => ({ app: a, subs: [] })) : filteredContracts.value.map(c => ({ app: c, subs: [] }));
