@@ -300,6 +300,13 @@ const app = createApp({
       try {
         const d = await API.getState();
         state.fullState = d.state;
+        console.log('[DEBUG] fullState loaded:', {
+          applications: (d.state?.applications||[]).length,
+          followUps: (d.state?.followUps||[]).length,
+          judgments: (d.state?.judgments||[]).length,
+          salesQuestions: (d.state?.salesQuestions||[]).length,
+          allocations: (d.state?.allocations||[]).length,
+        });
         // admin 需要加载用户列表
         if (state.user?.role === 'admin') {
           await loadAdminUsers();
