@@ -574,6 +574,19 @@ app.put('/api/state', requireAuth, (req, res) => {
 });
 
 // 保存当前用户的个人指标（年度指标/季度指标）
+app.get('/api/user/targets', requireAuth, (req, res) => {
+  try {
+    const ut = db.prepare('SELECT annual_targets, annual_actuals, quarter_targets, quarter_pcts FROM user_targets WHERE user_id = ?').get(req.session.userId);
+    if (!ut) return res.json({ annualTargets: {}, annualActuals: {}, quarterTargets: {}, quarterPcts: {} });
+    res.json({
+      annualTargets: JSON.parse(ut.annual_targets || '{}'),
+      annualActuals: JSON.parse(ut.annual_actuals || '{}'),
+      quarterTargets: JSON.parse(ut.quarter_targets || '{}'),
+      quarterPcts: JSON.parse(ut.quarter_pcts || '{}'),
+    });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.put('/api/user/targets', requireAuth, (req, res) => {
   const { annualTargets, annualActuals, quarterTargets, quarterPcts } = req.body || {};
   const now = new Date().toISOString();

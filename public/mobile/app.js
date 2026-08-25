@@ -54,6 +54,32 @@ const state = reactive({
   modal: null,         // { name, mode, data, extra }
 });
 
+// ── 个人年度/季度目标 ──
+    const userTargets = reactive({
+      annualTargets: {}, // { year: amount }
+      quarterTargets: {}, // { Q1: amount, ... }
+    });
+    async function loadUserTargets() {
+      try {
+        const d = await API.getUserTargets();
+        userTargets.annualTargets = d.annualTargets || {};
+        userTargets.quarterTargets = d.quarterTargets || {};
+      } catch(e) { /* ignore */ }
+    }
+    async function saveUserTargets() {
+      try {
+        await API.putUserTargets({
+          annualTargets: { ...userTargets.annualTargets },
+          quarterTargets: { ...userTargets.quarterTargets },
+        });
+        showToast('目标保存成功');
+        await loadState();
+      } catch(e) { showToast('保存失败: ' + e.message); }
+    }
+
+    // ── 年份切换后自动刷新目标数据 ──
+    watch(() => state.year, () => { loadUserTargets(); });
+
 // ========== 工具函数 ==========
 function showToast(msg, duration = 2000) {
   if (state.toastTimer) clearTimeout(state.toastTimer);
@@ -309,6 +335,7 @@ const app = createApp({
         if (state.user?.role === 'admin') {
           await loadAdminUsers();
         }
+        await loadUserTargets();
       } catch (e) {
         showToast('加载数据失败: ' + e.message);
       } finally {
@@ -337,7 +364,7 @@ const app = createApp({
 
     // ── Dashboard ──
     const dashboardStats = computed(() => {
-      if (!state.fullState) return { total: 0, won: 0, lost: 0, totalAmount: 0, wonAmount: 0, activeCount: 0 };
+      if (!state.fullState) return { total: 0, won: 0, lost: 0, totalAmount: 0, wonAmount: 0, activeCount: 0, annualTarget: 0, annualTargets: {}, quarterTargets: {}, quarterPcts: {} };
       const year = state.year;
       const apps = (state.fullState.applications || []).filter(a =>
         new Date(a.applyDate || 0).getFullYear() === year && !a.deleted
@@ -353,9 +380,12 @@ const app = createApp({
         const sa = parseFloat(c.subAmount) || 0;
         return s + (sa >= 100000 ? (parseFloat(c.presalePerformance) || 0) : 0);
       }, 0) / 10000;
-      // 年度目标（来自 state.annualTarget）
-      const annualTarget = parseFloat(state.fullState.annualTarget || 0);
-      return { total: apps.length, won, lost, activeCount, totalAmount, wonAmount, annualTarget };
+      // 个人年度/季度目标（来自 /api/state 返回的 user_targets）
+      const annualTargets = state.fullState.annualTargets || {};
+      const quarterTargets = state.fullState.quarterTargets || {};
+      const quarterPcts = state.fullState.quarterPcts || {};
+      const annualTarget = parseFloat(annualTargets[year] || state.fullState.annualTarget || 0);
+      return { total: apps.length, won, lost, activeCount, totalAmount, wonAmount, annualTarget, annualTargets, quarterTargets, quarterPcts };
     });
 
     const myVisibleApps = computed(() => getVisibleRecords('applications'));
@@ -724,6 +754,7 @@ const app = createApp({
       listRecords, groupedRecords,
       formData, formLoading,
       openModal, closeModal, maybeCloseModal,
+      userTargets, loadUserTargets, saveUserTargets,
       oldPwd, newPwd, confirmPwd, showOldPwd, showNewPwd, showConfirmPwd,
       doChangePassword, pwdLoading,
       getListItemTitle, getListItemSub,
@@ -831,6 +862,13 @@ const app = createApp({
         <div class="dt-progress-bar">
           <div class="dt-progress-fill dt-bg-primary" :style="{ width: Math.min((dashboardStats.wonAmount / (dashboardStats.annualTarget/10000)) * 100, 100) + '%' }"></div>
         </div>
+      </div>
+
+      <!-- 设置目标入口 -->
+      <div class="dt-set-target-btn" @click="openModal('setTargets','edit',{})">
+        <span>🎯</span>
+        <span>设置年度目标</span>
+        <span class="dt-set-target-arrow">›</span>
       </div>
 
       <!-- 我的申请摘要 -->
@@ -1475,7 +1513,26 @@ const app = createApp({
             </div>
           </template>
 
-          <!-- 个人信息 -->
+          <!-- 设置年度目标 -->
+          <template v-else-if="state.modal.name === 'setTargets'">
+            <div class="dt-form-group">
+              <div class="dt-form-label">{{ state.year }} 年度目标（万元）</div>
+              <input type="number" class="dt-input" v-model.number="userTargets.annualTargets[state.year]" placeholder="例如：500" step="10" />
+            </div>
+            <div class="dt-form-hint">填入数字即可，单位：万元</div>
+            <div class="dt-form-group" style="margin-top:12px">
+              <div class="dt-form-label">季度分解（万元）</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <div v-for="q in ['Q1','Q2','Q3','Q4']" :key="q" class="dt-q-input-wrap">
+                  <div class="dt-form-label" style="margin-bottom:4px">{{ q }}</div>
+                  <input type="number" class="dt-input" v-model.number="userTargets.quarterTargets[q]" placeholder="0" step="5" />
+                </div>
+              </div>
+            </div>
+            <button class="dt-btn dt-btn-primary dt-btn-full" style="margin-top:16px" @click="saveUserTargets(); closeModal();">保存目标</button>
+          </template>
+
+        <!-- 个人信息 -->
           <template v-if="state.modal.name === 'selfProfile'">
             <div class="profile-info-section">
               <div class="profile-info-row">
