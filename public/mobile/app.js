@@ -837,7 +837,10 @@ const app = createApp({
 
       <!-- 金额指标 -->
       <div style="background:#111;border:1px solid #333;color:#0f0;font-size:11px;padding:3px 8px;margin-bottom:8px;font-family:monospace">
-        DS: won={{ dashboardStats.wonAmount?.toFixed(1) }} total={{ dashboardStats.totalAmount?.toFixed(1) }} target={{ dashboardStats.annualTarget }} year={{ state.year }} fu={{ userTargets.annualTargets[state.year] }}
+        DS: won={{ dashboardStats.wonAmount?.toFixed(1) }} total={{ dashboardStats.totalAmount?.toFixed(1) }} target={{ dashboardStats.annualTarget }} year={{ state.year }} fu={{ userTargets.annualTargets[state.year] }} | fullState={{ !!state.fullState }}
+      </div>
+      <div style="background:#111;border:1px solid #333;color:#0f0;font-size:11px;padding:3px 8px;margin-bottom:8px;font-family:monospace">
+        DS: won={{ dashboardStats.wonAmount?.toFixed(1) }} total={{ dashboardStats.totalAmount?.toFixed(1) }} target={{ dashboardStats.annualTarget }} yr={{ state.year }} ut26={{ userTargets.annualTargets['2026'] }} ut[yr]={{ userTargets.annualTargets[state.year] }}
       </div>
       <div class="dt-money-row">
         <div class="dt-money-item">
