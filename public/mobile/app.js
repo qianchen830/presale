@@ -1203,15 +1203,32 @@ const app = createApp({
       <div class="dt-section-card">
         <div class="dt-section-hd">
           <span class="dt-section-title">我的售前申请</span>
-          <span class="dt-section-more" @click="state.activeTab='list'; state.activeListTab='applications'">查看全部 ›</span>
+          <div style="display:flex;gap:6px;align-items:center">
+            <select class="dt-input dt-select" style="height:28px;font-size:12px;padding:0 8px;border-radius:8px" v-model="state.filterStatus" @change="state.filterStatus=state.filterStatus">
+              <option value="">全部状态</option>
+              <option v-for="s in APP_STATUSES" :key="s" :value="s" v-text="s"></option>
+            </select>
+            <span class="dt-section-more" @click="state.activeTab='list'; state.activeListTab='applications'">查看全部 ›</span>
+          </div>
         </div>
         <div v-if="filteredApps.length === 0" class="dt-empty-cell">暂无数据</div>
-        <div v-for="app in filteredApps.slice(0, 5)" :key="app.id" class="dt-list-row" @click="openModal('app','view',app)">
+        <div v-for="app in filteredApps" :key="app.id" class="dt-list-row" @click="openModal('app','view',app)">
           <div class="dt-list-info">
             <div class="dt-list-title" v-text="(app.customer||'') + (app.projectName ? ' / '+app.projectName : '')"></div>
             <div class="dt-list-sub" v-text="(app.oppNo||'') + ' | ' + (app.product||'') + ' | ' + (app.currentStage||'')"></div>
           </div>
           <span class="dt-badge" :class="getStatusBadge(app.status)" v-text="app.status"></span>
+        </div>
+      </div>
+
+      <!-- 新建合同（从申请列表进入数据页新建） -->
+      <div class="dt-section-card" style="padding:10px 14px">
+        <div class="dt-section-hd">
+          <span class="dt-section-title">合同管理</span>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="dt-btn dt-btn-primary" style="flex:1;font-size:13px" @click="state.activeTab='list'; state.activeListTab='contracts'; setTimeout(()=>openModal('contract','create',{},{}),100)">+ 新建合同</button>
+          <button class="dt-btn dt-btn-default" style="flex:1;font-size:13px" @click="state.activeTab='list'; state.activeListTab='contracts'">查看合同</button>
         </div>
       </div>
 
@@ -1467,7 +1484,7 @@ const app = createApp({
           <!-- 部门 -->
           <template v-if="state.activeAdminSub === 'dept'">
             <div v-if="(state.fullState?.departments||[]).length === 0" class="admin-empty">暂无部门</div>
-            <div v-for="d in state.fullState?.departments||[]" :key="d.id" class="admin-row" @click="openModal('dept','view',d)">
+            <div v-for="d in state.fullState?.departments||[]" :key="d.id" class="admin-row" @click="openModal('dept','edit',d)">
               <div class="admin-row-main" v-text="d.name"></div>
               <div class="admin-row-sub" v-text="(d.manager ? '负责人: '+d.manager : '')"></div>
             </div>
@@ -1475,7 +1492,7 @@ const app = createApp({
           <!-- 员工 -->
           <template v-if="state.activeAdminSub === 'emp'">
             <div v-if="(state.fullState?.employees||[]).length === 0" class="admin-empty">暂无员工</div>
-            <div v-for="e in state.fullState?.employees||[]" :key="e.id" class="admin-row" @click="openModal('emp','view',e)">
+            <div v-for="e in state.fullState?.employees||[]" :key="e.id" class="admin-row" @click="openModal('emp','edit',e)">
               <div class="admin-row-main" v-text="e.name + (e.position ? ' ('+e.position+')' : '')"></div>
               <div class="admin-row-sub" v-text="getDeptName(e.deptId)+(e.mobile?' · '+e.mobile:'')"></div>
             </div>
@@ -1483,7 +1500,7 @@ const app = createApp({
           <!-- 用户 -->
           <template v-if="state.activeAdminSub === 'user'">
             <div v-if="(state.adminUsers||[]).length === 0" class="admin-empty">暂无用户</div>
-            <div v-for="u in (state.adminUsers||[])" :key="u.id" class="admin-row" @click="openModal('user','view',u)">
+            <div v-for="u in (state.adminUsers||[])" :key="u.id" class="admin-row" @click="openModal('user','edit',u)">
               <div class="admin-row-main" v-text="u.display_name || u.username"></div>
               <div class="admin-row-sub" v-text="(u.role==='admin'?'管理员':'普通用户') + (u.department?' · '+u.department:'') + (u.created_at ? ' · '+u.created_at.slice(0,10) : '')"></div>
             </div>
