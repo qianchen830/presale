@@ -283,7 +283,7 @@ const FOLLOW_FIELDS = [
   { key:'followDate', label:'日期', type:'date', required:true },
   { key:'hours', label:'耗用工时(h)', type:'number', required:true },
   { key:'workItem', label:'工作事项', type:'textarea', required:true },
-  { key:'summary', label:'成果总结', type:'textarea', required:true },
+  { key:'summary', label:'成果总结', type:'textarea' },
   { key:'nextWork', label:'下一步工作', type:'text', required:true },
   { key:'nextDate', label:'预计时间', type:'date', required:true },
 ];
@@ -952,7 +952,7 @@ const app = createApp({
           showToast('保存成功');
         } else {
           // 通用模块
-          const module = getModuleName(name === 'salesQ' ? 'salesQuestions' : name === 'judgment' ? 'judgments' : name === 'allocation' ? 'allocations' : name === 'app' ? 'applications' : name === 'contract' ? 'contracts' : name);
+          const module = getModuleName(name === 'salesQ' ? 'salesQuestions' : name === 'judgment' ? 'judgments' : name === 'follow' ? 'followUps' : name === 'allocation' ? 'allocations' : name === 'app' ? 'applications' : name === 'contract' ? 'contracts' : name);
           if (mode === 'create') {
             await API.create(module, { ...formData });
           } else {
@@ -984,7 +984,7 @@ const app = createApp({
         } else if (name === 'user') {
           await API.deleteUser(data.id);
         } else {
-          const module = getModuleName(name === 'salesQ' ? 'salesQuestions' : name === 'judgment' ? 'judgments' : name === 'allocation' ? 'allocations' : name === 'app' ? 'applications' : name === 'contract' ? 'contracts' : name);
+          const module = getModuleName(name === 'salesQ' ? 'salesQuestions' : name === 'judgment' ? 'judgments' : name === 'follow' ? 'followUps' : name === 'allocation' ? 'allocations' : name === 'app' ? 'applications' : name === 'contract' ? 'contracts' : name);
           await API.remove(module, data.id);
         }
         showToast('删除成功');
