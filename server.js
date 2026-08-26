@@ -45,8 +45,9 @@ function decrypt(data) {
 }
 
 // 加密 FileStore
-class EncryptedFileStore {
+class EncryptedFileStore extends (require('events').EventEmitter) {
   constructor(options = {}) {
+    super();
     const FileStoreClass = require('session-file-store')(session);
     this._store = new FileStoreClass({ ...options, path: sessionsDir });
   }
@@ -77,6 +78,11 @@ class EncryptedFileStore {
   }
   destroy(sessionId, callback) { this._store.destroy(sessionId, callback); }
   touch(sessionId, session, callback) { this._store.touch(sessionId, session, callback); }
+  // 代理 express-session 需要的其他方法到底层 FileStore
+  createSession(req, sessionData) { return this._store.createSession(req, sessionData); }
+  get SID() { return this._store.SID; }
+  get autoSave() { return this._store.autoSave; }
+  set autoSave(val) { this._store.autoSave = val; }
 }
 
 // ---- 10万门槛常量：合同金额小于此值不计入售前绩效 ----
@@ -437,6 +443,28 @@ app.use(session({
   cookie: { maxAge: 60 * 60 * 1000, httpOnly: true, sameSite: 'lax' }  // 1小时（毫秒）
 }));
 
+// ---- 安全响应头（防点击劫持、XSS 等）----
+app.use((req, res, next) => {
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  res.removeHeader('X-Powered-By');
+  next();
+});
+
+// ---- 静态资源：node_modules 长期缓存（1年）----
+app.use('/node_modules', express.static(path.join(__dirname, 'node_modules'), {
+  maxAge: '365d',
+  etag: true,
+  lastModified: true,
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.json') || filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  }
+}));
+
 // ---- 根路径：User-Agent 自动识别移动端/PC端 ----
 
 function isMobileDevice(req) {
@@ -455,6 +483,19 @@ app.get('/', (req, res) => {
   }
 });
 
+// ---- public/vendor 长期缓存（1年，文件名自带版本号无需改动）----
+app.use('/vendor', express.static(path.join(__dirname, 'public', 'vendor'), {
+  maxAge: '365d',
+  etag: true,
+  lastModified: true,
+  setHeaders(res, filePath) {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    }
+  }
+}));
+
+// ---- 其他 public 资源不缓存 ----
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders(res, filePath) {
     if (filePath.endsWith('.html')) {
