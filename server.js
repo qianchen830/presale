@@ -54,7 +54,7 @@ class EncryptedFileStore extends (require('events').EventEmitter) {
   _readFile(sessionId, callback) {
     const filePath = path.join(sessionsDir, `${sessionId}.json`);
     fs.readFile(filePath, 'utf8', (err, data) => {
-      if (err || !data) return callback(err || new Error('no session file'), null);
+      if (err || !data) return callback(null, null);
       const decrypted = decrypt(data);
       if (!decrypted) return callback(new Error('session corrupted'), null);
       try { callback(null, JSON.parse(decrypted)); }
