@@ -644,7 +644,7 @@ const app = createApp({
     const boardProgress = computed(() => {
       const t = boardAnnualTarget.value;
       if (!t) return -1;
-      return Math.round((boardWonAmount.value / t) * 100);
+      return Math.round((boardTotalAmount.value / t) * 100);
     });
 
     // 按产品线分组
@@ -1310,7 +1310,7 @@ const app = createApp({
           </div>
           <div class="board-money-div"></div>
           <div class="board-money-item">
-            <div class="board-money-lbl">合同总额</div>
+            <div class="board-money-lbl" v-text="state.user?.role === 'admin' ? '业绩' : '已分配业绩'"></div>
             <div class="board-money-val" v-text="fmtMoney(boardTotalAmount) + ' 万'"></div>
           </div>
         </div>
