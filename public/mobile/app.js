@@ -1302,6 +1302,7 @@ const app = createApp({
         <div v-for="f in boardRecentFollows" :key="f.id" class="board-recent-item">
           <div class="board-recent-date" v-text="fmtDate(f.followDate)"></div>
           <div class="board-recent-title" v-text="f.workItem"></div>
+          <div class="board-recent-consultant" v-text="f.consultant || '—'"></div>
           <div class="board-recent-customer" v-text="boardAppMap[f.oppNo] || f.oppNo"></div>
         </div>
       </div>
@@ -2150,8 +2151,88 @@ const app = createApp({
           </div>
         </template>
 
-        <!-- ── 部门表单 ── -->
-        <template v-else-if="state.modal.name === 'dept'">
+        <!-- ── 部门详情（view 模式） ── -->
+        <template v-else-if="state.modal.name === 'dept' && state.modal.mode === 'view'">
+          <div class="detail-card">
+            <div class="detail-card-row">
+              <div class="detail-cell">
+                <div class="detail-lbl">部门ID</div>
+                <div class="detail-val" v-text="formData.id || '—'"></div>
+              </div>
+              <div class="detail-cell">
+                <div class="detail-lbl">部门名称</div>
+                <div class="detail-val" v-text="formData.name || '—'"></div>
+              </div>
+            </div>
+            <div class="detail-card-row" v-if="formData.manager">
+              <div class="detail-cell">
+                <div class="detail-lbl">负责人</div>
+                <div class="detail-val" v-text="formData.manager"></div>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <!-- ── 员工详情（view 模式） ── -->
+        <template v-else-if="state.modal.name === 'emp' && state.modal.mode === 'view'">
+          <div class="detail-card">
+            <div class="detail-card-row">
+              <div class="detail-cell">
+                <div class="detail-lbl">员工ID</div>
+                <div class="detail-val" v-text="formData.id || '—'"></div>
+              </div>
+              <div class="detail-cell">
+                <div class="detail-lbl">姓名</div>
+                <div class="detail-val" v-text="formData.name || '—'"></div>
+              </div>
+            </div>
+            <div class="detail-card-row">
+              <div class="detail-cell">
+                <div class="detail-lbl">部门</div>
+                <div class="detail-val" v-text="getDeptName(formData.deptId) || '—'"></div>
+              </div>
+              <div class="detail-cell">
+                <div class="detail-lbl">职位</div>
+                <div class="detail-val" v-text="formData.position || '—'"></div>
+              </div>
+            </div>
+            <div class="detail-card-row" v-if="formData.mobile">
+              <div class="detail-cell">
+                <div class="detail-lbl">手机</div>
+                <div class="detail-val" v-text="formData.mobile"></div>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <!-- ── 用户详情（view 模式） ── -->
+        <template v-else-if="state.modal.name === 'user' && state.modal.mode === 'view'">
+          <div class="detail-card">
+            <div class="detail-card-row">
+              <div class="detail-cell">
+                <div class="detail-lbl">用户名</div>
+                <div class="detail-val" v-text="formData.username || '—'"></div>
+              </div>
+              <div class="detail-cell">
+                <div class="detail-lbl">显示名</div>
+                <div class="detail-val" v-text="formData.display_name || '—'"></div>
+              </div>
+            </div>
+            <div class="detail-card-row">
+              <div class="detail-cell">
+                <div class="detail-lbl">角色</div>
+                <div class="detail-val" v-text="formData.role === 'admin' ? '管理员' : '普通用户'"></div>
+              </div>
+              <div class="detail-cell">
+                <div class="detail-lbl">部门</div>
+                <div class="detail-val" v-text="formData.department || '—'"></div>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <!-- ── 部门表单（create/edit） ── -->
+        <template v-else-if="state.modal.name === 'dept' && state.modal.mode !== 'view'">
           <div class="dt-form">
             <div class="dt-form-group">
               <div class="dt-form-label">部门ID</div>
@@ -2172,8 +2253,8 @@ const app = createApp({
           </div>
         </template>
 
-        <!-- ── 员工表单 ── -->
-        <template v-else-if="state.modal.name === 'emp'">
+        <!-- ── 员工表单（create/edit） ── -->
+        <template v-else-if="state.modal.name === 'emp' && state.modal.mode !== 'view'">
           <div class="dt-form">
             <div class="dt-form-group">
               <div class="dt-form-label">员工ID</div>
@@ -2201,10 +2282,10 @@ const app = createApp({
           </div>
         </template>
 
-        <!-- ── 用户表单 ── -->
-        <template v-else-if="state.modal.name === 'user'">
+        <!-- ── 用户表单（create/edit） ── -->
+        <template v-else-if="state.modal.name === 'user' && state.modal.mode !== 'view'">
           <div class="dt-form">
-            <!-- 新建时：选择关联员工 -->
+            <!-- 新建时：选择关联员工（自动带出用户名+部门） -->
             <div class="dt-form-group" v-if="state.modal.mode === 'create'">
               <div class="dt-form-label">关联员工 <span style="color:#EF4444">*</span></div>
               <select class="dt-input dt-select" v-model="formData.employeeId" @change="onUserEmployeeChange">
@@ -2234,6 +2315,14 @@ const app = createApp({
             <div class="dt-form-group" v-if="state.modal.mode === 'edit'">
               <div class="dt-form-label">部门</div>
               <input type="text" class="dt-input" v-model="formData.department" readonly style="opacity:0.5" />
+            </div>
+            <!-- 可见部门（新建时可选） -->
+            <div class="dt-form-group" v-if="state.modal.mode === 'create'">
+              <div class="dt-form-label">可查看部门</div>
+              <select class="dt-input dt-select" v-model="formData.view_depts" multiple style="min-height:80px">
+                <option v-for="d in (state.fullState?.departments||[])" :key="d.id" :value="d.id" v-text="d.name"></option>
+              </select>
+              <div style="font-size:11px;color:#999;margin-top:4px">按住Ctrl/Command可多选</div>
             </div>
             <!-- 密码 -->
             <div class="dt-form-group">
