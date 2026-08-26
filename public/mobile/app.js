@@ -1080,7 +1080,19 @@ const app = createApp({
       }, 0) / 10000;
     });
     const dashboardTotalAmount = computed(() => {
-      return (filteredContracts.value || []).reduce((s,c) => s + (parseFloat(c.subAmount) || 0), 0) / 10000;
+      if (state.user?.role === 'admin') {
+        // admin：显示全部已签单业绩（subAmount >= 10万的合同的 presalePerformance 之和）
+        return (filteredContracts.value || []).reduce((s,c) => {
+          const sa = parseFloat(c.subAmount) || 0;
+          return s + (sa >= 100000 ? (parseFloat(c.presalePerformance) || 0) : 0);
+        }, 0) / 10000;
+      } else {
+        // 非admin：显示本人已分配的业绩
+        const myName = state.user?.displayName || state.user?.username || '';
+        return (state.fullState?.allocations || [])
+          .filter(a => !a.deleted && a.consultant === myName && a.contractId)
+          .reduce((s, a) => s + (parseFloat(a.consultantPerformance) || 0), 0) / 10000;
+      }
     });
     const dashboardAnnualTarget = computed(() => {
       const year = state.year;
@@ -1198,7 +1210,7 @@ const app = createApp({
         </div>
         <div class="dt-money-divider"></div>
         <div class="dt-money-item">
-          <div class="dt-money-lbl">合同总额</div>
+          <div class="dt-money-lbl" v-text="state.user?.role === 'admin' ? '业绩' : '已分配业绩'"></div>
           <div class="dt-money-val" v-text="fmtMoney(dashboardTotalAmount) + ' 万'"></div>
         </div>
         <div class="dt-money-divider"></div>
