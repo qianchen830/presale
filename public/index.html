@@ -1099,6 +1099,48 @@ function parseEmbeddedAppRows() {
 const API_BASE = window.location.origin;
 const STORAGE_KEY = 'sf_presale_data_local';
 let _serverSyncOk = false;
+let _encKey = null; // AES-256-GCM 密钥（从服务器派生）
+
+// 从服务器获取 localStorage 加密密钥
+async function fetchEncKey() {
+  try {
+    var r = await fetch(API_BASE + '/api/auth/enc-key', { credentials: 'include' });
+    if (!r.ok) return null;
+    var d = await r.json();
+    _encKey = d.encKey;
+    return _encKey;
+  } catch { return null; }
+}
+
+// 将 ArrayBuffer 转 base64
+function ab2b64(buf) { return btoa(String.fromCharCode(...new Uint8Array(buf))); }
+// 将 base64 转 ArrayBuffer
+function b642ab(b64) { return Uint8Array.from(atob(b64), c => c.charCodeAt(0)); }
+
+// AES-GCM 加密
+async function encryptData(plaintext) {
+  if (!_encKey) return plaintext;
+  try {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const alg = { name: 'AES-GCM', iv };
+    const key = await crypto.subtle.importKey('raw', b642ab(_encKey), alg.name, false, ['encrypt']);
+    const enc = await crypto.subtle.encrypt(alg, key, new TextEncoder().encode(plaintext));
+    return 'ENC:' + ab2b64(enc) + '.' + ab2b64(iv);
+  } catch { return plaintext; }
+}
+
+// AES-GCM 解密
+async function decryptData(data) {
+  if (!_encKey || !data || !data.startsWith('ENC:')) return data;
+  try {
+    const [encB64, ivB64] = data.slice(4).split('.');
+    const iv = b642ab(ivB64);
+    const alg = { name: 'AES-GCM', iv };
+    const key = await crypto.subtle.importKey('raw', b642ab(_encKey), alg.name, false, ['decrypt']);
+    const dec = await crypto.subtle.decrypt(alg, key, b642ab(encB64));
+    return new TextDecoder().decode(dec);
+  } catch { return null; }
+}
 
 async function apiGetState() {
   try {
@@ -1128,7 +1170,7 @@ async function apiPutState(stateObj) {
   } catch(e) {
     console.error('保存到服务器失败:', e);
     _serverSyncOk = false;
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(stateObj)); } catch(_) {}
+    try { var enc = await encryptData(JSON.stringify(stateObj)); localStorage.setItem(STORAGE_KEY, enc); } catch(_) {}
     throw e;
   }
 }
@@ -2344,7 +2386,7 @@ function autoSave() {
   saveTimer = setTimeout(async function() {
     try {
       var result = await apiPutState(state);
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(_) {}
+      try { var enc = await encryptData(JSON.stringify(state)); localStorage.setItem(STORAGE_KEY, enc); } catch(_) {}
       sessionStorage.removeItem(EXPORT_DIRTY_KEY);
       var ts = result.updatedAt ? new Date(result.updatedAt).toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '';
       setSaveStatus('saved', '已保存 ✓ ' + ts);
@@ -2361,7 +2403,7 @@ async function saveNow() {
   setSaveStatus('sync', '保存中...');
   try {
     var result = await apiPutState(state);
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(_) {}
+    try { var enc = await encryptData(JSON.stringify(state)); localStorage.setItem(STORAGE_KEY, enc); } catch(_) {}
     sessionStorage.removeItem(EXPORT_DIRTY_KEY);
     var ts = result.updatedAt ? new Date(result.updatedAt).toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '';
     setSaveStatus('saved', '已保存 ✓ ' + ts);
@@ -2550,18 +2592,23 @@ async function loadState() {
     }
     // 传入 true：当 embedded HTML 数据比服务器更丰富时，保留 embedded 数据
     loaded = applyStateObj(serverData.state, true);
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
+    try { var enc = await encryptData(JSON.stringify(state)); localStorage.setItem(STORAGE_KEY, enc); } catch(e) {}
     return loaded;
   }
   try {
     var ls = localStorage.getItem(STORAGE_KEY);
     if (ls) {
-      var lsObj = JSON.parse(ls);
-      if (lsObj && typeof lsObj === 'object' && Object.keys(lsObj).length > 0) {
-        state = Object.assign({}, state, lsObj);
-        loaded = true;
-        sessionStorage.setItem(EXPORT_DIRTY_KEY, '1');
-        setSaveStatus('warn', '使用本地缓存 · 服务器未连接');
+      var decrypted = await decryptData(ls);
+      if (decrypted) {
+        try {
+          var lsObj = JSON.parse(decrypted);
+          if (lsObj && typeof lsObj === 'object' && Object.keys(lsObj).length > 0) {
+            state = Object.assign({}, state, lsObj);
+            loaded = true;
+            sessionStorage.setItem(EXPORT_DIRTY_KEY, '1');
+            setSaveStatus('warn', '使用本地缓存 · 服务器未连接');
+          }
+        } catch(_) {}
       }
     }
   } catch (e) {}
@@ -4552,7 +4599,7 @@ async function deleteRecord(collection, id) {
     var fresh = await apiGetState();
     if (fresh && fresh.state) {
       state = Object.assign({}, state, fresh.state);
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
+      try { var enc = await encryptData(JSON.stringify(state)); localStorage.setItem(STORAGE_KEY, enc); } catch(e) {}
     } else {
       window.location.reload();
       return;
@@ -5199,9 +5246,9 @@ function finishInit() {
 
 /* ===== 异步初始化（等待原始 HTML 捕获 + SQLite 数据库加载） ===== */
 (async function init() {
-  // 0. 等待原始 HTML 完全解析并捕获（确保包含所有 DOM 元素）
+  // 0. 获取 localStorage 加密密钥
   setSaveStatus('sync', '正在初始化...');
-  await __ORIG_HTML_READY__;
+  await fetchEncKey();
 
   // 1. 从服务器加载数据
   setSaveStatus('sync', '正在加载数据...');

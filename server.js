@@ -10,6 +10,75 @@ const SESSION_SECRET = process.env.SESSION_SECRET || 'presale-secret-2026-change
 const DATA_DIR = path.join(__dirname, 'data');
 const DB_PATH = process.env.DB_PATH || path.join(DATA_DIR, 'presale.db');
 
+// ---- Session 文件加密存储（AES-GCM）----
+const crypto = require('crypto');
+const sessionsDir = path.join(DATA_DIR, 'sessions');
+
+// 用 SESSION_SECRET 派生 AES-256-GCM 密钥
+function deriveKey(secret) {
+  return crypto.createHash('sha256').update(secret).digest();
+}
+const ENCRYPTION_KEY = deriveKey(SESSION_SECRET);
+
+// 加密数据
+function encrypt(plaintext) {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', ENCRYPTION_KEY, iv);
+  const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
+  const authTag = cipher.getAuthTag();
+  return Buffer.concat([iv, authTag, encrypted]).toString('base64');
+}
+
+// 解密数据
+function decrypt(data) {
+  try {
+    const buf = Buffer.from(data, 'base64');
+    const iv = buf.slice(0, 12);
+    const authTag = buf.slice(12, 28);
+    const encrypted = buf.slice(28);
+    const decipher = crypto.createDecipheriv('aes-256-gcm', ENCRYPTION_KEY, iv);
+    decipher.setAuthTag(authTag);
+    return decipher.update(encrypted) + decipher.final('utf8');
+  } catch {
+    return null;
+  }
+}
+
+// 加密 FileStore
+class EncryptedFileStore {
+  constructor(options = {}) {
+    const FileStoreClass = require('session-file-store')(session);
+    this._store = new FileStoreClass({ ...options, path: sessionsDir });
+  }
+  _readFile(sessionId, callback) {
+    const filePath = path.join(sessionsDir, `${sessionId}.json`);
+    fs.readFile(filePath, 'utf8', (err, data) => {
+      if (err || !data) return callback(err || new Error('no session file'), null);
+      const decrypted = decrypt(data);
+      if (!decrypted) return callback(new Error('session corrupted'), null);
+      try { callback(null, JSON.parse(decrypted)); }
+      catch (e) { callback(e, null); }
+    });
+  }
+  get(sessionId, callback) {
+    this._readFile(sessionId, (err, data) => {
+      if (err || !data) return this._store.get(sessionId, callback);
+      callback(null, data);
+    });
+  }
+  set(sessionId, session, callback) {
+    const plain = JSON.stringify(session);
+    const encrypted = encrypt(plain);
+    const filePath = path.join(sessionsDir, `${sessionId}.json`);
+    fs.writeFile(filePath, encrypted, 'utf8', (err) => {
+      if (err) return callback && callback(err);
+      if (callback) callback(null);
+    });
+  }
+  destroy(sessionId, callback) { this._store.destroy(sessionId, callback); }
+  touch(sessionId, session, callback) { this._store.touch(sessionId, session, callback); }
+}
+
 // ---- 10万门槛常量：合同金额小于此值不计入售前绩效 ----
 const PERFORMANCE_THRESHOLD = 100000; // 元
 function presalePerfOrZero(c) {
@@ -355,9 +424,8 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 const session = require('express-session');
-const FileStore = require('session-file-store')(session);
 app.use(session({
-  store: new FileStore({
+  store: new EncryptedFileStore({
     path: path.join(DATA_DIR, 'sessions'),
     ttl: 60 * 60,          // 1小时（秒）
     retries: 2,
@@ -481,6 +549,14 @@ app.get('/api/auth/me', (req, res) => {
     department: req.session.department || '',
     viewDepts: (() => { try { return JSON.parse(req.session.viewDepts || '[]'); } catch { return []; } })()
   });
+});
+
+// 返回前端 localStorage 加密密钥（PBKDF2 派生，AES-GCM 用）
+app.get('/api/auth/enc-key', requireAuth, (req, res) => {
+  const crypto = require('crypto');
+  const userKey = String(SESSION_SECRET) + ':' + String(req.session.userId);
+  const derived = crypto.pbkdf2Sync(userKey, 'presale-local-enc-v1', 100000, 32, 'sha256');
+  res.json({ encKey: derived.toString('base64') });
 });
 
 // ---- 需要登录的接口 ----
