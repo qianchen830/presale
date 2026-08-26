@@ -239,8 +239,7 @@ const CONTRACT_FIELDS = [
   { key:'mainContractNo', label:'主合同编号', type:'text', required:true },
   { key:'signCustomer', label:'申请客户名称', type:'text', required:true },
   { key:'signCustomerName', label:'签约客户名称', type:'text', required:false },
-  { key:'accountMgr', label:'客户经理', type:'text', required:true },
-  { key:'salesDept', label:'销售部门', type:'text', required:true },
+  // accountMgr 和 salesDept 由组织架构选择器选择，不在通用 v-for 里
   { key:'product', label:'所购产品', type:'select', options:PRODUCTS, required:true },
   { key:'subAmount', label:'合同金额(元)', type:'number', required:true },
   { key:'actualCost', label:'实际成本(元)', type:'number', required:true },
@@ -485,6 +484,16 @@ const app = createApp({
             (c.oppNo||'').toLowerCase().includes(kw))
           .slice(0, 30);
       }
+      if (pickerStep.value === 'emp') {
+        // 员工选择（用于合同选择客户经理）
+        const depts = state.fullState?.departments || [];
+        const deptMap = {};
+        depts.forEach(d => { if (!d.deleted) deptMap[d.id] = d.name; });
+        return (state.fullState?.employees || [])
+          .filter(e => !kw || (e.name||'').toLowerCase().includes(kw) || (e.empNo||'').toLowerCase().includes(kw))
+          .map(e => ({ ...e, deptName: deptMap[e.deptId] || '' }))
+          .slice(0, 50);
+      }
       return [];
     });
 
@@ -578,8 +587,9 @@ const app = createApp({
 
     // 快捷录入：先选关联记录，再填表单
     function openModal(name, mode = 'create', data = {}, extra = {}) {
-      // 从查看状态打开新弹窗时，保存当前弹窗到历史（含 formData，防止返回后详情变空白）
-      if (state.modal && mode === 'view') {
+      // 打开新建/编辑弹窗时，把当前弹窗（含 formData）保存到历史
+      // 这样取消或保存后可以返回父详情页，而不是直接关闭
+      if (state.modal) {
         state.modalHistory.push({ name: state.modal.name, mode: state.modal.mode, data: state.modal.data, extra: state.modal.extra, formDataSnapshot: { ...formData } });
       }
       state.modal = { name, mode, data, extra };
@@ -600,6 +610,33 @@ const app = createApp({
             consultant: state.user?.displayName || state.user?.username || '',
             quarter: 'Q' + Math.ceil((parseInt(today.slice(5, 7)) || 1) / 3)
           });
+        } else if (extra?.oppNo) {
+          // 从申请详情进入：直接带 oppNo，跳过 picker
+          const oppNo = extra.oppNo;
+          if (name === 'contract') {
+            Object.assign(formData, {
+              oppNo,
+              mainSignDate: today, signOpDate: today, isCloudSub: '否', product: extra.product || PRODUCTS[0],
+              accountMgr: state.user?.displayName || state.user?.username || '',
+              salesDept: state.user?.department || ''
+            });
+          } else if (name === 'follow') {
+            Object.assign(formData, { oppNo, followDate: today, nextDate: today });
+          } else if (name === 'judgment') {
+            Object.assign(formData, { oppNo, judgmentDate: today });
+          } else if (name === 'salesQ') {
+            const existing = (state.fullState?.salesQuestions || [])
+              .filter(q => !q.deleted && q.oppNo === oppNo)
+              .map(q => parseInt(q.seq) || 0);
+            Object.assign(formData, { oppNo, seq: existing.length ? Math.max(...existing) + 1 : 1 });
+          } else if (name === 'allocation' && extra?.contractId) {
+            Object.assign(formData, {
+              contractId: extra.contractId, oppNo,
+              month: today.slice(0, 7),
+              consultant: state.user?.displayName || state.user?.username || '',
+              quarter: 'Q' + Math.ceil((parseInt(today.slice(5, 7)) || 1) / 3)
+            });
+          }
         } else {
           // 合同/跟进/判断/问答/分配：先选关联申请或合同
           pickerStep.value = name;
@@ -635,6 +672,13 @@ const app = createApp({
         Object.assign(formData, {
           contractId: record.id, oppNo: record.oppNo,
           month: today.slice(0, 7), consultant: state.user?.displayName || state.user?.username || ''
+        });
+      } else if (name === 'emp') {
+        // 选择客户经理（组织架构）
+        Object.assign(formData, {
+          accountMgr: record.name,
+          salesDept: record.deptName || '',
+          accountMgrId: record.id
         });
       }
       pickerStep.value = null;
@@ -721,7 +765,6 @@ const app = createApp({
             else await API.updateUser(data.id, { ...formData });
           }
           showToast('保存成功');
-          await loadState();
         } else {
           // 通用模块
           const module = getModuleName(name === 'salesQ' ? 'salesQuestions' : name === 'judgment' ? 'judgments' : name === 'allocation' ? 'allocations' : name === 'app' ? 'applications' : name === 'contract' ? 'contracts' : name);
@@ -731,9 +774,9 @@ const app = createApp({
             await API.update(module, data.id, { ...formData });
           }
           showToast('保存成功');
-          await loadState();
         }
         closeModal();
+        await loadState();
       } catch (e) {
         showToast(e.message);
       } finally {
@@ -1335,7 +1378,8 @@ const app = createApp({
                pickerStep === 'follow' ? '选择关联的售前申请' :
                pickerStep === 'judgment' ? '选择关联的售前申请' :
                pickerStep === 'salesQ' ? '选择关联的售前申请' :
-               pickerStep === 'allocation' ? '选择关联的合同（分配将记录在该合同下）' : '选择关联记录' }}
+               pickerStep === 'allocation' ? '选择关联的合同（分配将记录在该合同下）' :
+               pickerStep === 'emp' ? '选择客户经理' : '选择关联记录' }}
           </div>
           <div class="search-bar">
             <span class="search-icon">🔍</span>
@@ -1345,9 +1389,11 @@ const app = createApp({
             <div v-if="pickerList.length === 0" class="dt-empty-cell">无匹配记录</div>
             <div v-for="item in pickerList" :key="item.id" class="picker-item" @click="doPickerSelect(item)">
               <div style="flex:1;min-width:0">
-                <div class="dt-list-title" v-if="item.customer || item.projectName" v-text="(item.customer||'') + (item.projectName ? ' / '+item.projectName : '')"></div>
+                <div class="dt-list-title" v-if="pickerStep === 'emp'" v-text="item.name"></div>
+                <div class="dt-list-title" v-else-if="item.customer || item.projectName" v-text="(item.customer||'') + (item.projectName ? ' / '+item.projectName : '')"></div>
                 <div class="dt-list-title" v-else v-text="item.signCustomerName || item.signCustomer || item.oppNo"></div>
-                <div class="dt-list-sub" v-text="item.oppNo + ' | ' + (item.applyDate || item.mainSignDate || '')"></div>
+                <div class="dt-list-sub" v-if="pickerStep === 'emp'" v-text="(item.empNo||'') + (item.deptName ? ' | '+item.deptName : '')"></div>
+                <div class="dt-list-sub" v-else v-text="item.oppNo + ' | ' + (item.applyDate || item.mainSignDate || '')"></div>
                 <div v-if="pickerStep === 'allocation'" class="picker-alloc-hint"
                   :style="{ color: (contractAllocStats.get(item.id)?.remainPct || 100) > 0 ? '#4caf50' : '#f44336' }">
                   已分配 {{ contractAllocStats.get(item.id)?.usedPct || 0 }}% ｜ 剩余 {{ contractAllocStats.get(item.id)?.remainPct || 100 }}%
@@ -1457,7 +1503,7 @@ const app = createApp({
             <div class="rel-section">
               <div class="rel-section-hd">💬 关联问答 <span v-if="relatedSalesQs.length > 0" class="rel-count" v-text="relatedSalesQs.length"></span></div>
               <div v-if="relatedSalesQs.length === 0" class="rel-empty">暂无关联问答</div>
-              <div v-for="q in relatedSalesQs" :key="q.id" class="rel-card" @click="openModal('salesQ','view',q)">
+              <div v-for="q in relatedSalesQs" :key="q.id" class="rel-card" @click="openModal('salesQ','edit',q)">
                 <div class="rel-card-main" v-text="'Q'+q.seq+': '+(q.question||'').slice(0,40)"></div>
                 <div class="rel-card-sub" v-text="(q.answer||'待回答').slice(0,50)"></div>
               </div>
@@ -1778,6 +1824,21 @@ const app = createApp({
         <!-- ── 合同表单 ── -->
         <template v-else-if="state.modal.name === 'contract' && state.modal.mode !== 'view' && pickerStep === null">
           <div class="dt-form">
+            <!-- 客户经理（组织架构选择） -->
+            <div class="dt-form-group">
+              <div class="dt-form-label">客户经理 *</div>
+              <div class="dt-input dt-input-chooser" :class="{ 'chooser-active': formData.accountMgr }" @click="pickerStep = 'emp'; pickerSearch = ''">
+                <span v-if="formData.accountMgr" v-text="formData.accountMgr"></span>
+                <span v-else style="color:#999">点击选择客户经理</span>
+              </div>
+            </div>
+
+            <!-- 销售部门（随客户经理自动带出，黑底白字） -->
+            <div class="dt-form-group">
+              <div class="dt-form-label">销售部门</div>
+              <div class="dt-input" style="background:rgba(255,255,255,0.08);color:#fff" v-text="formData.salesDept || '—'"></div>
+            </div>
+
             <div v-for="field in CONTRACT_FIELDS" :key="field.key" class="dt-form-group">
               <div class="dt-form-label" v-text="field.label + (field.required ? ' *' : '')"></div>
               <select v-if="field.type === 'select'" class="dt-input dt-select" v-model="formData[field.key]">
@@ -1916,10 +1977,9 @@ const app = createApp({
       <div class="dt-modal-ft">
         <!-- 查看/编辑申请详情 → 快捷入口：新建关联记录 -->
         <template v-if="state.modal.mode === 'view' && state.modal.name === 'app'">
-          <button class="dt-btn dt-btn-default" @click="openModal('contract','create',{})">+ 合同</button>
-          <button class="dt-btn dt-btn-default" @click="openModal('follow','create',{})">+ 跟进</button>
-          <button class="dt-btn dt-btn-default" @click="openModal('judgment','create',{})">+ 判断</button>
-          <button class="dt-btn dt-btn-default" @click="openModal('salesQ','create',{})">+ 问答</button>
+          <button class="dt-btn dt-btn-default" @click="openModal('contract','create',{},{oppNo: formData.oppNo, product: formData.product})">+ 合同</button>
+          <button class="dt-btn dt-btn-default" @click="openModal('follow','create',{},{oppNo: formData.oppNo})">+ 跟进</button>
+          <button class="dt-btn dt-btn-default" @click="openModal('judgment','create',{},{oppNo: formData.oppNo})">+ 判断</button>
         </template>
         <!-- 查看合同详情 → 快捷入口：新建分配（直接带 contractId） -->
         <template v-if="state.modal.mode === 'view' && state.modal.name === 'contract'">
