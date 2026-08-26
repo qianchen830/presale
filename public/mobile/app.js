@@ -44,10 +44,14 @@ const state = reactive({
   toastTimer: null,
   activeTab: 'dashboard',
   year: new Date().getFullYear(),
-  // 列表页
+  // 列表页（dashboard 等其他模块仍在用）
+  activeListTab: 'applications',
   searchText: '',
   filterStatus: '',
-  activeListTab: 'applications',
+  // 数据查询页
+  querySearchText: '',
+  querySelectedOppNo: '',
+  queryDetailTab: 'contract', // contract | follow | judgment | salesQ | alloc
   // admin 子页
   activeAdminSub: '',
   // 当前操作弹窗
@@ -585,7 +589,81 @@ const app = createApp({
       return (state.fullState?.allocations || []).filter(a => !a.deleted && a.contractId === contractId);
     });
 
-    // 快捷录入：先选关联记录，再填表单
+    // ══════════ 数据查询页 ══════════
+    const queryPage = ref(1);
+    const queryPageSize = 15;
+
+    const queryFilteredApps = computed(() => {
+      const kw = state.querySearchText.trim().toLowerCase();
+      const apps = state.fullState?.applications || [];
+      const contracts = state.fullState?.contracts || [];
+
+      // 无关键词：返回全部（按日期倒序）
+      if (!kw) {
+        return [...apps].filter(a => !a.deleted)
+          .sort((a, b) => (b.applyDate||'').localeCompare(a.applyDate||''));
+      }
+
+      // 有关键词：
+      // 1. 申请直接匹配（商机号/客户/项目/销售员）
+      // 2. 合同号匹配 -> 拿到对应 oppNo -> 再找申请
+      const directSet = new Set();
+      apps.forEach(a => {
+        if (a.deleted) return;
+        if ((a.oppNo||'').toLowerCase().includes(kw)) directSet.add(a.oppNo);
+        else if ((a.customer||'').toLowerCase().includes(kw)) directSet.add(a.oppNo);
+        else if ((a.projectName||'').toLowerCase().includes(kw)) directSet.add(a.oppNo);
+        else if ((a.applicant||'').toLowerCase().includes(kw)) directSet.add(a.oppNo);
+        else if ((a.product||'').toLowerCase().includes(kw)) directSet.add(a.oppNo);
+      });
+
+      // 合同号匹配
+      contracts.forEach(c => {
+        if (c.deleted) return;
+        if ((c.mainContractNo||'').toLowerCase().includes(kw)) directSet.add(c.oppNo);
+        else if ((c.signCustomer||'').toLowerCase().includes(kw)) directSet.add(c.oppNo);
+      });
+
+      return apps.filter(a => !a.deleted && directSet.has(a.oppNo));
+    });
+
+    const queryPageCount = computed(() => Math.ceil(queryFilteredApps.value.length / queryPageSize) || 1);
+    const queryPageRecords = computed(() => {
+      const start = (queryPage.value - 1) * queryPageSize;
+      return queryFilteredApps.value.slice(start, start + queryPageSize);
+    });
+
+    const querySelectedApp = computed(() => {
+      if (!state.querySelectedOppNo) return null;
+      return (state.fullState?.applications || []).find(a => a.oppNo === state.querySelectedOppNo) || null;
+    });
+
+    const queryContracts = computed(() => {
+      if (!state.querySelectedOppNo) return [];
+      return (state.fullState?.contracts || []).filter(c => !c.deleted && c.oppNo === state.querySelectedOppNo);
+    });
+
+    const queryFollows = computed(() => {
+      if (!state.querySelectedOppNo) return [];
+      return (state.fullState?.followUps || []).filter(f => !f.deleted && f.oppNo === state.querySelectedOppNo);
+    });
+
+    const queryJudgments = computed(() => {
+      if (!state.querySelectedOppNo) return [];
+      return (state.fullState?.judgments || []).filter(j => !j.deleted && j.oppNo === state.querySelectedOppNo);
+    });
+
+    const querySalesQs = computed(() => {
+      if (!state.querySelectedOppNo) return [];
+      return (state.fullState?.salesQuestions || []).filter(q => !q.deleted && q.oppNo === state.querySelectedOppNo);
+    });
+
+    const queryAllocs = computed(() => {
+      if (!state.querySelectedOppNo) return [];
+      const contractIds = new Set(queryContracts.value.map(c => c.id));
+      return (state.fullState?.allocations || []).filter(a => !a.deleted && contractIds.has(a.contractId));
+    });
+
     function openModal(name, mode = 'create', data = {}, extra = {}) {
       // 打开新建/编辑弹窗时，把当前弹窗（含 formData）保存到历史
       // 这样取消或保存后可以返回父详情页，而不是直接关闭
@@ -918,7 +996,7 @@ const app = createApp({
       filteredApps, filteredContracts, myFollows, myJudgments, mySalesQs, myAllocs,
       listRecords, groupedRecords,
       formData, formLoading,
-      openModal, closeModal, maybeCloseModal,
+      openModal, closeModal,
       userTargets, loadUserTargets, saveUserTargets, getComputedQuarterTarget,
       oldPwd, newPwd, confirmPwd, showOldPwd, showNewPwd, showConfirmPwd,
       doChangePassword, pwdLoading,
@@ -931,6 +1009,8 @@ const app = createApp({
       USER_FIELDS_ADMIN, USER_FIELDS_SELF,
       relatedContracts, relatedFollows, relatedJudgments, relatedSalesQs, relatedAllocs, allocContract,
       pickerStep, pickerSearch, pickerList, contractAllocStats, allocationPctOptions, doPickerSelect,
+      queryPage, queryPageCount, queryPageRecords, queryFilteredApps,
+      queryContracts, queryFollows, queryJudgments, querySalesQs, queryAllocs, querySelectedApp,
     };
   },
 
@@ -1056,138 +1136,126 @@ const app = createApp({
     </div>
 
     <!-- ── List ── -->
-    <div v-if="state.activeTab === 'list'" class="dt-page">
-      <!-- 搜索 + 年份 -->
-      <div class="dt-filter-bar">
-        <div class="dt-year-chip" @click="changeYear(-1)">‹ {{ state.year - 1 }}</div>
-        <div class="dt-year-chip dt-year-chip-active">{{ state.year }}</div>
-        <div class="dt-year-chip" @click="changeYear(1)">{{ state.year + 1 }} ›</div>
-      </div>
-      <div class="dt-search-bar">
-        <span class="dt-search-icon">🔍</span>
-        <input class="dt-search-input" v-model="state.searchText" placeholder="搜索客户/商机号/项目…" />
+    <div v-if="state.activeTab === 'list'" class="dt-page dv-page">
+      <!-- 搜索框 -->
+      <div class="dv-search-box">
+        <span class="dv-search-icon">🔍</span>
+        <input class="dv-search-input" v-model="state.querySearchText"
+          placeholder="输入商机号 / 客户名称 / 销售员 / 合同号…" @keyup.enter="queryPage = 1" />
       </div>
 
-      <!-- 模块 Tab（胶囊可滚动） -->
-      <div class="dt-mod-nav">
-        <div class="dt-mod-item" :class="{ active: state.activeListTab === 'applications' }" @click="state.activeListTab = 'applications'">申请</div>
-        <div class="dt-mod-item" :class="{ active: state.activeListTab === 'contracts' }" @click="state.activeListTab = 'contracts'">合同</div>
-        <div class="dt-mod-item" :class="{ active: state.activeListTab === 'followUps' }" @click="state.activeListTab = 'followUps'">跟进</div>
-        <div class="dt-mod-item" :class="{ active: state.activeListTab === 'judgments' }" @click="state.activeListTab = 'judgments'">判断</div>
-        <div class="dt-mod-item" :class="{ active: state.activeListTab === 'salesQuestions' }" @click="state.activeListTab = 'salesQuestions'">问答</div>
-        <div class="dt-mod-item" :class="{ active: state.activeListTab === 'allocations' }" @click="state.activeListTab = 'allocations'">分配</div>
-      </div>
-
-      <!-- 状态过滤（仅申请 tab） -->
-      <div v-if="state.activeListTab === 'applications'" class="dt-status-row">
-        <div class="dt-status-pill" :class="{ active: !state.filterStatus }" @click="state.filterStatus = ''">全部</div>
-        <div class="dt-status-pill" :class="{ active: state.filterStatus === '活跃' }" @click="state.filterStatus = '活跃'">活跃</div>
-        <div class="dt-status-pill" :class="{ active: state.filterStatus === '签单' }" @click="state.filterStatus = '签单'">签单</div>
-        <div class="dt-status-pill" :class="{ active: state.filterStatus === '暂停' }" @click="state.filterStatus = '暂停'">暂停</div>
-        <div class="dt-status-pill" :class="{ active: state.filterStatus === '丢失' }" @click="state.filterStatus = '丢失'">丢失</div>
-        <div class="dt-status-pill" :class="{ active: state.filterStatus === '关闭' }" @click="state.filterStatus = '关闭'">关闭</div>
-      </div>
-
-      <!-- 记录列表 -->
-      <div class="dt-list">
-
-        <!-- 申请/合同：扁平列表 -->
-        <template v-if="state.activeListTab === 'applications' || state.activeListTab === 'contracts'">
-          <div v-if="listRecords.length === 0" class="dt-empty">
-            <div class="dt-empty-icon">📭</div>
-            <div class="dt-empty-text">暂无数据</div>
+      <!-- 搜索结果列表（未选中时） -->
+      <div v-if="!state.querySelectedOppNo" class="dv-list">
+        <div v-if="queryFilteredApps.length === 0" class="dv-empty">
+          <div class="dv-empty-icon">📭</div>
+          <div class="dv-empty-text">无匹配记录</div>
+        </div>
+        <div v-for="app in queryPageRecords" :key="app.id" class="dv-app-card" @click="state.querySelectedOppNo = app.oppNo; state.queryDetailTab = 'contract'">
+          <div class="dv-app-card-top">
+            <div class="dv-app-name" v-text="(app.customer||'') + (app.projectName ? ' / '+app.projectName : '')"></div>
+            <span class="dv-status-badge" :class="getStatusBadge(app.status)" v-text="app.status"></span>
           </div>
-          <div v-for="r in listRecords" :key="r.id" class="dt-list-row" @click="openModal(listTabToModal(state.activeListTab),'view',r)">
-            <div v-if="state.activeListTab === 'applications'" class="dt-list-info" style="flex:1">
-              <div class="dt-list-title" v-text="(r.customer||'') + (r.projectName ? ' / '+r.projectName : '')"></div>
-              <div class="dt-list-sub">
-                <span v-text="r.oppNo"></span>
-                <span class="dt-sep">·</span>
-                <span v-text="r.consultant || r.applicant || ''"></span>
-                <span class="dt-sep">·</span>
-                <span v-text="r.product||''"></span>
-              </div>
-              <div class="dt-list-sub" style="margin-top:2px">
-                <span class="dt-badge" :class="getStatusBadge(r.status)" v-text="r.status" style="margin-right:6px"></span>
-                <span v-text="r.currentStage||''"></span>
-              </div>
-            </div>
-            <div v-else class="dt-list-info" style="flex:1">
-              <div class="dt-list-title" v-text="r.signCustomerName || r.signCustomer"></div>
-              <div class="dt-list-sub">
-                <span v-text="r.oppNo"></span>
-                <span class="dt-sep">·</span>
-                <span v-text="fmtMoney(r.subAmount)"></span>元
-                <span class="dt-sep">·</span>
-                <span v-text="fmtDate(r.mainSignDate)"></span>
-              </div>
-            </div>
-            <div class="dt-list-arrow">›</div>
-          </div>
-        </template>
-
-        <!-- 跟进/判断/问答/分配：按申请分组，子记录展开显示 -->
-        <template v-else>
-          <div v-if="groupedRecords.length === 0" class="dt-empty">
-            <div class="dt-empty-icon">📭</div>
-            <div class="dt-empty-text">暂无数据</div>
-          </div>
-          <div v-for="group in groupedRecords" :key="group.app.oppNo" class="dt-app-group">
-            <!-- 父申请卡片 -->
-            <div class="dt-app-group-hd" @click="openModal('app','view', group.app)">
-              <div class="dt-app-group-info">
-                <div class="dt-app-group-name" v-text="(group.app.customer||'') + (group.app.projectName ? ' / '+group.app.projectName : '')"></div>
-                <div class="dt-app-group-meta">
-                  <span v-text="group.app.oppNo"></span>
-                  <span class="dt-sep">·</span>
-                  <span v-text="group.app.consultant || group.app.applicant || ''"></span>
-                  <span class="dt-sep">·</span>
-                  <span v-text="group.app.product||''"></span>
-                </div>
-                <div class="dt-app-group-meta" v-if="group.app.status">
-                  <span class="dt-badge" :class="getStatusBadge(group.app.status)" v-text="group.app.status" style="margin-right:6px"></span>
-                  <span v-text="group.app.currentStage||''"></span>
-                </div>
-              </div>
-              <div class="dt-list-arrow">›</div>
-            </div>
-            <!-- 子记录列表 -->
-            <div v-if="group.subs.length === 0" class="dt-app-group-empty">暂无记录</div>
-            <div v-for="sub in group.subs" :key="sub.id" class="dt-list-row dt-sub-row" @click="openModal(listTabToModal(state.activeListTab),'view',sub)">
-              <div class="dt-list-info" style="flex:1">
-                <!-- 跟进: 工作项+日期 -->
-                <template v-if="state.activeListTab === 'followUps'">
-                  <div class="dt-list-title" v-text="sub.workItem"></div>
-                  <div class="dt-list-sub" v-text="fmtDate(sub.followDate) + (sub.hours ? ' · '+sub.hours+'h' : '')"></div>
-                  <div v-if="sub.summary" class="dt-list-desc" v-text="sub.summary"></div>
-                </template>
-                <!-- 判断: 阶段+竞争对手 -->
-                <template v-else-if="state.activeListTab === 'judgments'">
-                  <div class="dt-list-title" v-text="(sub.currentStage||'判断') + (sub.competitor ? ' · 竞对:'+sub.competitor : '')"></div>
-                  <div class="dt-list-sub" v-text="fmtDate(sub.updatedAt)"></div>
-                </template>
-                <!-- 问答: 问题摘要 -->
-                <template v-else-if="state.activeListTab === 'salesQuestions'">
-                  <div class="dt-list-title" v-text="sub.seq ? 'Q'+sub.seq+': '+(sub.question||'') : (sub.question||'')"></div>
-                  <div class="dt-list-sub dt-list-desc" v-text="sub.answer ? '→ '+sub.answer : '→ 待回答'"></div>
-                </template>
-                <!-- 分配: 顾问+金额 -->
-                <template v-else-if="state.activeListTab === 'allocations'">
-                  <div class="dt-list-title" v-text="(sub.consultant||'顾问') + (sub.department ? ' · '+sub.department : '')"></div>
-                  <div class="dt-list-sub" v-text="fmtMoney(sub.consultantPerformance)+'元 · '+sub.month"></div>
-                </template>
-              </div>
-              <div class="dt-list-arrow">›</div>
-            </div>
-          </div>
-        </template>
-
+          <div class="dv-app-meta" v-text="app.oppNo + '  ·  ' + (app.applicant||'') + '  ·  ' + (app.product||'')"></div>
+        </div>
+        <!-- 分页 -->
+        <div v-if="queryPageCount > 1" class="dv-pager">
+          <button class="dv-pager-btn" :disabled="queryPage <= 1" @click="queryPage--">‹ 上一页</button>
+          <span class="dv-pager-idx">{{ queryPage }} / {{ queryPageCount }}</span>
+          <button class="dv-pager-btn" :disabled="queryPage >= queryPageCount" @click="queryPage++">下一页 ›</button>
+        </div>
       </div>
 
-      <!-- FAB: 只有申请 tab 能直接新建，其他模块必须从父记录进入 -->
-      <div v-if="state.activeTab === 'list' && state.activeListTab === 'applications'" class="dt-fab" @click="openModal('app','create',{})">+</div>
+      <!-- 选中商机后：摘要 + 关联数据 Tab -->
+      <template v-else>
+        <!-- 选中商机标题栏 -->
+        <div class="dv-selected-hdr">
+          <button class="dv-back-btn" @click="state.querySelectedOppNo = ''">‹ 返回</button>
+          <div class="dv-selected-info">
+            <div class="dv-selected-name" v-text="(querySelectedApp?.customer||'') + (querySelectedApp?.projectName ? ' / '+querySelectedApp.projectName : '')"></div>
+            <div class="dv-selected-meta" v-text="(querySelectedApp?.oppNo||'') + '  ·  ' + (querySelectedApp?.applicant||'') + '  ·  ' + (querySelectedApp?.product||'')"></div>
+          </div>
+        </div>
+
+        <!-- 关联数据 Tab -->
+        <div class="dv-tab-bar">
+          <div class="dv-tab" :class="{ active: state.queryDetailTab === 'contract' }" @click="state.queryDetailTab = 'contract'">合同<span v-if="queryContracts.length" class="dv-tab-count">{{ queryContracts.length }}</span></div>
+          <div class="dv-tab" :class="{ active: state.queryDetailTab === 'follow' }" @click="state.queryDetailTab = 'follow'">跟进<span v-if="queryFollows.length" class="dv-tab-count">{{ queryFollows.length }}</span></div>
+          <div class="dv-tab" :class="{ active: state.queryDetailTab === 'judgment' }" @click="state.queryDetailTab = 'judgment'">判断<span v-if="queryJudgments.length" class="dv-tab-count">{{ queryJudgments.length }}</span></div>
+          <div class="dv-tab" :class="{ active: state.queryDetailTab === 'salesQ' }" @click="state.queryDetailTab = 'salesQ'">问答<span v-if="querySalesQs.length" class="dv-tab-count">{{ querySalesQs.length }}</span></div>
+          <div class="dv-tab" :class="{ active: state.queryDetailTab === 'alloc' }" @click="state.queryDetailTab = 'alloc'">分配<span v-if="queryAllocs.length" class="dv-tab-count">{{ queryAllocs.length }}</span></div>
+        </div>
+
+        <!-- Tab 内容 -->
+        <div class="dv-detail-body">
+          <!-- 合同 -->
+          <template v-if="state.queryDetailTab === 'contract'">
+            <div v-if="queryContracts.length === 0" class="dv-no-data">暂无关联合同</div>
+            <div v-for="c in queryContracts" :key="c.id" class="dv-record-card">
+              <div class="dv-record-row"><span class="dv-record-label">签约客户</span><span class="dv-record-val" v-text="c.signCustomerName || c.signCustomer || '—'"></span></div>
+              <div class="dv-record-row"><span class="dv-record-label">产品</span><span class="dv-record-val" v-text="c.product||'—'"></span></div>
+              <div class="dv-record-row"><span class="dv-record-label">合同金额</span><span class="dv-record-val highlight" v-text="c.subAmount ? fmtMoney(c.subAmount)+' 元' : '—'"></span></div>
+              <div class="dv-record-row"><span class="dv-record-label">实际成本</span><span class="dv-record-val" v-text="c.actualCost ? fmtMoney(c.actualCost)+' 元' : '—'"></span></div>
+              <div class="dv-record-row"><span class="dv-record-label">订阅业绩</span><span class="dv-record-val" v-text="c.subPerformance ? fmtMoney(c.subPerformance)+' 元' : '—'"></span></div>
+              <div class="dv-record-row"><span class="dv-record-label">售前业绩</span><span class="dv-record-val" v-text="c.presalePerformance ? fmtMoney(c.presalePerformance)+' 元' : '—'"></span></div>
+              <div class="dv-record-row"><span class="dv-record-label">客户经理</span><span class="dv-record-val" v-text="c.accountMgr || '—'"></span></div>
+              <div class="dv-record-row"><span class="dv-record-label">销售部门</span><span class="dv-record-val" v-text="c.salesDept || '—'"></span></div>
+              <div class="dv-record-row"><span class="dv-record-label">主合同号</span><span class="dv-record-val" v-text="c.mainContractNo || '—'"></span></div>
+              <div class="dv-record-row"><span class="dv-record-label">签约商机</span><span class="dv-record-val" v-text="c.signOppNo || '—'"></span></div>
+              <div class="dv-record-row"><span class="dv-record-label">云订阅</span><span class="dv-record-val" v-text="c.isCloudSub || '—'"></span></div>
+              <div class="dv-record-row"><span class="dv-record-label">主签日期</span><span class="dv-record-val" v-text="c.mainSignDate || '—'"></span></div>
+              <div class="dv-record-row"><span class="dv-record-label">伙伴结算</span><span class="dv-record-val" v-text="c.partnerSettle || '—'"></span></div>
+              <div class="dv-record-row"><span class="dv-record-label">备注</span><span class="dv-record-val" v-text="c.remarks || '—'"></span></div>
+            </div>
+          </template>
+          <!-- 跟进 -->
+          <template v-if="state.queryDetailTab === 'follow'">
+            <div v-if="queryFollows.length === 0" class="dv-no-data">暂无关联跟进</div>
+            <div v-for="f in queryFollows" :key="f.id" class="dv-record-card">
+              <div class="dv-record-row"><span class="dv-record-label">日期</span><span class="dv-record-val" v-text="fmtDate(f.followDate)"></span></div>
+              <div class="dv-record-row"><span class="dv-record-label">工时</span><span class="dv-record-val highlight" v-text="(f.hours||'—')+' h'"></span></div>
+              <div class="dv-record-row"><span class="dv-record-label">工作事项</span><span class="dv-record-val" v-text="f.workItem||'—'"></span></div>
+              <div class="dv-record-row"><span class="dv-record-label">成果总结</span><span class="dv-record-val" v-text="f.summary||'—'"></span></div>
+              <div class="dv-record-row"><span class="dv-record-label">下一步工作</span><span class="dv-record-val" v-text="f.nextWork||'—'"></span></div>
+              <div class="dv-record-row"><span class="dv-record-label">预计时间</span><span class="dv-record-val" v-text="fmtDate(f.nextDate)"></span></div>
+            </div>
+          </template>
+          <!-- 判断 -->
+          <template v-if="state.queryDetailTab === 'judgment'">
+            <div v-if="queryJudgments.length === 0" class="dv-no-data">暂无关联判断</div>
+            <div v-for="j in queryJudgments" :key="j.id" class="dv-record-card">
+              <div class="dv-record-row"><span class="dv-record-label">判断类型</span><span class="dv-record-val" v-text="j.judgmentType||'—'"></span></div>
+              <div class="dv-record-row"><span class="dv-record-label">阶段</span><span class="dv-record-val" v-text="j.currentStage||'—'"></span></div>
+              <div class="dv-record-row"><span class="dv-record-label">判断日期</span><span class="dv-record-val" v-text="fmtDate(j.judgmentDate)"></span></div>
+              <div class="dv-record-row"><span class="dv-record-label">竞争对手</span><span class="dv-record-val" v-text="j.competitor||'—'"></span></div>
+              <div class="dv-record-row"><span class="dv-record-label">判断结论</span><span class="dv-record-val" v-text="j.result||'—'"></span></div>
+            </div>
+          </template>
+          <!-- 问答 -->
+          <template v-if="state.queryDetailTab === 'salesQ'">
+            <div v-if="querySalesQs.length === 0" class="dv-no-data">暂无关联问答</div>
+            <div v-for="q in querySalesQs" :key="q.id" class="dv-record-card">
+              <div class="dv-qa-q">Q{{ q.seq||'?' }}：{{ q.question||'' }}</div>
+              <div class="dv-qa-a" :class="{ unanswered: !q.answer }">A：{{ q.answer||'(待回答)' }}</div>
+              <div v-if="q.note" class="dv-record-row" style="margin-top:6px"><span class="dv-record-label">备注</span><span class="dv-record-val" v-text="q.note"></span></div>
+            </div>
+          </template>
+          <!-- 分配 -->
+          <template v-if="state.queryDetailTab === 'alloc'">
+            <div v-if="queryContracts.length > 0" class="dv-alloc-summary">合同总额 <strong>{{ fmtMoney(queryContracts.reduce((s,c)=>s+(parseFloat(c.subAmount)||0),0)) }}</strong> 元</div>
+            <div v-if="queryAllocs.length === 0" class="dv-no-data">暂无关联分配</div>
+            <div v-for="a in queryAllocs" :key="a.id" class="dv-record-card">
+              <div class="dv-record-row"><span class="dv-record-label">顾问</span><span class="dv-record-val" v-text="a.consultant||'—'"></span></div>
+              <div class="dv-record-row"><span class="dv-record-label">部门</span><span class="dv-record-val" v-text="a.department||'—'"></span></div>
+              <div class="dv-record-row"><span class="dv-record-label">季度</span><span class="dv-record-val" v-text="(a.quarter||'')+' '+ (a.month||'')"></span></div>
+              <div class="dv-record-row"><span class="dv-record-label">分配比例</span><span class="dv-record-val highlight" v-text="(a.pct||0)+'%'"></span></div>
+              <div class="dv-record-row"><span class="dv-record-label">顾问业绩</span><span class="dv-record-val" v-text="fmtMoney(a.consultantPerformance||0)+' 元'"></span></div>
+              <div class="dv-record-row"><span class="dv-record-label">售前业绩</span><span class="dv-record-val" v-text="a.presalePerformance ? fmtMoney(a.presalePerformance)+' 元' : '—'"></span></div>
+              <div class="dv-record-row"><span class="dv-record-label">备注</span><span class="dv-record-val" v-text="a.remarks||'—'"></span></div>
+            </div>
+          </template>
+        </div>
+      </template>
     </div>
-
     <!-- ── Admin ── -->
     <div v-if="state.activeTab === 'admin' && state.user?.role === 'admin'" class="dt-page">
       <!-- admin 子导航 -->
@@ -1352,7 +1420,7 @@ const app = createApp({
   </div>
 
   <!-- ══════════ MODAL ══════════ -->
-  <div v-if="state.modal" class="dt-modal-overlay" @click.self="maybeCloseModal">
+  <div v-if="state.modal" class="dt-modal-overlay">
     <div class="dt-modal" @click.stop
          @touchstart="onModalTouchStart" @touchmove="onModalTouchMove" @touchend="onModalTouchEnd">
 
