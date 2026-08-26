@@ -2035,6 +2035,7 @@ body::after {
 .board-recent-date { font-size: 11px; color: var(--text-muted); }
 .board-recent-title { font-size: 13px; color: var(--text-primary); font-weight: 600; }
 .board-recent-customer { font-size: 13px; color: var(--text-primary); font-weight: 600; }
+.board-recent-consultant { font-size: 13px; color: var(--text-primary); font-weight: 600; }
 
 /* ══════════ 数据查询页（只读穿透） ══════════ */
 .dv-page { display: flex; flex-direction: column; height: 100%; }
