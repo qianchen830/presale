@@ -1350,6 +1350,10 @@ const app = createApp({
 
       <!-- 搜索结果列表（未选中时） -->
       <div v-if="!state.querySelectedOppNo" class="dv-list">
+        <!-- 新建申请入口 -->
+        <div style="padding:8px 14px">
+          <button class="dt-btn dt-btn-primary" style="width:100%;font-size:14px" @click="openModal('app','create',{})">+ 新建售前申请</button>
+        </div>
         <div v-if="queryFilteredApps.length === 0" class="dv-empty">
           <div class="dv-empty-icon">📭</div>
           <div class="dv-empty-text">无匹配记录</div>
