@@ -1199,17 +1199,19 @@ const app = createApp({
         <span class="dt-set-target-arrow">›</span>
       </div>
 
-      <!-- 我的申请摘要 -->
+      <!-- 我的申请摘要（带搜索+状态过滤） -->
       <div class="dt-section-card">
-        <div class="dt-section-hd">
+        <div class="dt-section-hd" style="flex-wrap:wrap;gap:6px">
           <span class="dt-section-title">我的售前申请</span>
-          <div style="display:flex;gap:6px;align-items:center">
-            <select class="dt-input dt-select" style="height:28px;font-size:12px;padding:0 8px;border-radius:8px" v-model="state.filterStatus" @change="state.filterStatus=state.filterStatus">
-              <option value="">全部状态</option>
-              <option v-for="s in APP_STATUSES" :key="s" :value="s" v-text="s"></option>
-            </select>
-            <span class="dt-section-more" @click="state.activeTab='list'; state.activeListTab='applications'">查看全部 ›</span>
-          </div>
+          <select class="dt-input dt-select" style="height:28px;font-size:12px;padding:0 8px;border-radius:8px;max-width:90px" v-model="state.filterStatus">
+            <option value="">全部</option>
+            <option v-for="s in APP_STATUSES" :key="s" :value="s" v-text="s"></option>
+          </select>
+        </div>
+        <!-- 搜索框（跟数据页一样） -->
+        <div class="dv-search-box" style="margin:6px 0">
+          <span class="dv-search-icon">🔍</span>
+          <input class="dv-search-input" v-model="state.searchText" placeholder="输入客户/项目/商机号/销售员…" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:7px 10px 7px 32px;color:#fff;font-size:13px" />
         </div>
         <div v-if="filteredApps.length === 0" class="dt-empty-cell">暂无数据</div>
         <div v-for="app in filteredApps" :key="app.id" class="dt-list-row" @click="openModal('app','view',app)">
@@ -1221,7 +1223,7 @@ const app = createApp({
         </div>
       </div>
 
-      <!-- 新建合同（从申请列表进入数据页新建） -->
+      <!-- 合同快捷入口 -->
       <div class="dt-section-card" style="padding:10px 14px">
         <div class="dt-section-hd">
           <span class="dt-section-title">合同管理</span>
