@@ -26,8 +26,7 @@ const USER_FIELDS_ADMIN = [
   { key: 'username', label: '用户名', type: 'text', required: true },
   { key: 'display_name', label: '显示名', type: 'text', required: true },
   { key: 'role', label: '角色', type: 'select', options: ['user','admin'], required: true },
-  { key: 'department', label: '部门', type: 'text' },
-  { key: 'view_depts', label: '可见部门(JSON)', type: 'text' },
+  { key: 'department', label: '部门', type: 'select' },
 ];
 const USER_FIELDS_SELF = [
   { key: 'display_name', label: '显示名', type: 'text', required: true },
@@ -2154,10 +2153,21 @@ const app = createApp({
         <!-- ── 部门表单 ── -->
         <template v-else-if="state.modal.name === 'dept'">
           <div class="dt-form">
-            <div v-for="field in DEPT_FIELDS" :key="field.key" class="dt-form-group">
-              <div class="dt-form-label" v-text="field.label + (field.required ? ' *' : '')"></div>
-              <input type="number" v-if="field.type === 'number'" class="dt-input" v-model="formData[field.key]" />
-              <input v-else type="text" class="dt-input" v-model="formData[field.key]" />
+            <div class="dt-form-group">
+              <div class="dt-form-label">部门ID</div>
+              <input type="text" class="dt-input" :value="formData.id" readonly style="opacity:0.5" />
+            </div>
+            <div class="dt-form-group">
+              <div class="dt-form-label">部门名称 <span style="color:#EF4444">*</span></div>
+              <input type="text" class="dt-input" v-model="formData.name" />
+            </div>
+            <div class="dt-form-group" v-if="state.modal.mode === 'edit'">
+              <div class="dt-form-label">上级部门ID</div>
+              <input type="text" class="dt-input" :value="formData.parentId" readonly style="opacity:0.5" />
+            </div>
+            <div class="dt-form-group">
+              <div class="dt-form-label">负责人</div>
+              <input type="text" class="dt-input" v-model="formData.manager" />
             </div>
           </div>
         </template>
@@ -2165,10 +2175,28 @@ const app = createApp({
         <!-- ── 员工表单 ── -->
         <template v-else-if="state.modal.name === 'emp'">
           <div class="dt-form">
-            <div v-for="field in EMP_FIELDS" :key="field.key" class="dt-form-group">
-              <div class="dt-form-label" v-text="field.label + (field.required ? ' *' : '')"></div>
-              <input type="number" v-if="field.type === 'number'" class="dt-input" v-model="formData[field.key]" />
-              <input v-else type="text" class="dt-input" v-model="formData[field.key]" />
+            <div class="dt-form-group">
+              <div class="dt-form-label">员工ID</div>
+              <input type="text" class="dt-input" :value="formData.id" readonly style="opacity:0.5" />
+            </div>
+            <div class="dt-form-group">
+              <div class="dt-form-label">姓名 <span style="color:#EF4444">*</span></div>
+              <input type="text" class="dt-input" v-model="formData.name" />
+            </div>
+            <div class="dt-form-group">
+              <div class="dt-form-label">部门</div>
+              <select class="dt-input dt-select" v-model="formData.deptId">
+                <option value="">-- 无归属部门 --</option>
+                <option v-for="d in (state.fullState?.departments||[])" :key="d.id" :value="d.id" v-text="d.name"></option>
+              </select>
+            </div>
+            <div class="dt-form-group">
+              <div class="dt-form-label">职位</div>
+              <input type="text" class="dt-input" v-model="formData.position" />
+            </div>
+            <div class="dt-form-group">
+              <div class="dt-form-label">手机</div>
+              <input type="text" class="dt-input" v-model="formData.mobile" />
             </div>
           </div>
         </template>
@@ -2176,17 +2204,41 @@ const app = createApp({
         <!-- ── 用户表单 ── -->
         <template v-else-if="state.modal.name === 'user'">
           <div class="dt-form">
-            <div v-for="field in (state.modal.mode === 'create' ? USER_FIELDS_ADMIN : USER_FIELDS_ADMIN.filter(f => f.key !== 'username'))" :key="field.key" class="dt-form-group">
-              <div class="dt-form-label" v-text="field.label + (field.required ? ' *' : '')"></div>
-              <select v-if="field.type === 'select'" class="dt-input dt-select" v-model="formData[field.key]">
-                <option v-for="opt in field.options" :key="opt" :value="opt" v-text="opt"></option>
-              </select>
-              <input v-else type="text" class="dt-input" v-model="formData[field.key]" />
-            </div>
-            <!-- 密码（仅新建/重置） -->
+            <!-- 新建时：选择关联员工 -->
             <div class="dt-form-group" v-if="state.modal.mode === 'create'">
-              <div class="dt-form-label">初始密码 <span style="color:#EF4444">*</span></div>
-              <input type="password" class="dt-input" v-model="formData._password" placeholder="请输入初始密码" />
+              <div class="dt-form-label">关联员工 <span style="color:#EF4444">*</span></div>
+              <select class="dt-input dt-select" v-model="formData.employeeId" @change="onUserEmployeeChange">
+                <option value="">-- 请选择员工 --</option>
+                <option v-for="e in (state.fullState?.employees||[])" :key="e.id" :value="e.id" v-text="e.name + (e.position ? ' ('+e.position+')' : '')"></option>
+              </select>
+            </div>
+            <!-- 编辑时：只读用户名 -->
+            <div class="dt-form-group" v-if="state.modal.mode === 'edit'">
+              <div class="dt-form-label">用户名</div>
+              <input type="text" class="dt-input" v-model="formData.username" readonly style="opacity:0.5" />
+            </div>
+            <!-- 显示名 -->
+            <div class="dt-form-group">
+              <div class="dt-form-label">显示名 <span style="color:#EF4444">*</span></div>
+              <input type="text" class="dt-input" v-model="formData.display_name" placeholder="页面显示名称" />
+            </div>
+            <!-- 角色 -->
+            <div class="dt-form-group">
+              <div class="dt-form-label">角色 <span style="color:#EF4444">*</span></div>
+              <select class="dt-input dt-select" v-model="formData.role">
+                <option value="user">普通用户</option>
+                <option value="admin">管理员</option>
+              </select>
+            </div>
+            <!-- 部门（编辑时只读自动带出） -->
+            <div class="dt-form-group" v-if="state.modal.mode === 'edit'">
+              <div class="dt-form-label">部门</div>
+              <input type="text" class="dt-input" v-model="formData.department" readonly style="opacity:0.5" />
+            </div>
+            <!-- 密码 -->
+            <div class="dt-form-group">
+              <div class="dt-form-label" v-text="state.modal.mode === 'create' ? '初始密码 *' : '重置密码（留空则不修改）'"></div>
+              <input type="password" class="dt-input" v-model="formData._password" :placeholder="state.modal.mode === 'create' ? '请输入初始密码' : '留空则不修改'" />
             </div>
           </div>
         </template>
