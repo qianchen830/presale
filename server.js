@@ -821,6 +821,16 @@ function moduleOp(key, action, record, session) {
     record.consultant = record.consultant || session.displayName || session.username;
     record.createdAt = now;
     record.updatedAt = now;
+    // allocations pct 校验：同一合同累计比例不得超过 100%
+    if (key === 'allocations' && record.contractId != null) {
+      const existing = (state.allocations || [])
+        .filter(a => !a._deleted && String(a.contractId) === String(record.contractId) && a.id !== record.id);
+      const usedPct = existing.reduce((s, a) => s + (parseFloat(a.pct) || 0), 0);
+      const newPct = parseFloat(record.pct) || 0;
+      if (usedPct + newPct > 100) {
+        return { error: '该合同已分配 ' + usedPct + '%，剩余 ' + Math.max(0, 100 - usedPct) + '%，累计不得超过 100%' };
+      }
+    }
     while (arr.find(r => r.id === record.id)) record.id++;
     arr.push(record);
     state[key] = arr;
@@ -839,6 +849,16 @@ function moduleOp(key, action, record, session) {
     record.id = arr[idx].id;
     record.createdAt = arr[idx].createdAt;
     record.updatedAt = now;
+    // allocations pct 校验
+    if (key === 'allocations' && record.contractId != null) {
+      const existing = (state.allocations || [])
+        .filter(a => !a._deleted && String(a.contractId) === String(record.contractId) && String(a.id) !== String(record.id));
+      const usedPct = existing.reduce((s, a) => s + (parseFloat(a.pct) || 0), 0);
+      const newPct = parseFloat(record.pct) || 0;
+      if (usedPct + newPct > 100) {
+        return { error: '该合同已分配 ' + usedPct + '%，剩余 ' + Math.max(0, 100 - usedPct) + '%，累计不得超过 100%' };
+      }
+    }
     arr[idx] = record;
     state[key] = arr;
     // 合同修改：新旧商机号都重新同步（商机号/金额/签订日期可能变化）

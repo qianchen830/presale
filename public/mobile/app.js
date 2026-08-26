@@ -195,6 +195,12 @@ function getRelatedByContractId(module, contractId) {
   return (state.fullState?.[module] || []).filter(r => !r.deleted && r.contractId === contractId);
 }
 
+// ── 按 ID 取合同（用于业绩分配详情展示合同金额） ──
+function getContractById(id) {
+  if (!id) return null;
+  return (state.fullState?.contracts || []).find(c => String(c.id) === String(id) && !c.deleted) || null;
+}
+
 // ========== 模块 → API path 映射 ==========
 const MODULE_MAP = {
   applications: 'applications',
@@ -272,11 +278,12 @@ const SALES_Q_FIELDS = [
 const ALLOCATION_FIELDS = [
   { key:'oppNo', label:'商机号', type:'text', required:true },
   { key:'consultant', label:'顾问', type:'text', required:true },
-  { key:'contractId', label:'合同ID', type:'text', required:false },
   { key:'month', label:'月份', type:'text', required:false },
-  { key:'quarter', label:'季度', type:'text', required:false },
-  { key:'consultantPerformance', label:'分配业绩(元)', type:'number', required:true },
+  { key:'quarter', label:'季度', type:'select', options:['Q1','Q2','Q3','Q4'], required:false },
+  { key:'pct', label:'分配比例(%)', type:'select', options:[], required:true },
 ];
+// consultantPerformance 根据 pct 自动计算，不做表单字段
+// contractId 由 picker 选合同自动注入
 
 // ========== Vue App ==========
 const app = createApp({
@@ -481,6 +488,53 @@ const app = createApp({
       return [];
     });
 
+    // ── 合同已分配比例统计（用 contractId 做 key） ──
+    const contractAllocStats = computed(() => {
+      const stats = new Map(); // contractId → { usedPct, remainPct }
+      const allocs = state.fullState?.allocations || [];
+      allocs.forEach(a => {
+        if (a.deleted) return;
+        const cid = String(a.contractId || '');
+        if (!cid) return;
+        if (!stats.has(cid)) stats.set(cid, { usedPct: 0 });
+        stats.get(cid).usedPct += parseFloat(a.pct) || 0;
+      });
+      stats.forEach(entry => { entry.remainPct = Math.max(0, 100 - entry.usedPct); });
+      return stats;
+    });
+
+    // ── 分配 pct 可选选项（根据剩余比例生成，不超过剩余比例） ──
+    const allocationPctOptions = computed(() => {
+      const contractId = formData.contractId;
+      if (!contractId) return [];
+      const remain = contractAllocStats.value.get(String(contractId))?.remainPct || 0;
+      if (remain <= 0) return [];
+      const options = [];
+      for (const p of [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]) {
+        if (p <= remain) options.push(p);
+      }
+      return options;
+    });
+
+    // ── 业绩分配 pct 变化时自动计算 consultantPerformance ──
+    watch([() => formData.pct, () => formData.oppNo], () => {
+      const pct = parseFloat(formData.pct) || 0;
+      const contract = allocContract.value;
+      const amount = contract ? (parseFloat(contract.subAmount) || 0) : 0;
+      if (pct > 0 && amount > 0) {
+        formData.consultantPerformance = Math.round(amount * pct / 100);
+      } else {
+        formData.consultantPerformance = undefined;
+      }
+    });
+
+    // ── 当前分配关联的合同（用于显示合同金额） ──
+    const allocContract = computed(() => {
+      const cid = formData.contractId;
+      if (!cid) return null;
+      return (state.fullState?.contracts || []).find(c => !c.deleted && String(c.id) === String(cid)) || null;
+    });
+
     // ── 关联记录 computeds ──
     // 申请关联合同：通过 oppNo 匹配
     const relatedContracts = computed(() => {
@@ -524,9 +578,9 @@ const app = createApp({
 
     // 快捷录入：先选关联记录，再填表单
     function openModal(name, mode = 'create', data = {}, extra = {}) {
-      // 从查看状态打开新弹窗时，保存当前弹窗到历史
+      // 从查看状态打开新弹窗时，保存当前弹窗到历史（含 formData，防止返回后详情变空白）
       if (state.modal && mode === 'view') {
-        state.modalHistory.push({ name: state.modal.name, mode: state.modal.mode, data: state.modal.data, extra: state.modal.extra });
+        state.modalHistory.push({ name: state.modal.name, mode: state.modal.mode, data: state.modal.data, extra: state.modal.extra, formDataSnapshot: { ...formData } });
       }
       state.modal = { name, mode, data, extra };
       Object.keys(formData).forEach(k => delete formData[k]);
@@ -537,6 +591,15 @@ const app = createApp({
         if (name === 'app') {
           // 申请直接填
           Object.assign(formData, { applyDate: today, applicant: state.user?.displayName || state.user?.username || '', department: state.user?.department || '', product: PRODUCTS[0], buyMode: BUY_MODES[0], currentStage: STAGES[0], status: '活跃' });
+        } else if (name === 'allocation' && extra?.contractId) {
+          // 从合同详情进入：直接带 contractId，跳过 picker
+          Object.assign(formData, {
+            contractId: extra.contractId,
+            oppNo: extra.oppNo || '',
+            month: today.slice(0, 7),
+            consultant: state.user?.displayName || state.user?.username || '',
+            quarter: 'Q' + Math.ceil((parseInt(today.slice(5, 7)) || 1) / 3)
+          });
         } else {
           // 合同/跟进/判断/问答/分配：先选关联申请或合同
           pickerStep.value = name;
@@ -580,7 +643,13 @@ const app = createApp({
 
     function closeModal() {
       if (state.modalHistory.length > 0) {
-        state.modal = state.modalHistory.pop();
+        const hist = state.modalHistory.pop();
+        state.modal = hist;
+        // 恢复 formData（从查看子详情返回父详情时，如合同→分配→返回合同）
+        if (hist?.formDataSnapshot) {
+          Object.keys(formData).forEach(k => delete formData[k]);
+          Object.assign(formData, hist.formDataSnapshot);
+        }
         return;
       }
       state.modal = null;
@@ -622,6 +691,20 @@ const app = createApp({
 
     async function saveRecord() {
       if (!state.modal) return;
+      // ── 业绩分配 pct 校验：同一合同（按 contractId）总比例不得超过 100% ──
+      if (state.modal.name === 'allocation') {
+        const contractId = formData.contractId;
+        const newPct = parseFloat(formData.pct) || 0;
+        if (!contractId) { showToast('合同ID为空，请重新打开'); return; }
+        if (!newPct || newPct <= 0) { showToast('分配比例为 ' + newPct + '，请填写有效比例'); return; }
+        if (newPct > 100) { showToast('单次分配比例不得超过 100%'); return; }
+        const stat = contractAllocStats.value.get(String(contractId));
+        const usedPct = stat?.usedPct || 0;
+        if (usedPct + newPct > 100) {
+          showToast('累计已分配 ' + usedPct + '%，剩余 ' + Math.max(0, 100 - usedPct) + '%，请减少分配比例');
+          return;
+        }
+      }
       formLoading.value = true;
       try {
         const { name, mode, data } = state.modal;
@@ -657,6 +740,8 @@ const app = createApp({
         formLoading.value = false;
       }
     }
+    window._saveRecord = saveRecord;
+    window._deleteRecord = deleteRecord;
 
     async function deleteRecord() {
       if (!state.modal) return;
@@ -801,8 +886,8 @@ const app = createApp({
       APP_FIELDS, CONTRACT_FIELDS, FOLLOW_FIELDS, JUDGMENT_FIELDS,
       SALES_Q_FIELDS, ALLOCATION_FIELDS, DEPT_FIELDS, EMP_FIELDS,
       USER_FIELDS_ADMIN, USER_FIELDS_SELF,
-      relatedContracts, relatedFollows, relatedJudgments, relatedSalesQs, relatedAllocs,
-      pickerStep, pickerSearch, pickerList, doPickerSelect,
+      relatedContracts, relatedFollows, relatedJudgments, relatedSalesQs, relatedAllocs, allocContract,
+      pickerStep, pickerSearch, pickerList, contractAllocStats, allocationPctOptions, doPickerSelect,
     };
   },
 
@@ -1263,11 +1348,16 @@ const app = createApp({
                 <div class="dt-list-title" v-if="item.customer || item.projectName" v-text="(item.customer||'') + (item.projectName ? ' / '+item.projectName : '')"></div>
                 <div class="dt-list-title" v-else v-text="item.signCustomerName || item.signCustomer || item.oppNo"></div>
                 <div class="dt-list-sub" v-text="item.oppNo + ' | ' + (item.applyDate || item.mainSignDate || '')"></div>
+                <div v-if="pickerStep === 'allocation'" class="picker-alloc-hint"
+                  :style="{ color: (contractAllocStats.get(item.id)?.remainPct || 100) > 0 ? '#4caf50' : '#f44336' }">
+                  已分配 {{ contractAllocStats.get(item.id)?.usedPct || 0 }}% ｜ 剩余 {{ contractAllocStats.get(item.id)?.remainPct || 100 }}%
+                </div>
               </div>
               <div class="dt-list-arrow">›</div>
             </div>
           </div>
-          <button class="dt-btn dt-btn-default dt-btn-block" style="margin-top:12px" @click="pickerStep = null">取消并直接新建</button>
+          <button v-if="pickerStep !== 'allocation'" class="dt-btn dt-btn-default dt-btn-block" style="margin-top:12px" @click="pickerStep = null">取消并直接新建</button>
+          <div v-if="pickerStep === 'allocation'" style="font-size:12px;color:#888;text-align:center;padding:8px 0">必须选择关联合同后才能分配</div>
         </template>
 
         <!-- 设置年度目标（edit mode，不需要关联申请） -->
@@ -1588,24 +1678,34 @@ const app = createApp({
                   <div class="detail-val" v-text="formData.consultant || '—'"></div>
                 </div>
                 <div class="detail-cell">
-                  <div class="detail-lbl">业绩</div>
-                  <div class="detail-val dt-text-primary dt-font-bold" v-text="fmtMoney(formData.consultantPerformance) + '元'"></div>
+                  <div class="detail-lbl">分配比例</div>
+                  <div class="detail-val dt-text-primary dt-font-bold" v-text="(formData.pct != null ? formData.pct + '%' : '—')"></div>
                 </div>
               </div>
               <div class="detail-card-row">
                 <div class="detail-cell">
+                  <div class="detail-lbl">分配业绩(元)</div>
+                  <div class="detail-val" v-text="fmtMoney(formData.consultantPerformance) + '元'"></div>
+                </div>
+                <div class="detail-cell">
                   <div class="detail-lbl">季度</div>
                   <div class="detail-val" v-text="formData.quarter || '—'"></div>
                 </div>
+              </div>
+              <div class="detail-card-row">
                 <div class="detail-cell">
                   <div class="detail-lbl">月份</div>
                   <div class="detail-val" v-text="formData.month || '—'"></div>
                 </div>
-              </div>
-              <div class="detail-card-row single">
-                <div class="detail-cell full">
+                <div class="detail-cell">
                   <div class="detail-lbl">关联商机号</div>
                   <div class="detail-val mono" v-text="formData.oppNo || '—'"></div>
+                </div>
+              </div>
+              <div class="detail-card-row single" v-if="allocContract">
+                <div class="detail-cell full">
+                  <div class="detail-lbl">关联合同金额</div>
+                  <div class="detail-val" v-text="allocContract.subAmount ? fmtMoney(allocContract.subAmount) + '元' : '—'"></div>
                 </div>
               </div>
             </div>
@@ -1724,9 +1824,48 @@ const app = createApp({
         <!-- ── 分配表单 ── -->
         <template v-else-if="state.modal.name === 'allocation' && state.modal.mode !== 'view' && pickerStep === null">
           <div class="dt-form">
-            <div v-for="field in ALLOCATION_FIELDS" :key="field.key" class="dt-form-group">
-              <div class="dt-form-label" v-text="field.label + (field.required ? ' *' : '')"></div>
-              <input :type="field.type === 'number' ? 'number' : 'text'" class="dt-input" v-model="formData[field.key]" />
+            <!-- 剩余比例提示 -->
+            <div v-if="formData.contractId" class="alloc-remain-hint">
+              <span v-if="contractAllocStats.get(formData.contractId)">
+                已分配 {{ contractAllocStats.get(formData.contractId).usedPct }}% ｜ 剩余可分配 {{ contractAllocStats.get(formData.contractId).remainPct }}%
+              </span>
+              <span v-else>已分配 0% ｜ 剩余可分配 100%</span>
+            </div>
+
+            <!-- 商机号（只读） -->
+            <div class="dt-form-group">
+              <div class="dt-form-label">商机号 *</div>
+              <input type="text" class="dt-input" v-model="formData.oppNo" readonly />
+            </div>
+
+            <!-- 顾问 -->
+            <div class="dt-form-group">
+              <div class="dt-form-label">顾问 *</div>
+              <input type="text" class="dt-input" v-model="formData.consultant" placeholder="输入顾问姓名" />
+            </div>
+
+            <!-- 月份（同时自动识别季度） -->
+            <div class="dt-form-group">
+              <div class="dt-form-label">月份</div>
+              <input type="month" class="dt-input" v-model="formData.month"
+                @change="formData.quarter = ''
+                  + (() => { const m = parseInt((formData.month||'').split('-')[1]); return m ? 'Q'+Math.ceil(m/3) : '' })()" />
+            </div>
+
+            <!-- 分配比例（自由填写，不超过剩余比例） -->
+            <div class="dt-form-group">
+              <div class="dt-form-label">分配比例(%) *</div>
+              <input type="number" class="dt-input" v-model.number="formData.pct"
+                :max="contractAllocStats.get(formData.contractId)?.remainPct || 100"
+                placeholder="输入 0~100 的整数" min="0" step="5" />
+            </div>
+
+            <!-- 分配业绩（自动计算，不可编辑，黑底白字） -->
+            <div class="dt-form-group">
+              <div class="dt-form-label">分配业绩(元) <span style="color:#888;font-weight:normal">（自动计算）</span></div>
+              <div class="dt-input" style="background:rgba(255,255,255,0.08);color:#fff;padding:10px 12px;border-radius:10px;font-weight:600">
+                {{ allocContract?.subAmount && formData.pct ? fmtMoney((parseFloat(allocContract.subAmount)||0) * (parseFloat(formData.pct) || 0) / 100) + ' 元' : '—' }}
+              </div>
             </div>
           </div>
         </template>
@@ -1782,9 +1921,9 @@ const app = createApp({
           <button class="dt-btn dt-btn-default" @click="openModal('judgment','create',{})">+ 判断</button>
           <button class="dt-btn dt-btn-default" @click="openModal('salesQ','create',{})">+ 问答</button>
         </template>
-        <!-- 查看合同详情 → 快捷入口：新建分配 -->
+        <!-- 查看合同详情 → 快捷入口：新建分配（直接带 contractId） -->
         <template v-if="state.modal.mode === 'view' && state.modal.name === 'contract'">
-          <button class="dt-btn dt-btn-default" @click="openModal('allocation','create',{})">+ 分配</button>
+          <button class="dt-btn dt-btn-default" @click="openModal('allocation','create',{},{contractId: formData.id, oppNo: formData.oppNo})">+ 分配</button>
         </template>
         <!-- 个人信息弹窗：只有关闭按钮 -->
         <template v-if="state.modal.name === 'selfProfile'">
@@ -1793,10 +1932,10 @@ const app = createApp({
         <!-- 新建/编辑 表单（排除 selfProfile） -->
         <template v-if="state.modal.mode !== 'view' && state.modal.name !== 'selfProfile'">
           <button class="dt-btn dt-btn-default" @click="closeModal">取消</button>
-          <button class="dt-btn dt-btn-primary" :disabled="formLoading" @click="saveRecord">{{ formLoading ? '保存中…' : '保存' }}</button>
+          <button id="alloc-save-btn" class="dt-btn dt-btn-primary" style="touch-action:auto" onclick="window._saveRecord()">{{ formLoading ? '保存中…' : '保存' }}</button>
         </template>
         <!-- 查看时允许删除（除申请/合同/selfProfile外） -->
-        <button v-if="state.modal.mode === 'view' && state.modal.name !== 'selfProfile' && state.modal.name !== 'app' && state.modal.name !== 'contract'" class="dt-btn dt-btn-danger" :disabled="formLoading" @click="deleteRecord">删除</button>
+        <button v-if="state.modal.mode === 'view' && state.modal.name !== 'selfProfile' && state.modal.name !== 'app' && state.modal.name !== 'contract'" class="dt-btn dt-btn-danger" :disabled="formLoading" onclick="window._deleteRecord()">删除</button>
       </div>
     </div>
   </div>

@@ -1576,6 +1576,22 @@ body::after {
   text-overflow: ellipsis;
 }
 
+.picker-alloc-hint {
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.alloc-remain-hint {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(0,0,0,0.15);
+  margin-bottom: 10px;
+  text-align: center;
+}
+
 /* ── Profile 页 ── */
 .profile-hero {
   display: flex;
