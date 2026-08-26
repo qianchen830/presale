@@ -1225,10 +1225,7 @@ const app = createApp({
             <div class="dt-list-title" v-text="(app.customer||'') + (app.projectName ? ' / '+app.projectName : '')"></div>
             <div class="dt-list-sub" v-text="(app.oppNo||'') + ' | ' + (app.product||'') + ' | ' + (app.currentStage||'')"></div>
           </div>
-          <div style="display:flex;align-items:center;gap:6px">
-            <span class="dt-badge" :class="getStatusBadge(app.status)" v-text="app.status"></span>
-            <button class="dt-btn dt-btn-primary" style="padding:4px 10px;font-size:12px;border-radius:8px" @click.stop="openModal('contract','create',{},{oppNo:app.oppNo,product:app.product})">+合同</button>
-          </div>
+          <span class="dt-badge" :class="getStatusBadge(app.status)" v-text="app.status"></span>
         </div>
       </div>
 
