@@ -2218,7 +2218,7 @@ function loadStateFromDB() {
 // 将 state 对象序列化为二进制（兼容 sql.js 的二进制数据库格式）
 async function fetchServerStateForExport() {
   try {
-    var res = await fetch('/api/state');
+    var res = await fetch('/api/state', { credentials: 'include' });
     if (!res.ok) return null;
     var data = await res.json();
     return data.state;

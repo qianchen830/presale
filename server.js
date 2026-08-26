@@ -6,7 +6,7 @@ const fs = require('fs');
 const path = require('path');
 
 const PORT = process.env.PORT || 3210;
-const SESSION_SECRET = process.env.SESSION_SECRET || 'presale-secret-2026-change-me';
+const SESSION_SECRET = process.env.SESSION_SECRET || 'presale-secret-2026-change-me-please-set-env';
 const DATA_DIR = path.join(__dirname, 'data');
 const DB_PATH = process.env.DB_PATH || path.join(DATA_DIR, 'presale.db');
 
@@ -344,7 +344,13 @@ function injectCreatedBy(state, displayName) {
 // ---- App ----
 const app = express();
 app.set('trust proxy', 1);
-app.use(cors({ origin: true, credentials: true }));
+const allowedOrigins = (process.env.CORS_ORIGINS || '').split(',').filter(Boolean);
+app.use(cors({
+  origin: allowedOrigins.length > 0
+    ? (origin, cb) => cb(null, allowedOrigins.includes(origin) || !origin)
+    : false,
+  credentials: true
+}));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
@@ -353,14 +359,14 @@ const FileStore = require('session-file-store')(session);
 app.use(session({
   store: new FileStore({
     path: path.join(DATA_DIR, 'sessions'),
-    ttl: 7 * 24 * 60 * 60, // 7 days in seconds
+    ttl: 60 * 60,          // 1小时（秒）
     retries: 2,
     secret: SESSION_SECRET
   }),
   secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
-  cookie: { maxAge: 7 * 24 * 60 * 60 * 1000, httpOnly: true, sameSite: 'lax' }
+  cookie: { maxAge: 60 * 60 * 1000, httpOnly: true, sameSite: 'lax' }  // 1小时（毫秒）
 }));
 
 // ---- 根路径：User-Agent 自动识别移动端/PC端 ----
@@ -419,14 +425,31 @@ app.get('/api/health', (req, res) => {
 });
 
 
+const loginAttempts = new Map(); // { ip: { count, lastAttempt } }
+const MAX_LOGIN_ATTEMPTS = 10;
+const LOGIN_WINDOW_MS = 30 * 60 * 1000; // 30分钟内最多错 MAX_LOGIN_ATTEMPTS 次
+const LOCKOUT_MS = 15 * 60 * 1000; // 被锁15分钟
+
 app.post('/api/auth/login', (req, res) => {
+  const clientIp = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+  const now = Date.now();
+  const attempts = loginAttempts.get(clientIp);
+  if (attempts && attempts.count >= MAX_LOGIN_ATTEMPTS && now - attempts.lastAttempt < LOCKOUT_MS) {
+    return res.status(429).json({ error: '登录过于频繁，请在15分钟后重试' });
+  }
   const { username, password } = req.body || {};
   if (!username || !password) return res.status(400).json({ error: '用户名和密码不能为空' });
   const r = db.prepare("SELECT * FROM users WHERE username = ?").get(username);
   if (!r) return res.status(401).json({ error: '用户名或密码错误' });
   const user = r;
   const bcrypt = require('bcryptjs');
-  if (!bcrypt.compareSync(password, user.password_hash)) return res.status(401).json({ error: '用户名或密码错误' });
+  if (!bcrypt.compareSync(password, user.password_hash)) {
+    if (!attempts) loginAttempts.set(clientIp, { count: 1, lastAttempt: now });
+    else { attempts.count++; attempts.lastAttempt = now; }
+    return res.status(401).json({ error: '用户名或密码错误' });
+  }
+  // 登录成功，清空计数
+  loginAttempts.delete(clientIp);
   req.session.userId = user.id;
   req.session.username = user.username;
   req.session.displayName = user.display_name;

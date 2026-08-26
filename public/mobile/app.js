@@ -589,6 +589,96 @@ const app = createApp({
       return (state.fullState?.allocations || []).filter(a => !a.deleted && a.contractId === contractId);
     });
 
+    // ══════════ Board 看板 ══════════
+    // 本人的商机（申请人 或 顾问）
+    const myBoardApps = computed(() => {
+      if (!state.user) return [];
+      const me = state.user.displayName || state.user.username || '';
+      const year = state.year;
+      return (state.fullState?.applications || []).filter(a => {
+        if (a.deleted) return false;
+        const d = a.applyDate || '';
+        if (!d.startsWith(String(year))) return false;
+        return a.applicant === me || a.consultant === me;
+      });
+    });
+
+    const myBoardWonAmount = computed(() => {
+      const wonOppNos = new Set(myBoardApps.value.filter(a => a.status === '签单').map(a => a.oppNo));
+      const total = (state.fullState?.contracts || [])
+        .filter(c => !c.deleted && wonOppNos.has(c.oppNo))
+        .reduce((s, c) => s + (parseFloat(c.subAmount) || 0), 0);
+      return total / 10000;
+    });
+    const myBoardTotalAmount = computed(() => {
+      const myOppNos = new Set(myBoardApps.value.map(a => a.oppNo));
+      const total = (state.fullState?.contracts || [])
+        .filter(c => !c.deleted && myOppNos.has(c.oppNo))
+        .reduce((s, c) => s + (parseFloat(c.subAmount) || 0), 0);
+      return total / 10000;
+    });
+    const myBoardAnnualTarget = computed(() => {
+      const t = userTargets.annualTargets?.[state.year];
+      return t || 0;
+    });
+    const myBoardProgress = computed(() => {
+      const t = myBoardAnnualTarget.value;
+      if (!t) return -1;
+      return Math.round((myBoardWonAmount.value / t) * 100);
+    });
+
+    // 按产品线分组
+    const myBoardByProduct = computed(() => {
+      const wonOppNos = new Set(myBoardApps.value.filter(a => a.status === '签单').map(a => a.oppNo));
+      const contracts = (state.fullState?.contracts || []).filter(c => !c.deleted && wonOppNos.has(c.oppNo) && (parseFloat(c.subAmount) || 0) >= 100000);
+      const map = {};
+      contracts.forEach(c => {
+        const p = c.product || '其他';
+        if (!map[p]) map[p] = { product: p, won: 0 };
+        map[p].won += parseFloat(c.subAmount) || 0;
+      });
+      return Object.values(map).sort((a, b) => b.won - a.won);
+    });
+
+    // 按阶段分组
+    const myBoardByStage = computed(() => {
+      const map = {};
+      myBoardApps.value.forEach(a => {
+        const s = a.currentStage || '未知';
+        if (!map[s]) map[s] = { stage: s, count: 0 };
+        map[s].count++;
+      });
+      return Object.values(map).sort((a, b) => b.count - a.count);
+    });
+
+    // 近期跟进（本人的）
+    const myBoardRecentFollows = computed(() => {
+      if (!state.user) return [];
+      const me = state.user.displayName || state.user.username || '';
+      const oppNos = new Set(myBoardApps.value.map(a => a.oppNo));
+      return (state.fullState?.followUps || [])
+        .filter(f => !f.deleted && oppNos.has(f.oppNo))
+        .sort((a, b) => (b.followDate||'').localeCompare(a.followDate||''))
+        .slice(0, 10);
+    });
+
+    // 待回答问答（本人参与的）
+    const myBoardPendingQs = computed(() => {
+      if (!state.user) return [];
+      const me = state.user.displayName || state.user.username || '';
+      const oppNos = new Set(myBoardApps.value.map(a => a.oppNo));
+      return (state.fullState?.salesQuestions || [])
+        .filter(q => !q.deleted && oppNos.has(q.oppNo) && !q.answer)
+        .sort((a, b) => (a.seq||0) - (b.seq||0));
+    });
+
+    // 申请号 -> 客户名 映射（用于近期动态显示）
+    const myBoardAppMap = computed(() => {
+      const m = {};
+      myBoardApps.value.forEach(a => { m[a.oppNo] = a.customer || a.projectName || a.oppNo; });
+      return m;
+    });
+
     // ══════════ 数据查询页 ══════════
     const queryPage = ref(1);
     const queryPageSize = 15;
@@ -1011,6 +1101,8 @@ const app = createApp({
       pickerStep, pickerSearch, pickerList, contractAllocStats, allocationPctOptions, doPickerSelect,
       queryPage, queryPageCount, queryPageRecords, queryFilteredApps,
       queryContracts, queryFollows, queryJudgments, querySalesQs, queryAllocs, querySelectedApp,
+      myBoardApps, myBoardWonAmount, myBoardTotalAmount, myBoardAnnualTarget, myBoardProgress,
+      myBoardByProduct, myBoardByStage, myBoardRecentFollows, myBoardPendingQs, myBoardAppMap,
     };
   },
 
@@ -1130,6 +1222,97 @@ const app = createApp({
             <div class="dt-list-sub" v-text="(app.oppNo||'') + ' | ' + (app.product||'') + ' | ' + (app.currentStage||'')"></div>
           </div>
           <span class="dt-badge" :class="getStatusBadge(app.status)" v-text="app.status"></span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── Board（我的数据看板） ── -->
+    <div v-if="state.activeTab === 'board'" class="dt-page board-page">
+      <!-- 年份选择 -->
+      <div class="dt-year-bar">
+        <button class="dt-year-btn" @click="changeYear(-1)">‹</button>
+        <span class="dt-year-label">{{ state.year }}年</span>
+        <button class="dt-year-btn" @click="changeYear(1)">›</button>
+      </div>
+
+      <!-- 核心指标 -->
+      <div class="board-stats-grid">
+        <div class="board-stat-card board-stat-primary">
+          <div class="board-stat-num" v-text="myBoardApps.length"></div>
+          <div class="board-stat-lbl">我的商机</div>
+        </div>
+        <div class="board-stat-card board-stat-success">
+          <div class="board-stat-num" v-text="myBoardApps.filter(a=>a.status==='签单').length"></div>
+          <div class="board-stat-lbl">签单</div>
+        </div>
+        <div class="board-stat-card board-stat-warning">
+          <div class="board-stat-num" v-text="myBoardApps.filter(a=>a.status==='活跃'||a.status==='预计').length"></div>
+          <div class="board-stat-lbl">跟进中</div>
+        </div>
+        <div class="board-stat-card board-stat-danger">
+          <div class="board-stat-num" v-text="myBoardApps.filter(a=>a.status==='丢失').length"></div>
+          <div class="board-stat-lbl">丢失</div>
+        </div>
+      </div>
+
+      <!-- 金额汇总 -->
+      <div class="board-money-card">
+        <div class="board-money-row">
+          <div class="board-money-item">
+            <div class="board-money-lbl">签单金额</div>
+            <div class="board-money-val primary" v-text="fmtMoney(myBoardWonAmount) + ' 万'"></div>
+          </div>
+          <div class="board-money-div"></div>
+          <div class="board-money-item">
+            <div class="board-money-lbl">合同总额</div>
+            <div class="board-money-val" v-text="fmtMoney(myBoardTotalAmount) + ' 万'"></div>
+          </div>
+        </div>
+        <!-- 进度 -->
+        <div class="board-progress" v-if="myBoardProgress >= 0">
+          <div class="board-progress-head">
+            <span>年度完成率</span>
+            <span class="board-progress-pct">{{ myBoardProgress }}%</span>
+          </div>
+          <div class="board-progress-bar">
+            <div class="board-progress-fill" :style="{ width: Math.min(myBoardProgress, 100) + '%' }"></div>
+          </div>
+          <div class="board-progress-target">目标 {{ fmtMoney(myBoardAnnualTarget) }} 元，已完成 {{ fmtMoney(myBoardWonAmount) }} 万</div>
+        </div>
+      </div>
+
+      <!-- 各产品签单金额 -->
+      <div class="board-section-card">
+        <div class="board-section-hd">📊 产品线签单分布</div>
+        <div v-if="myBoardByProduct.length === 0" class="board-empty">暂无数据</div>
+        <div v-for="p in myBoardByProduct" :key="p.product" class="board-product-row">
+          <div class="board-product-name" v-text="p.product"></div>
+          <div class="board-product-bar-wrap">
+            <div class="board-product-bar" :style="{ width: (myBoardWonAmount > 0 ? (p.won / (myBoardWonAmount * 10000) * 100) : 0) + '%' }"></div>
+          </div>
+          <div class="board-product-amount" v-text="fmtMoney(p.won / 10000) + ' 万'"></div>
+        </div>
+      </div>
+
+      <!-- 各阶段分布 -->
+      <div class="board-section-card">
+        <div class="board-section-hd">🔄 商机阶段分布</div>
+        <div v-if="myBoardByStage.length === 0" class="board-empty">暂无数据</div>
+        <div v-for="s in myBoardByStage" :key="s.stage" class="board-stage-row">
+          <div class="board-stage-name" v-text="s.stage"></div>
+          <div class="board-stage-count" v-text="s.count + ' 个'"></div>
+        </div>
+      </div>
+
+      <!-- 近期动态 -->
+      <div class="board-section-card">
+        <div class="board-section-hd">🕐 近期跟进动态</div>
+        <div v-if="myBoardRecentFollows.length === 0" class="board-empty">暂无跟进记录</div>
+        <div v-for="f in myBoardRecentFollows" :key="f.id" class="board-recent-item">
+          <div class="board-recent-date" v-text="fmtDate(f.followDate)"></div>
+          <div class="board-recent-title" v-text="f.workItem"></div>
+          <div class="board-recent-customer" v-text="myBoardAppMap[f.oppNo] || f.oppNo"></div>
         </div>
       </div>
 
@@ -1400,17 +1583,21 @@ const app = createApp({
 
     <!-- ── Tab Bar ── -->
     <div class="dt-tabbar">
+      <div v-if="state.user?.role === 'admin'" class="dt-tab-item" :class="{ active: state.activeTab === 'admin' }" @click="state.activeTab = 'admin'">
+        <div class="dt-tab-icon">⚙️</div>
+        <div class="dt-tab-lbl">管理</div>
+      </div>
       <div class="dt-tab-item" :class="{ active: state.activeTab === 'dashboard' }" @click="state.activeTab = 'dashboard'">
-        <div class="dt-tab-icon">📊</div>
-        <div class="dt-tab-lbl">看板</div>
+        <div class="dt-tab-icon">🏠</div>
+        <div class="dt-tab-lbl">首页</div>
       </div>
       <div class="dt-tab-item" :class="{ active: state.activeTab === 'list' }" @click="state.activeTab = 'list'">
         <div class="dt-tab-icon">📋</div>
         <div class="dt-tab-lbl">数据</div>
       </div>
-      <div v-if="state.user?.role === 'admin'" class="dt-tab-item" :class="{ active: state.activeTab === 'admin' }" @click="state.activeTab = 'admin'">
-        <div class="dt-tab-icon">⚙️</div>
-        <div class="dt-tab-lbl">管理</div>
+      <div class="dt-tab-item" :class="{ active: state.activeTab === 'board' }" @click="state.activeTab = 'board'">
+        <div class="dt-tab-icon">📊</div>
+        <div class="dt-tab-lbl">看板</div>
       </div>
       <div class="dt-tab-item" :class="{ active: state.activeTab === 'profile' }" @click="state.activeTab = 'profile'">
         <div class="dt-tab-icon">👤</div>
