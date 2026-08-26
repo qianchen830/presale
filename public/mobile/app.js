@@ -1102,7 +1102,7 @@ const app = createApp({
     const dashboardProgress = computed(() => {
       const target = userTargets.annualTargets[state.year] || state.fullState?.annualTarget || 0;
       if (!target) return -1;
-      return Math.round((dashboardWonAmount.value / target) * 100);
+      return Math.round((dashboardTotalAmount.value / target) * 100);
     });
 
 
