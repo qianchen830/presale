@@ -126,6 +126,20 @@ function getConsultantByOppNo(oppNo) {
   return app ? (app.consultant || app.applicant || '') : '';
 }
 
+function onUserEmployeeChange() {
+  const empId = parseInt(formData.employeeId);
+  const emp = (state.fullState?.employees || []).find(e => e.id === empId);
+  if (emp) {
+    formData.username = emp.name;
+    formData.display_name = emp.name;
+    formData.department = emp.department || '';
+  } else {
+    formData.username = '';
+    formData.display_name = '';
+    formData.department = '';
+  }
+}
+
 // ========== 数据过滤 ==========
 function filterRecords(records, opts = {}) {
   if (!records) return [];
