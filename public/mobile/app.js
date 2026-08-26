@@ -121,6 +121,11 @@ function getEmpName(id) {
   return e ? e.name : '';
 }
 
+function getConsultantByOppNo(oppNo) {
+  const app = (state.fullState?.applications || []).find(a => a.oppNo === oppNo);
+  return app ? (app.consultant || app.applicant || '') : '';
+}
+
 // ========== 数据过滤 ==========
 function filterRecords(records, opts = {}) {
   if (!records) return [];
