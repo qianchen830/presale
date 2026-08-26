@@ -1220,18 +1220,10 @@ const app = createApp({
             <div class="dt-list-title" v-text="(app.customer||'') + (app.projectName ? ' / '+app.projectName : '')"></div>
             <div class="dt-list-sub" v-text="(app.oppNo||'') + ' | ' + (app.product||'') + ' | ' + (app.currentStage||'')"></div>
           </div>
-          <span class="dt-badge" :class="getStatusBadge(app.status)" v-text="app.status"></span>
-        </div>
-      </div>
-
-      <!-- 合同快捷入口 -->
-      <div class="dt-section-card" style="padding:10px 14px">
-        <div class="dt-section-hd">
-          <span class="dt-section-title">合同管理</span>
-        </div>
-        <div style="display:flex;gap:8px">
-          <button class="dt-btn dt-btn-primary" style="flex:1;font-size:13px" @click="state.activeTab='list'; state.activeListTab='contracts'; setTimeout(()=>openModal('contract','create',{},{}),100)">+ 新建合同</button>
-          <button class="dt-btn dt-btn-default" style="flex:1;font-size:13px" @click="state.activeTab='list'; state.activeListTab='contracts'">查看合同</button>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span class="dt-badge" :class="getStatusBadge(app.status)" v-text="app.status"></span>
+            <button class="dt-btn dt-btn-primary" style="padding:4px 10px;font-size:12px;border-radius:8px" @click.stop="openModal('contract','create',{},{oppNo:app.oppNo,product:app.product})">+合同</button>
+          </div>
         </div>
       </div>
 
