@@ -801,6 +801,8 @@ const app = createApp({
               quarter: 'Q' + Math.ceil((parseInt(today.slice(5, 7)) || 1) / 3)
             });
           }
+        } else if (['dept', 'emp', 'user'].includes(name)) {
+          // 部门/员工/用户：直接新建，不需要选关联记录
         } else {
           // 合同/跟进/判断/问答/分配：先选关联申请或合同
           pickerStep.value = name;
@@ -2249,16 +2251,8 @@ const app = createApp({
         <template v-else-if="state.modal.name === 'dept' && state.modal.mode !== 'view'">
           <div class="dt-form">
             <div class="dt-form-group">
-              <div class="dt-form-label">部门ID</div>
-              <input type="text" class="dt-input" :value="formData.id" readonly style="opacity:0.5" />
-            </div>
-            <div class="dt-form-group">
               <div class="dt-form-label">部门名称 <span style="color:#EF4444">*</span></div>
               <input type="text" class="dt-input" v-model="formData.name" />
-            </div>
-            <div class="dt-form-group" v-if="state.modal.mode === 'edit'">
-              <div class="dt-form-label">上级部门ID</div>
-              <input type="text" class="dt-input" :value="formData.parentId" readonly style="opacity:0.5" />
             </div>
             <div class="dt-form-group">
               <div class="dt-form-label">负责人</div>
@@ -2270,10 +2264,6 @@ const app = createApp({
         <!-- ── 员工表单（create/edit） ── -->
         <template v-else-if="state.modal.name === 'emp' && state.modal.mode !== 'view'">
           <div class="dt-form">
-            <div class="dt-form-group">
-              <div class="dt-form-label">员工ID</div>
-              <input type="text" class="dt-input" :value="formData.id" readonly style="opacity:0.5" />
-            </div>
             <div class="dt-form-group">
               <div class="dt-form-label">姓名 <span style="color:#EF4444">*</span></div>
               <input type="text" class="dt-input" v-model="formData.name" />
@@ -2329,14 +2319,6 @@ const app = createApp({
             <div class="dt-form-group" v-if="state.modal.mode === 'edit'">
               <div class="dt-form-label">部门</div>
               <input type="text" class="dt-input" v-model="formData.department" readonly style="opacity:0.5" />
-            </div>
-            <!-- 可见部门（新建时可选） -->
-            <div class="dt-form-group" v-if="state.modal.mode === 'create'">
-              <div class="dt-form-label">可查看部门</div>
-              <select class="dt-input dt-select" v-model="formData.view_depts" multiple style="min-height:80px">
-                <option v-for="d in (state.fullState?.departments||[])" :key="d.id" :value="d.id" v-text="d.name"></option>
-              </select>
-              <div style="font-size:11px;color:#999;margin-top:4px">按住Ctrl/Command可多选</div>
             </div>
             <!-- 密码 -->
             <div class="dt-form-group">
