@@ -46,6 +46,7 @@ const state = reactive({
   // 列表页（dashboard 等其他模块仍在用）
   activeListTab: 'applications',
   searchText: '',
+  dashboardAppLimit: 10,
   filterStatus: '',
   // 数据查询页
   querySearchText: '',
@@ -1221,7 +1222,7 @@ const app = createApp({
         <span class="dt-set-target-arrow">›</span>
       </div>
 
-      <!-- 我的申请摘要（带搜索+状态过滤） -->
+      <!-- 我的申请摘要（带搜索+新建+分页） -->
       <div class="dt-section-card">
         <div class="dt-section-hd" style="flex-wrap:wrap;gap:6px">
           <span class="dt-section-title">我的售前申请</span>
@@ -1230,18 +1231,26 @@ const app = createApp({
             <option v-for="s in APP_STATUSES" :key="s" :value="s" v-text="s"></option>
           </select>
         </div>
-        <!-- 搜索框（跟数据页一样） -->
+        <!-- 新建申请按钮 -->
+        <div style="padding:6px 0">
+          <button class="dt-btn dt-btn-primary" style="width:100%;font-size:13px" @click="openModal('app','create',{})">+ 新建售前申请</button>
+        </div>
+        <!-- 搜索框 -->
         <div class="dv-search-box" style="margin:6px 0">
           <span class="dv-search-icon">🔍</span>
-          <input class="dv-search-input" v-model="state.searchText" placeholder="输入客户/项目/商机号/销售员…" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:7px 10px 7px 32px;color:#fff;font-size:13px" />
+          <input class="dv-search-input" v-model="state.searchText" placeholder="输入客户/项目/商机号…" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:7px 10px 7px 32px;color:#fff;font-size:13px" />
         </div>
         <div v-if="filteredApps.length === 0" class="dt-empty-cell">暂无数据</div>
-        <div v-for="app in filteredApps" :key="app.id" class="dt-list-row" @click="openModal('app','view',app)">
+        <div v-for="app in filteredApps.slice(0, state.dashboardAppLimit)" :key="app.id" class="dt-list-row" @click="openModal('app','view',app)">
           <div class="dt-list-info">
             <div class="dt-list-title" v-text="(app.customer||'') + (app.projectName ? ' / '+app.projectName : '')"></div>
             <div class="dt-list-sub" v-text="(app.oppNo||'') + ' | ' + (app.product||'') + ' | ' + (app.currentStage||'')"></div>
           </div>
           <span class="dt-badge" :class="getStatusBadge(app.status)" v-text="app.status"></span>
+        </div>
+        <!-- 查看更多 -->
+        <div v-if="filteredApps.length > state.dashboardAppLimit" style="text-align:center;padding:10px 0">
+          <button class="dt-btn dt-btn-default" style="font-size:13px" @click="loadMoreApps">查看更多 ({{ filteredApps.length - state.dashboardAppLimit }} 条剩余)</button>
         </div>
       </div>
 
@@ -1350,10 +1359,6 @@ const app = createApp({
 
       <!-- 搜索结果列表（未选中时） -->
       <div v-if="!state.querySelectedOppNo" class="dv-list">
-        <!-- 新建申请入口 -->
-        <div style="padding:8px 14px">
-          <button class="dt-btn dt-btn-primary" style="width:100%;font-size:14px" @click="openModal('app','create',{})">+ 新建售前申请</button>
-        </div>
         <div v-if="queryFilteredApps.length === 0" class="dv-empty">
           <div class="dv-empty-icon">📭</div>
           <div class="dv-empty-text">无匹配记录</div>
