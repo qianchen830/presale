@@ -103,7 +103,7 @@ function showToast(msg, duration = 2000) {
   state.toastTimer = setTimeout(() => { state.toast = null; }, duration);
 }
 function fmtMoney(v) {
-  return (parseFloat(v) || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return (parseFloat(v) || 0).toLocaleString('zh-CN', { maximumFractionDigits: 0 });
 }
 function fmtDate(d) {
   if (!d) return '—';
@@ -1177,12 +1177,12 @@ const app = createApp({
       <div class="dt-money-row">
         <div class="dt-money-item">
           <div class="dt-money-lbl">签单金额</div>
-              <div class="dt-money-val dt-text-primary" v-text="dashboardWonAmount + ' 万'"></div>
+              <div class="dt-money-val dt-text-primary" v-text="fmtMoney(dashboardWonAmount) + ' 万'"></div>
         </div>
         <div class="dt-money-divider"></div>
         <div class="dt-money-item">
           <div class="dt-money-lbl">合同总额</div>
-          <div class="dt-money-val" v-text="dashboardTotalAmount + ' 万'"></div>
+          <div class="dt-money-val" v-text="fmtMoney(dashboardTotalAmount) + ' 万'"></div>
         </div>
         <div class="dt-money-divider"></div>
         <div class="dt-money-item">
@@ -1440,89 +1440,63 @@ const app = createApp({
       </template>
     </div>
     <!-- ── Admin ── -->
-    <div v-if="state.activeTab === 'admin' && state.user?.role === 'admin'" class="dt-page">
+    <div v-if="state.activeTab === 'admin' && state.user?.role === 'admin'" class="dt-page admin-page">
       <!-- admin 子导航 -->
-      <div v-if="!state.activeAdminSub" class="dt-admin-menu">
-        <div class="dt-admin-item" @click="state.activeAdminSub = 'dept'">
-          <div class="dt-admin-icon" style="background:#EFF6FF">🏢</div>
-          <div class="dt-admin-info">
-            <div class="dt-admin-title">部门管理</div>
-            <div class="dt-admin-sub">查看/添加/编辑部门</div>
+      <div v-if="!state.activeAdminSub" class="admin-main">
+        <div class="admin-welcome">⚙️ 系统管理</div>
+        <div class="admin-menu-grid">
+          <div class="admin-card" @click="state.activeAdminSub = 'dept'">
+            <div class="admin-card-icon">🏢</div>
+            <div class="admin-card-title">部门管理</div>
+            <div class="admin-card-sub">查看/添加/编辑部门</div>
           </div>
-          <div class="dt-list-arrow">›</div>
-        </div>
-        <div class="dt-admin-item" @click="state.activeAdminSub = 'emp'">
-          <div class="dt-admin-icon" style="background:#F0FDF4">👥</div>
-          <div class="dt-admin-info">
-            <div class="dt-admin-title">员工管理</div>
-            <div class="dt-admin-sub">查看/添加/编辑员工</div>
+          <div class="admin-card" @click="state.activeAdminSub = 'emp'">
+            <div class="admin-card-icon">👥</div>
+            <div class="admin-card-title">员工管理</div>
+            <div class="admin-card-sub">查看/添加/编辑员工</div>
           </div>
-          <div class="dt-list-arrow">›</div>
-        </div>
-        <div class="dt-admin-item" @click="state.activeAdminSub = 'user'">
-          <div class="dt-admin-icon" style="background:#FEF3C7">🔐</div>
-          <div class="dt-admin-info">
-            <div class="dt-admin-title">用户管理</div>
-            <div class="dt-admin-sub">查看/添加/编辑用户密码</div>
-          </div>
-          <div class="dt-list-arrow">›</div>
-        </div>
-      </div>
-
-      <!-- 部门管理 -->
-      <div v-if="state.activeAdminSub === 'dept'" class="dt-page-sub">
-        <div class="dt-sub-header">
-          <div class="dt-sub-back" @click="state.activeAdminSub = ''">‹ 返回</div>
-          <div class="dt-sub-title">部门管理</div>
-          <div class="dt-sub-action" @click="openModal('dept','create',{})">+ 新增</div>
-        </div>
-        <div class="dt-list">
-          <div v-if="(state.fullState?.departments||[]).length === 0" class="dt-empty"><div class="dt-empty-icon">🏢</div><div class="dt-empty-text">暂无部门</div></div>
-          <div v-for="d in state.fullState?.departments||[]" :key="d.id" class="dt-list-row" @click="openModal('dept','view',d)">
-            <div class="dt-list-info" style="flex:1">
-              <div class="dt-list-title" v-text="d.name"></div>
-              <div class="dt-list-sub" v-text="'ID: ' + d.id + (d.manager ? ' | 负责人: '+d.manager : '')"></div>
-            </div>
-            <div class="dt-list-arrow">›</div>
+          <div class="admin-card" @click="state.activeAdminSub = 'user'">
+            <div class="admin-card-icon">🔐</div>
+            <div class="admin-card-title">用户管理</div>
+            <div class="admin-card-sub">查看/添加/编辑用户</div>
           </div>
         </div>
       </div>
 
-      <!-- 员工管理 -->
-      <div v-if="state.activeAdminSub === 'emp'" class="dt-page-sub">
-        <div class="dt-sub-header">
-          <div class="dt-sub-back" @click="state.activeAdminSub = ''">‹ 返回</div>
-          <div class="dt-sub-title">员工管理</div>
-          <div class="dt-sub-action" @click="openModal('emp','create',{})">+ 新增</div>
-        </div>
-        <div class="dt-list">
-          <div v-if="(state.fullState?.employees||[]).length === 0" class="dt-empty"><div class="dt-empty-icon">👥</div><div class="dt-empty-text">暂无员工</div></div>
-          <div v-for="e in state.fullState?.employees||[]" :key="e.id" class="dt-list-row" @click="openModal('emp','view',e)">
-            <div class="dt-list-info" style="flex:1">
-              <div class="dt-list-title" v-text="e.name + (e.position ? ' ('+e.position+')' : '')"></div>
-              <div class="dt-list-sub" v-text="'ID:'+e.id+' | 部门:'+getDeptName(e.deptId)+(e.mobile?' | '+e.mobile:'')"></div>
-            </div>
-            <div class="dt-list-arrow">›</div>
+      <!-- 子页面（部门/员工/用户） -->
+      <div v-if="state.activeAdminSub" class="admin-sub-page">
+        <div class="admin-sub-hdr">
+          <div class="admin-sub-back" @click="state.activeAdminSub = ''">‹ 返回</div>
+          <div class="admin-sub-title">
+            {{ state.activeAdminSub === 'dept' ? '部门管理' : state.activeAdminSub === 'emp' ? '员工管理' : '用户管理' }}
           </div>
+          <div class="admin-sub-add" @click="openModal(state.activeAdminSub,'create',{})">+ 新增</div>
         </div>
-      </div>
-
-      <!-- 用户管理 -->
-      <div v-if="state.activeAdminSub === 'user'" class="dt-page-sub">
-        <div class="dt-sub-header">
-          <div class="dt-sub-back" @click="state.activeAdminSub = ''">‹ 返回</div>
-          <div class="dt-sub-title">用户管理</div>
-          <div class="dt-sub-action" @click="openModal('user','create',{})">+ 新增</div>
-        </div>
-        <div class="dt-list">
-          <div v-if="(state.fullState?._users||[]).length === 0" class="dt-empty"><div class="dt-empty-icon">🔐</div><div class="dt-empty-text">暂无用户</div></div>
-          <div v-for="u in (state.fullState?._users||[])" :key="u.id" class="dt-list-row" @click="openModal('user','view',u)">
-            <div class="dt-list-info" style="flex:1">
-              <div class="dt-list-title" v-text="u.display_name || u.username"></div>
-              <div class="dt-list-sub" v-text="u.username + ' | ' + (u.role==='admin'?'管理员':'普通用户') + (u.department?' | '+u.department:'')"></div>
+        <div class="admin-list">
+          <!-- 部门 -->
+          <template v-if="state.activeAdminSub === 'dept'">
+            <div v-if="(state.fullState?.departments||[]).length === 0" class="admin-empty">暂无部门</div>
+            <div v-for="d in state.fullState?.departments||[]" :key="d.id" class="admin-row" @click="openModal('dept','view',d)">
+              <div class="admin-row-main" v-text="d.name"></div>
+              <div class="admin-row-sub" v-text="'ID: ' + d.id + (d.manager ? ' · 负责人: '+d.manager : '')"></div>
             </div>
-            <div class="dt-list-arrow">›</div>
-          </div>
+          </template>
+          <!-- 员工 -->
+          <template v-if="state.activeAdminSub === 'emp'">
+            <div v-if="(state.fullState?.employees||[]).length === 0" class="admin-empty">暂无员工</div>
+            <div v-for="e in state.fullState?.employees||[]" :key="e.id" class="admin-row" @click="openModal('emp','view',e)">
+              <div class="admin-row-main" v-text="e.name + (e.position ? ' ('+e.position+')' : '')"></div>
+              <div class="admin-row-sub" v-text="'ID: '+e.id+' · 部门: '+getDeptName(e.deptId)+(e.mobile?' · '+e.mobile:'')"></div>
+            </div>
+          </template>
+          <!-- 用户 -->
+          <template v-if="state.activeAdminSub === 'user'">
+            <div v-if="(state.fullState?._users||[]).length === 0" class="admin-empty">暂无用户</div>
+            <div v-for="u in (state.fullState?._users||[])" :key="u.id" class="admin-row" @click="openModal('user','view',u)">
+              <div class="admin-row-main" v-text="u.display_name || u.username"></div>
+              <div class="admin-row-sub" v-text="u.username + ' · ' + (u.role==='admin'?'管理员':'普通用户') + (u.department?' · '+u.department:'')"></div>
+            </div>
+          </template>
         </div>
       </div>
     </div>
@@ -1583,10 +1557,6 @@ const app = createApp({
 
     <!-- ── Tab Bar ── -->
     <div class="dt-tabbar">
-      <div v-if="state.user?.role === 'admin'" class="dt-tab-item" :class="{ active: state.activeTab === 'admin' }" @click="state.activeTab = 'admin'">
-        <div class="dt-tab-icon">⚙️</div>
-        <div class="dt-tab-lbl">管理</div>
-      </div>
       <div class="dt-tab-item" :class="{ active: state.activeTab === 'dashboard' }" @click="state.activeTab = 'dashboard'">
         <div class="dt-tab-icon">🏠</div>
         <div class="dt-tab-lbl">首页</div>
@@ -1602,6 +1572,10 @@ const app = createApp({
       <div class="dt-tab-item" :class="{ active: state.activeTab === 'profile' }" @click="state.activeTab = 'profile'">
         <div class="dt-tab-icon">👤</div>
         <div class="dt-tab-lbl">我的</div>
+      </div>
+      <div v-if="state.user?.role === 'admin'" class="dt-tab-item" :class="{ active: state.activeTab === 'admin' }" @click="state.activeTab = 'admin'">
+        <div class="dt-tab-icon">⚙️</div>
+        <div class="dt-tab-lbl">管理</div>
       </div>
     </div>
   </div>
