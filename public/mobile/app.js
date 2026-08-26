@@ -652,7 +652,8 @@ const app = createApp({
       return (state.fullState?.followUps || [])
         .filter(f => !f.deleted)
         .sort((a, b) => (b.followDate||'').localeCompare(a.followDate||''))
-        .slice(0, 10);
+        .slice(0, 10)
+        .map(f => ({ ...f, consultantName: getConsultantByOppNo(f.oppNo) }));
     });
 
     // 待回答问答（本人参与的）
@@ -1321,7 +1322,7 @@ const app = createApp({
         <div v-for="f in boardRecentFollows" :key="f.id" class="board-recent-item">
           <div class="board-recent-date" v-text="fmtDate(f.followDate)"></div>
           <div class="board-recent-title" v-text="f.workItem"></div>
-          <div class="board-recent-consultant" v-text="f.consultant || '—'"></div>
+          <div class="board-recent-consultant" v-text="f.consultantName || '—'"></div>
           <div class="board-recent-customer" v-text="boardAppMap[f.oppNo] || f.oppNo"></div>
         </div>
       </div>
