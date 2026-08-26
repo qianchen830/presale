@@ -84,6 +84,10 @@ const state = reactive({
       } catch(e) { showToast('保存失败: ' + e.message); }
     }
 
+    function loadMoreApps() {
+      state.dashboardAppLimit += 10;
+    }
+
     // 根据年度目标和固定比例计算季度分解
     function getComputedQuarterTarget(quarter) {
       const year = state.year;
