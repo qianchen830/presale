@@ -63,7 +63,7 @@ class EncryptedFileStore extends (require('events').EventEmitter) {
   }
   get(sessionId, callback) {
     this._readFile(sessionId, (err, data) => {
-      if (err || !data) return this._store.get(sessionId, callback);
+      if (err || !data) return callback(err || new Error('session not found'), null);
       callback(null, data);
     });
   }
@@ -76,8 +76,22 @@ class EncryptedFileStore extends (require('events').EventEmitter) {
       if (callback) callback(null);
     });
   }
-  destroy(sessionId, callback) { this._store.destroy(sessionId, callback); }
-  touch(sessionId, session, callback) { this._store.touch(sessionId, session, callback); }
+  destroy(sessionId, callback) {
+    const filePath = path.join(sessionsDir, `${sessionId}.json`);
+    fs.unlink(filePath, (err) => { callback && callback(err || null); });
+  }
+  touch(sessionId, session, callback) {
+    // 只更新 lastModified，不改动内容
+    this._readFile(sessionId, (err, data) => {
+      if (err) return callback && callback(err);
+      const encrypted = encrypt(JSON.stringify(session));
+      const filePath = path.join(sessionsDir, `${sessionId}.json`);
+      fs.writeFile(filePath, encrypted, 'utf8', (err) => {
+        if (err) return callback && callback(err);
+        if (callback) callback(null);
+      });
+    });
+  }
   // 代理 express-session 需要的其他方法到底层 FileStore
   createSession(req, sessionData) { return this._store.createSession(req, sessionData); }
   get SID() { return this._store.SID; }
