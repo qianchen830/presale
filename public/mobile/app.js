@@ -1105,7 +1105,7 @@ const app = createApp({
       doChangePassword, pwdLoading,
       getListItemTitle, getListItemSub,
       getStatusBadge, fmtMoney, fmtDate, getDeptName, getEmpName,
-      changeYear, listTabToModal, modalTitle, getFieldsForModal,
+      changeYear, loadMoreApps, listTabToModal, modalTitle, getFieldsForModal,
       PRODUCTS, BUY_MODES, STAGES, APP_STATUSES, YES_NO, QUARTERS,
       APP_FIELDS, CONTRACT_FIELDS, FOLLOW_FIELDS, JUDGMENT_FIELDS,
       SALES_Q_FIELDS, ALLOCATION_FIELDS, DEPT_FIELDS, EMP_FIELDS,
