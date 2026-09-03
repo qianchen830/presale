@@ -506,7 +506,7 @@ input[type=number]{-moz-appearance:textfield;}
     </div>
   </div>
   <div class="sf-hdr-r">
-    <button class="btn" onclick="openOrgModal()" style="color:#fff;background:transparent;border-color:rgba(255,255,255,.3);font-size:var(--text-xs)"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="users" aria-hidden="true" class="lucide lucide-users"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><path d="M16 3.128a4 4 0 0 1 0 7.744"></path><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><circle cx="9" cy="7" r="4"></circle></svg> 部门人员</button>
+    <button class="btn" onclick="openOrgModal()" id="orgBtn" style="color:#fff;background:transparent;border-color:rgba(255,255,255,.3);font-size:var(--text-xs);display:none"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="users" aria-hidden="true" class="lucide lucide-users"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><path d="M16 3.128a4 4 0 0 1 0 7.744"></path><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><circle cx="9" cy="7" r="4"></circle></svg> 部门人员</button>
     <button class="btn" onclick="openAdminPanel()" id="adminUserBtn" style="color:#fff;background:transparent;border-color:rgba(255,255,255,.3);font-size:var(--text-xs);display:none"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="settings" aria-hidden="true" class="lucide lucide-settings"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg> 用户管理</button>
     <button class="btn" onclick="location.href='dashboard.html'" id="dashboardBtn" style="color:#fff;background:transparent;border-color:rgba(255,255,255,.3);font-size:var(--text-xs);display:none"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="bar-chart-2" aria-hidden="true"><path d="M5 21v-6"></path><path d="M12 21V3"></path><path d="M19 21V9"></path></svg> 看板</button>
     <button class="btn" onclick="doLogout()" id="logoutBtn" style="color:#fff;background:transparent;border-color:rgba(255,255,255,.3);font-size:var(--text-xs)"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="log-out" aria-hidden="true" class="lucide lucide-log-out"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> 退出</button>
@@ -2904,9 +2904,6 @@ function getCardsQuarterActual(year, quarter, filteredApps) {
 
 function renderCards() {
   const filtered = getFilteredApps();
-
-  // 个人视图（无view_depts且非admin）：不去重，按原始申请记录条数统计
-  // 部门/admin视图：按oppNo去重，避免多人支持同一项目被重复计算
   var hasDeptScope = _currentUser && _currentUser.role !== 'admin' && _currentUser.view_depts && _currentUser.view_depts.length > 0;
   var isAdminView = _currentUser && _currentUser.role === 'admin';
   var dedupView = hasDeptScope || isAdminView;
@@ -2915,7 +2912,6 @@ function renderCards() {
     var seen = {};
     baseApps = filtered.filter(function(a) { if (a.oppNo && !seen[a.oppNo]) { seen[a.oppNo] = true; return true; } return false; });
   }
-
   const total = baseApps.length;
   const wonApps = baseApps.filter(a => a.status === '签单');
   const expectedApps = baseApps.filter(a => a.status === '预计');
@@ -2963,7 +2959,7 @@ function renderCards() {
   };
   // 签单金额（与年度指标实际值完全一致，dedupView时用合同口径，个人视角统一用个人分配口径）
   var wonAmt = dedupView
-    ? getCardsAnnualActual(parseInt(getPeriodKey().split('_')[1]), filtered)
+    ? getCardsAnnualActual(parseInt(getPeriodKey().split('_')[1]), baseApps)
     : _personalAllocActual(parseInt(getPeriodKey().split('_')[1]), null);
   // 签单计数：申请日期口径，与金额分开显示
   var wonCount = dedupView ? wonApps.length : wonApps.length;
@@ -3012,10 +3008,10 @@ function renderCards() {
     var yActual;
     if (isCurrent) {
       // 当年实际：按过滤条件统计合同 presalePerformance
-      yActual = (isCurrent && y === currentYear) ? wonAmt : getCardsAnnualActual(y, filtered);
+      yActual = (isCurrent && y === currentYear) ? wonAmt : getCardsAnnualActual(y, baseApps);
     } else {
       // 往年实际：优先取手动编辑值，否则按过滤条件统计
-      yActual = state.annualActuals[y] != null ? state.annualActuals[y] : getCardsAnnualActual(y, filtered);
+      yActual = state.annualActuals[y] != null ? state.annualActuals[y] : getCardsAnnualActual(y, baseApps);
     }
     // 年度指标：当年用 annualTarget（主字段），往年用 annualTargets[y]（历史编辑值）
     var yTarget = isCurrent ? (parseFloat(state.annualTarget) || 0) : (parseFloat(state.annualTargets && state.annualTargets[y]) || 0);
@@ -3039,7 +3035,7 @@ function renderCards() {
   var qpSrc = (sysQp && qpSum > 0) ? sysQp : (state.quarterPcts && Object.keys(state.quarterPcts).length > 0) ? state.quarterPcts : { Q1: 25, Q2: 25, Q3: 25, Q4: 25 };
   ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => {
     // 季度实际：按过滤条件统计合同 presalePerformance
-    var qActual = getCardsQuarterActual(state.year, q, filtered);
+    var qActual = getCardsQuarterActual(state.year, q, baseApps);
     const annualT = state.annualTargets[state.year] || state.annualTarget;
     const qPctVal = qpSrc[q] || 0;
     const qTarget = Math.round(annualT * qPctVal / 100);
@@ -5010,6 +5006,29 @@ function deleteAllocation(id) {
 }
 
 /* ===== DETAIL MODAL ===== */
+// 获取支持顾问字符串：优先用 allocations（带百分比），无则用售前申请的 consultant 字段
+// oppNoOrContractId: 在 allocations 匹配时作为 contractId/oppNo/mainContractNo 使用；在 fallback 时作为 oppNo 查找申请
+function getSupportConsultants(oppNoOrContractId, contractOppNo) {
+  if (!oppNoOrContractId) return '—';
+  var allocs = (state.allocations || []).filter(function(al) {
+    return al.contractId === oppNoOrContractId || al.oppNo === oppNoOrContractId || al.mainContractNo === oppNoOrContractId;
+  });
+  if (allocs.length > 0) {
+    var map = {};
+    allocs.forEach(function(al) {
+      var n = al.consultant || '—';
+      map[n] = (map[n] || 0) + (parseFloat(al.pct) || 0);
+    });
+    return Object.keys(map).map(function(n) { return n + '(' + map[n] + '%)'; }).join(', ');
+  }
+  // 无分配时，用售前申请的顾问字段兜底；优先用传入的 contractOppNo，其次用 oppNoOrContractId 本身尝试匹配
+  var app = (state.applications || []).find(function(a) {
+    var targetOppNo = contractOppNo || oppNoOrContractId;
+    return a.oppNo === targetOppNo || (targetOppNo && (targetOppNo.split('、').some(function(s) { return a.oppNo === s.trim(); })));
+  });
+  return app && app.consultant ? app.consultant : '—';
+}
+
 function showDetail(card, type) {
   let title = '';
   let rows = [];
@@ -5044,20 +5063,7 @@ function showDetail(card, type) {
       });
     }
     rows = apps.map(a => {
-      // 查找该商机的业绩分配，汇总支持顾问及比例
-      var allocs = state.allocations.filter(al => al.oppNo === a.oppNo);
-      var consultantStr = '—';
-      if (allocs.length > 0) {
-        var consultantMap = {};
-        allocs.forEach(function(al) {
-          var name = al.consultant || '—';
-          if (!consultantMap[name]) consultantMap[name] = 0;
-          consultantMap[name] += parseFloat(al.pct) || 0;
-        });
-        consultantStr = Object.keys(consultantMap).map(function(name) {
-          return name + '(' + consultantMap[name] + '%)';
-        }).join(', ');
-      }
+      var consultantStr = getSupportConsultants(a.oppNo);
       // 金额(万)：签单=合同subAmount（10万门槛），预计=expectedSignAmount（已是万），其余显示-
       // 金额字段：signAmount存元需除万，expectedSignAmount存元需除万
       var amtW = 0;
@@ -5078,12 +5084,9 @@ function showDetail(card, type) {
     title = type === 'target' ? '年度指标明细' : '实际完成明细';
     const signedContracts = getFilteredContracts();
     rows = signedContracts.map(c => {
-      var allocs = (state.allocations || []).filter(function(al) { return al.contractId === c.id || al.oppNo === c.oppNo || al.oppNo === c.mainContractNo; });
-      var consMap = {};
-      allocs.forEach(function(al) { var n = al.consultant || '—'; consMap[n] = (consMap[n] || 0) + (parseFloat(al.pct) || 0); });
-      var consStr = Object.keys(consMap).map(function(n) { return n + '(' + consMap[n] + '%)'; }).join(', ') || '—';
+      var consStr = getSupportConsultants(c.id, c.oppNo); // 用合同ID查 allocations（contractId 字段），无则 fallback 到申请顾问
       return {
-        '签单时间': c.signDate || c.month, '客户': c.signCustomerName || c.signCustomer || '—', '项目名称': c.projectName || '—',
+        '签单时间': c.signOpDate || c.mainSignDate || c.month, '客户': c.signCustomerName || c.signCustomer || '—', '项目名称': c.projectName || '—',
         '商机号': c.oppNo || '—', '签单金额(万)': fmtMoney((parseFloat(c.presalePerformance) || 0) / 10000), '产品': c.product || '—',
         '支持顾问': consStr
       };
@@ -5116,44 +5119,21 @@ function showDetail(card, type) {
       if (isPersonal && a.consultant === myName) return true;
       return false;
     });
-    if (yAllocs.length > 0) {
-      var yGrouped = {};
-      yAllocs.forEach(function(a) {
-        var c = state.contracts.find(function(r) { return r.id === a.contractId; });
-        // contractId找不到时，用allocation.oppNo查合同（同oppNo的合同取mainContractNo）
-        if (!c && a.oppNo) c = state.contracts.find(function(r) { return r.oppNo === a.oppNo; });
-        var grpKey = c ? (c.mainContractNo || '—') : '—';
-        var consKey = (a.consultant || '—') + (a.pct != null ? '(' + a.pct + '%)' : '');
-        if (!yGrouped[grpKey]) {
-          yGrouped[grpKey] = {
-            month: a.month || '—', quarter: a.quarter || '—',
-            mainContractNo: grpKey,
-            signCustomer: c ? (c.signCustomer || '—') : '—',
-            signCustomerName: c ? (c.signCustomerName || '—') : '—',
-            salesDept: c ? (c.salesDept || '—') : (a.department || '—'),
-            accountMgr: c ? (c.accountMgr || '—') : '—',
-            contractPerformance: 0, consultants: [], _consSet: new Set()
-          };
-        }
-        if (!yGrouped[grpKey]._consSet.has(consKey)) {
-          yGrouped[grpKey]._consSet.add(consKey);
-          yGrouped[grpKey].consultants.push(consKey);
-          yGrouped[grpKey].contractPerformance += parseFloat(a.consultantPerformance) || 0;
-        }
-      });
-      rows = Object.keys(yGrouped).map(function(mcno) {
-        var g = yGrouped[mcno];
-        return {
-          '月份': g.month, '季度': g.quarter,
-          '主合同编号': mcno,
-          '申请客户名称': g.signCustomer,
-          '签约客户名称': g.signCustomerName,
-          '销售部门': g.salesDept, '客户经理': g.accountMgr,
-          '合同业绩(万)': fmtMoney2(g.contractPerformance),
-          '支持顾问': g.consultants.join(', ')
-        };
-      });
-    } else { rows = []; }
+    // 显示所有合同（不限是否有分配），顾问：无分配时用申请顾问兜底
+    var yearContracts = getFilteredContracts();
+    rows = yearContracts.map(function(c) {
+      var consStr = getSupportConsultants(c.id, c.oppNo); // 先查 allocations（contractId），无则 fallback 申请顾问
+      return {
+        '签单时间': c.signOpDate || c.mainSignDate || c.month,
+        '申请客户名称': c.signCustomerName || c.signCustomer || '—',
+        '签约客户名称': c.signCustomerName || '—',
+        '主合同编号': c.mainContractNo || '—',
+        '销售部门': c.salesDept || '—',
+        '客户经理': c.accountMgr || '—',
+        '合同业绩(万)': fmtMoney((parseFloat(c.presalePerformance) || 0) / 10000),
+        '支持顾问': consStr
+      };
+    });
   } else if (card === 'quarter') {
     title = type + ' 完成明细（' + state.year + '年）';
     var allAppsForMatchQ = getAllApps() || [];
@@ -5222,14 +5202,10 @@ function showDetail(card, type) {
     const apps = type === 'all' ? riskApps : riskApps.filter(a => type === 'active' ? a.status === '活跃' : a.status === '暂停');
     rows = apps.map(a => {
       const j = state.judgments.find(j => j.oppNo === a.oppNo && j.isRisk === '是');
-      var allocs = (state.allocations || []).filter(al => al.oppNo === a.oppNo);
-      var consMap = {};
-      allocs.forEach(function(al) { var n = al.consultant || '—'; consMap[n] = (consMap[n] || 0) + (parseFloat(al.pct) || 0); });
-      var consStr = Object.keys(consMap).map(function(n) { return n + '(' + consMap[n] + '%)'; }).join(', ') || '—';
       return {
         '客户': a.customer, '项目名称': a.projectName, '状态': a.status,
         '竞争对手': j ? j.competitor : '—', '风险描述': j ? truncate(j.riskDesc, 30) : '—',
-        '支持顾问': consStr
+        '支持顾问': getSupportConsultants(a.oppNo)
       };
     });
   } else if (card === 'cycle') {
@@ -5240,14 +5216,10 @@ function showDetail(card, type) {
       : signedApps;
     rows = cycleApps.map(a => {
       var days = Math.round((new Date(a.signDate) - new Date(a.applyDate)) / 86400000);
-      var allocs = (state.allocations || []).filter(al => al.oppNo === a.oppNo);
-      var consMap = {};
-      allocs.forEach(function(al) { var n = al.consultant || '—'; consMap[n] = (consMap[n] || 0) + (parseFloat(al.pct) || 0); });
-      var consStr = Object.keys(consMap).map(function(n) { return n + '(' + consMap[n] + '%)'; }).join(', ') || '—';
       return {
         '客户': a.customer, '项目名称': a.projectName,
         '申请日期': a.applyDate, '签单时间': a.signDate, '周期(天)': days,
-        '支持顾问': consStr
+        '支持顾问': getSupportConsultants(a.oppNo)
       };
     });
   }
@@ -5668,6 +5640,9 @@ var _appSearchText = '';
     // 仅 admin 角色显示看板入口
     var dashBtn = document.getElementById('dashboardBtn');
     if (dashBtn) dashBtn.style.display = (d.role === 'admin') ? '' : 'none';
+    // 仅 admin 角色显示部门人员按钮
+    var orgBtn = document.getElementById('orgBtn');
+    if (orgBtn) orgBtn.style.display = (d.role === 'admin') ? '' : 'none';
 
     // 恢复数据
     await loadState();

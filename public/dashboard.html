@@ -2632,16 +2632,16 @@ function renderCards() {
     '</div>' +
     targetHtml;
 
-  const riskApps = filtered.filter(a => state.judgments.some(j => j.oppNo === a.oppNo && j.isRisk === '是'));
-  const newApps = filtered.filter(a => inRange(a.applyDate, getPeriodRange(getPeriodKey())));
-  const followApps = filtered.filter(a => a.status === '活跃');
-  const lostApps = filtered.filter(a => a.status === '丢失');
-  const wonApps = filtered.filter(a => a.status === '签单');
+  const riskApps = baseApps.filter(a => state.judgments.some(j => j.oppNo === a.oppNo && j.isRisk === '是'));
+  const newApps = baseApps.filter(a => inRange(a.applyDate, getPeriodRange(getPeriodKey())));
+  const followApps = baseApps.filter(a => a.status === '活跃');
+  const lostApps = baseApps.filter(a => a.status === '丢失');
+  const wonApps = baseApps.filter(a => a.status === '签单');
 
-  const expectedApps = filtered.filter(a => a.status === '预计');
+  const expectedApps = baseApps.filter(a => a.status === '预计');
 
   // 停滞项目：活跃状态但超过14天无跟进
-  const stalledApps = filtered.filter(a => {
+  const stalledApps = baseApps.filter(a => {
     if (a.status !== '活跃') return false;
     const follows = state.followUps.filter(f => f.oppNo === a.oppNo);
     if (follows.length === 0) return true;
@@ -2671,8 +2671,8 @@ function renderCards() {
     '</div>';
 
   // 重点关注：风险项目 + 手动重点标注（临近签单项目已不展示）
-  const focusRisk = filtered.filter(a => state.judgments.some(j => j.oppNo === a.oppNo && j.isRisk === '是'));
-  const focusKeyFlag = filtered.filter(a => !!a.isKeyFocus || a.isKeyFocus === '是' || a.isKeyFocus === 'true');
+  const focusRisk = baseApps.filter(a => state.judgments.some(j => j.oppNo === a.oppNo && j.isRisk === '是'));
+  const focusKeyFlag = baseApps.filter(a => !!a.isKeyFocus || a.isKeyFocus === '是' || a.isKeyFocus === 'true');
   const focusItems = [
     { label: '重点标注', count: focusKeyFlag.length, items: focusKeyFlag, color: '#f59e0b', icon: 'star', type: 'keyFlag' },
     { label: '风险项目', count: focusRisk.length, items: focusRisk, color: 'var(--sf-text-danger)', icon: 'alert-circle', type: 'risk' },
@@ -2721,12 +2721,12 @@ function renderCards() {
     }
   }
 
-  const totalApps = filtered.length;
-  const signedCount = filtered.filter(a => a.status === '签单').length;
-  const lostCount = filtered.filter(a => a.status === '丢失').length;
+  const totalApps = baseApps.length;
+  const signedCount = baseApps.filter(a => a.status === '签单').length;
+  const lostCount = baseApps.filter(a => a.status === '丢失').length;
   const wr = totalApps > 0 ? (signedCount / totalApps * 100).toFixed(1) : '0.0';
 
-  const signedApps = filtered.filter(a => a.status === '签单' && a.signDate && a.applyDate);
+  const signedApps = baseApps.filter(a => a.status === '签单' && a.signDate && a.applyDate);
   let avgDays = 0;
   if (signedApps.length > 0) {
     const totalDays = signedApps.reduce((s, a) => {
@@ -7436,7 +7436,7 @@ async function doRefresh() {
   }
   setSaveStatus('ok', '已加载');
   finishInit();
-  initPeriodSelectors();
+  buildPeriodPanels();
   render();
   renderCards();
   lucide.createIcons();

@@ -515,6 +515,15 @@ app.use('/vendor', express.static(path.join(__dirname, 'public', 'vendor'), {
   }
 }));
 
+// ---- /mobile 静态资源（禁用 ETag 避免偶发 500）----
+app.use('/mobile', express.static(path.join(__dirname, 'public', 'mobile'), {
+  etag: false,
+  lastModified: false,
+  setHeaders(res, filePath) {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  }
+}));
+
 // ---- 其他 public 资源不缓存 ----
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders(res, filePath) {
@@ -523,6 +532,16 @@ app.use(express.static(path.join(__dirname, 'public'), {
     }
   }
 }));
+
+// ---- 静态文件错误处理（防止偶发 500 扩散）----
+app.use((err, req, res, next) => {
+  if (err) {
+    console.error('[static error]', req.path, err.message);
+    if (!res.headersSent) res.status(500).send('Internal Server Error');
+  } else {
+    next();
+  }
+});
 
 // ---- Auth 中间件 ----
 function requireAuth(req, res, next) {
@@ -596,7 +615,13 @@ app.post('/api/auth/login', (req, res) => {
 });
 
 app.post('/api/auth/logout', (req, res) => {
-  req.session.destroy(() => res.json({ ok: true }));
+  req.session.userId = null;
+  req.session.role = null;
+  req.session.username = null;
+  req.session.displayName = null;
+  req.session.save((err) => {
+    res.json({ ok: true });
+  });
 });
 
 app.get('/api/auth/me', (req, res) => {
@@ -668,15 +693,8 @@ app.get('/api/state', requireAuth, (req, res) => {
   merged.filterConsultant = prefs.filterConsultant != null ? prefs.filterConsultant : null;
   merged.selectedAppId = prefs.selectedAppId != null ? prefs.selectedAppId : null;
 
-  // admin 视图为公司级：指标用全员个人指标合计（admin 个人无业务数据）
-  if (req.session.role === 'admin') {
-    const company = getCompanyTargets();
-    merged.annualTargets = company;
-    merged.annualTarget = parseFloat(company[merged.year]) || 0;
-    merged.annualActuals = {}; // 公司实际由前端按全部业绩分配实时汇总
-  } else {
-    merged.annualTarget = parseFloat(userTargets.annualTargets && userTargets.annualTargets[merged.year]) || 0;
-  }
+  // admin 视图：指标用本人的个人指标
+  merged.annualTarget = parseFloat(userTargets.annualTargets && userTargets.annualTargets[merged.year]) || 0;
 
   // 动态计算 quarterTargets：annualTargets[year] × quarterPcts[pct]
   const year = merged.year || new Date().getFullYear();
@@ -970,6 +988,19 @@ function checkModuleOwnership(record, session, state, key) {
   const myName = session.displayName || session.username;
   // 本人负责的记录可改/可删（applications、新建记录、allocations 的业绩归属人）
   if (record.consultant === myName) return true;
+  // 关联问答的回答人本人可改/可删（answerBy 字段）
+  if (key === 'salesQuestions' && record.answerBy === myName) return true;
+  // consultant/answerBy 都为空时（旧数据）：通过 oppNo 找对应申请的顾问判断归属
+  if (!record.consultant && !(key === 'salesQuestions' && record.answerBy)) {
+    var oppNoStr2 = record.oppNo || '';
+    console.log('[checkOwner] consultant/answerBy 均为空，oppNoStr2=' + oppNoStr2 + ' myName=' + myName);
+    if (oppNoStr2) {
+      var firstOpp2 = oppNoStr2.split('、')[0].trim();
+      var appByOpp = (state.applications || []).find(function(a) { return a.oppNo === firstOpp2; });
+      console.log('[checkOwner] appByOpp=' + (appByOpp ? appByOpp.consultant : 'null'));
+      if (appByOpp && appByOpp.consultant === myName) return true;
+    }
+  }
   var oppNoStr = record.oppNo || '';
   // 业绩分配：仅支持的售前顾问本人（consultant字段）、admin、部门授权用户可改；
   // 项目首席顾问（oppNo归属）不能改分配给别人的业绩
@@ -1038,8 +1069,12 @@ function moduleOp(key, action, record, session) {
   if (action === 'update') {
     // id 可能是字符串或数字（URL参数恒为字符串），统一按字符串比较
     const idx = arr.findIndex(r => String(r.id) === String(record.id));
+    console.log('[UPDATE] key=' + key + ' record.id=' + record.id + ' arr.length=' + arr.length + ' idx=' + idx + ' session=' + (session.username||'') + ' displayName=' + (session.displayName||''));
     if (idx < 0) return { error: '记录不存在' };
-    if (!checkModuleOwnership(arr[idx], session, state, key)) return { error: '无权限修改此记录' };
+    const owner = arr[idx];
+    const canEdit = checkModuleOwnership(owner, session, state, key);
+    console.log('[UPDATE] owner.consultant=' + (owner.consultant||'') + ' owner.answerBy=' + (owner.answerBy||'') + ' canEdit=' + canEdit);
+    if (!canEdit) return { error: '无权限修改此记录' };
     var oldOppNo = key === 'contracts' ? arr[idx].oppNo : null;
     record.consultant = arr[idx].consultant;
     record.id = arr[idx].id;
@@ -1145,7 +1180,10 @@ app.put('/api/modules/:module/:id', requireAuth, (req, res) => {
   const record = req.body && typeof req.body === 'object' ? req.body : {};
   record.id = id;
   const result = moduleOp(key, 'update', record, req.session);
-  if (result.error) return res.status(400).json({ error: result.error });
+  if (result.error) {
+    console.log('[PUT modules] key=' + key + ' id=' + id + ' error=' + result.error + ' session=' + (req.session.username||''));
+    return res.status(400).json({ error: result.error });
+  }
   res.json({ ok: true, record: result.record, updatedAt: result.updatedAt });
 });
 
