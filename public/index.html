@@ -2958,7 +2958,7 @@ function renderCards() {
       if (wonCon.length > 0) return wonCon.reduce(function(s, c) { return s + (parseFloat(c.presalePerformance) || 0); }, 0) / 10000;
       return 0;
     }
-    if (a.status === '预计') return (parseFloat(a.expectedSignAmount) || 0);
+    if (a.status === '预计') return (parseFloat(a.expectedSignAmount) || 0) / 10000;
     return 0;
   };
   // 签单金额（与年度指标实际值完全一致，dedupView时用合同口径，个人视角统一用个人分配口径）
@@ -5375,7 +5375,7 @@ function finishInit() {
     var amt = 0;
     uniqueApps.forEach(function(a) {
       if (a.status === '签单') amt += (parseFloat(a.signAmount) || 0) / 10000;
-      else if (a.status === '预计') amt += (parseFloat(a.expectedSignAmount) || 0);
+      else if (a.status === '预计') amt += (parseFloat(a.expectedSignAmount) || 0) / 10000;
     });
     var ovCount = document.getElementById('ovCount');
     var ovAmount = document.getElementById('ovAmount');
