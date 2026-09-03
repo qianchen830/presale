@@ -255,6 +255,19 @@ function saveState(newState) {
         merged[key] = mergeById(merged[key] || [], newState[key] || []);
       }
     }
+    // 协作人字段标准化：字符串→数组
+    if (merged.applications) {
+      merged.applications.forEach(a => {
+        if (a.collaborators == null) return;
+        if (typeof a.collaborators === 'string') {
+          a.collaborators = a.collaborators.trim()
+            ? a.collaborators.split(/[、,，]/).map(s => s.trim()).filter(Boolean)
+            : [];
+        } else if (!Array.isArray(a.collaborators)) {
+          a.collaborators = [];
+        }
+      });
+    }
     // 全局配置字段：直接取新值（个人偏好/指标字段已在上游剥离，不进全局）
     for (const key of ['departments','employees','dataVersion']) {
       if (newState[key] !== undefined) merged[key] = newState[key];
@@ -361,14 +374,15 @@ function filterStateByUser(state, user) {
 
   // 权限规则：
   // - admin：看所有数据
-  // - 普通顾问（无部门授权）：只看售前顾问=自己的申请（与单机版文件一致）
+  // - 普通顾问（无部门授权）：只看售前顾问=自己的申请 + 自己是协作人的申请（与单机版文件一致）
   // - 部门授权用户（viewDepts 非空）：额外可见授权部门（含子部门）顾问名下的全部申请
+  const isCollaborator = (a) => Array.isArray(a.collaborators) && a.collaborators.includes(myName);
   if (s.applications) {
     if (myDepts.size === 0) {
-      s.applications = s.applications.filter(a => a.consultant === myName);
+      s.applications = s.applications.filter(a => a.consultant === myName || isCollaborator(a));
     } else {
       s.applications = s.applications.filter(a => {
-        if (a.consultant === myName) return true;
+        if (a.consultant === myName || isCollaborator(a)) return true;
         // 按顾问归属部门（employees.deptId）判断，支持父部门覆盖子部门
         const homeDept = consultantDepts[a.consultant] || '';
         if (homeDept && myDepts.has(homeDept)) return true;
@@ -988,6 +1002,8 @@ function checkModuleOwnership(record, session, state, key) {
   const myName = session.displayName || session.username;
   // 本人负责的记录可改/可删（applications、新建记录、allocations 的业绩归属人）
   if (record.consultant === myName) return true;
+  // 协作人可改/可删 applications
+  if (key === 'applications' && Array.isArray(record.collaborators) && record.collaborators.includes(myName)) return true;
   // 关联问答的回答人本人可改/可删（answerBy 字段）
   if (key === 'salesQuestions' && record.answerBy === myName) return true;
   // consultant/answerBy 都为空时（旧数据）：通过 oppNo 找对应申请的顾问判断归属
@@ -1044,6 +1060,11 @@ function moduleOp(key, action, record, session) {
   const arr = state[key] || [];
   const now = new Date().toISOString();
   if (action === 'create') {
+    // 商机号唯一性校验
+    if (key === 'applications' && record.oppNo) {
+      const dup = (state.applications || []).find(a => a.oppNo === record.oppNo && !a.deleted);
+      if (dup) return { error: '商机号 【' + record.oppNo + '】 已存在，属于顾问 【' + (dup.consultant || '未知') + '】' };
+    }
     if (!record.id) record.id = Date.now();
     record.consultant = record.consultant || session.displayName || session.username;
     record.createdAt = now;
@@ -1076,6 +1097,11 @@ function moduleOp(key, action, record, session) {
     console.log('[UPDATE] owner.consultant=' + (owner.consultant||'') + ' owner.answerBy=' + (owner.answerBy||'') + ' canEdit=' + canEdit);
     if (!canEdit) return { error: '无权限修改此记录' };
     var oldOppNo = key === 'contracts' ? arr[idx].oppNo : null;
+    // 商机号唯一性校验（修改时排除自身）
+    if (key === 'applications' && record.oppNo) {
+      const dup = (state.applications || []).find(a => a.oppNo === record.oppNo && String(a.id) !== String(record.id) && !a.deleted);
+      if (dup) return { error: '商机号 【' + record.oppNo + '】 已存在，属于顾问 【' + (dup.consultant || '未知') + '】' };
+    }
     record.consultant = arr[idx].consultant;
     record.id = arr[idx].id;
     record.createdAt = arr[idx].createdAt;

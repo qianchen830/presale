@@ -202,7 +202,11 @@ function getVisibleRecords(module) {
   const me = state.user?.displayName || state.user?.username || '';
 
   if (module === 'applications') {
-    return alive.filter(r => r.applicant === me || r.consultant === me);
+    return alive.filter(r =>
+      r.applicant === me ||
+      r.consultant === me ||
+      (Array.isArray(r.collaborators) && r.collaborators.includes(me))
+    );
   }
   if (module === 'contracts') {
     // 服务器端 filterStateByUser 已经做过权限过滤，直接返回全部可见合同
@@ -213,10 +217,14 @@ function getVisibleRecords(module) {
     return alive;
   }
   if (module === 'allocations') {
-    // 分配通过 contractId 关联到合同，合同再关联到申请
+    // 分配通过 contractId 关联到合同，合同再关联到申请（含本人协作的申请）
     const myOppNos = new Set(
       (state.fullState?.applications || [])
-        .filter(a => !a.deleted && (a.applicant === me || a.consultant === me))
+        .filter(a => !a.deleted && (
+          a.applicant === me ||
+          a.consultant === me ||
+          (Array.isArray(a.collaborators) && a.collaborators.includes(me))
+        ))
         .map(a => a.oppNo)
     );
     const myContractIds = new Set(
@@ -269,6 +277,7 @@ const APP_FIELDS = [
   { key:'department', label:'申请部门', type:'text', required:true },
   { key:'customer', label:'客户名称', type:'text', required:true },
   { key:'oppNo', label:'商机号', type:'text', required:true },
+  { key:'collaborators', label:'协作人', type:'text', required:false },
   { key:'projectName', label:'项目名称', type:'text', required:false },
   { key:'product', label:'预购产品', type:'select', options:PRODUCTS, required:true },
   { key:'buyMode', label:'购买模式', type:'select', options:BUY_MODES, required:true },
@@ -517,11 +526,15 @@ const app = createApp({
           .slice(0, 30);
       }
       if (pickerStep.value === 'allocation') {
-        // 业绩分配：关联合同 → 再找申请
+        // 业绩分配：关联合同 → 再找申请（含本人协作的申请）
         const me = state.user?.displayName || state.user?.username || '';
         const myOppNos = new Set(
           (state.fullState?.applications || [])
-            .filter(a => !a.deleted && (a.applicant === me || a.consultant === me))
+            .filter(a => !a.deleted && (
+              a.applicant === me ||
+              a.consultant === me ||
+              (Array.isArray(a.collaborators) && a.collaborators.includes(me))
+            ))
             .map(a => a.oppNo)
         );
         return (state.fullState?.contracts || [])
@@ -642,10 +655,10 @@ const app = createApp({
         if (a.deleted) return false;
         const d = a.applyDate || '';
         if (!d.startsWith(String(year))) return false;
-        // 权限过滤
+        // 权限过滤（含协作人）
         if (state.user?.role === 'admin') return true;
-        if (viewDepts.length > 0) return (a.consultant === myName) || viewDepts.includes(a.department);
-        return a.consultant === myName;
+        if (viewDepts.length > 0) return (a.consultant === myName || (Array.isArray(a.collaborators) && a.collaborators.includes(myName))) || viewDepts.includes(a.department);
+        return a.consultant === myName || (Array.isArray(a.collaborators) && a.collaborators.includes(myName));
       });
     });
 
@@ -655,7 +668,7 @@ const app = createApp({
       const wonOppNos = new Set(boardApps.value.filter(a => a.status === '签单').map(a => a.oppNo));
       // 有业绩分配时用 allocations consultantPerformance
       const fromAllocs = (state.fullState?.allocations || [])
-        .filter(a => !a.deleted && a.consultant === myName && wonOppNos.has(a.oppNo))
+        .filter(a => !a.deleted && (a.consultant === myName || myOppNos.has(a.oppNo)) && wonOppNos.has(a.oppNo))
         .reduce((s, a) => s + (parseFloat(a.consultantPerformance) || 0), 0);
       if (fromAllocs > 0) return fromAllocs / 10000;
       // 无分配时退回合同 presalePerformance（accountMgr=本人）
@@ -669,7 +682,7 @@ const app = createApp({
       const myOppNos = new Set(boardApps.value.map(a => a.oppNo));
       // 有业绩分配时用 allocations consultantPerformance
       const fromAllocs = (state.fullState?.allocations || [])
-        .filter(a => !a.deleted && a.consultant === myName && myOppNos.has(a.oppNo))
+        .filter(a => !a.deleted && (a.consultant === myName || myOppNos.has(a.oppNo)) && myOppNos.has(a.oppNo))
         .reduce((s, a) => s + (parseFloat(a.consultantPerformance) || 0), 0);
       if (fromAllocs > 0) return fromAllocs / 10000;
       // 无分配时退回合同 presalePerformance（accountMgr=本人）
@@ -1023,10 +1036,20 @@ const app = createApp({
         } else {
           // 通用模块
           const module = getModuleName(name === 'salesQ' ? 'salesQuestions' : name === 'judgment' ? 'judgments' : name === 'follow' ? 'followUps' : name === 'allocation' ? 'allocations' : name === 'app' ? 'applications' : name === 'contract' ? 'contracts' : name);
+          // 协作人字段：文本转数组（逗号/顿号分隔）
+          const recordToSave = { ...formData };
+          if (module === 'applications' && recordToSave.collaborators != null) {
+            const txt = String(recordToSave.collaborators).trim();
+            if (txt) {
+              recordToSave.collaborators = txt.split(/[、,，]/).map(s => s.trim()).filter(Boolean);
+            } else {
+              recordToSave.collaborators = [];
+            }
+          }
           if (mode === 'create') {
-            await API.create(module, { ...formData });
+            await API.create(module, recordToSave);
           } else {
-            await API.update(module, data.id, { ...formData });
+            await API.update(module, data.id, recordToSave);
           }
           showToast('保存成功');
         }
@@ -1157,10 +1180,15 @@ const app = createApp({
           return s + (sa >= 100000 ? (parseFloat(c.presalePerformance) || 0) : 0);
         }, 0) / 10000;
       } else {
-        // 非admin：显示本人已分配的业绩
+        // 非admin：显示本人已分配的业绩（含作为协作人参与的申请产生的分配）
         const myName = state.user?.displayName || state.user?.username || '';
+        const myOppNos = new Set(
+          (state.fullState?.applications || [])
+            .filter(a => !a.deleted && (a.consultant === myName || (Array.isArray(a.collaborators) && a.collaborators.includes(myName))))
+            .map(a => a.oppNo)
+        );
         return (state.fullState?.allocations || [])
-          .filter(a => !a.deleted && a.consultant === myName && a.contractId)
+          .filter(a => !a.deleted && a.contractId && myOppNos.has(a.oppNo))
           .reduce((s, a) => s + (parseFloat(a.consultantPerformance) || 0), 0) / 10000;
       }
     });
@@ -1838,6 +1866,10 @@ const app = createApp({
                 <div class="detail-cell">
                   <div class="detail-lbl">申请人</div>
                   <div class="detail-val" v-text="formData.applicant || '—'"></div>
+                </div>
+                <div class="detail-cell">
+                  <div class="detail-lbl">协作人</div>
+                  <div class="detail-val" v-text="(Array.isArray(formData.collaborators) && formData.collaborators.length ? formData.collaborators.join('、') : '—')"></div>
                 </div>
               </div>
               <div class="detail-card-row">

@@ -568,7 +568,7 @@ input[type=number]{-moz-appearance:textfield;}
         <button class="btn btn-p" onclick="openAppModal()"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="plus" aria-hidden="true" class="lucide lucide-plus"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg> 新增</button>
       </div>
     </div>
-    <div class="tw" id="tblApp"><table class="dt"><thead><tr><th>申请日期</th><th>申请人</th><th>部门</th><th>客户名称</th><th>商机号</th><th>项目名称</th><th>预购产品</th><th>购买模式</th><th>当前阶段</th><th>项目状态</th><th>预计签单</th><th>签单金额</th><th>操作</th></tr></thead><tbody></tbody></table></div>
+    <div class="tw" id="tblApp"><table class="dt"><thead><tr><th>申请日期</th><th>申请人</th><th>部门</th><th>客户名称</th><th>商机号</th><th>协作人</th><th>项目名称</th><th>预购产品</th><th>购买模式</th><th>当前阶段</th><th>项目状态</th><th>预计签单</th><th>签单金额</th><th>操作</th></tr></thead><tbody></tbody></table></div>
     <div id="pgApp"><div class="pg"><div class="pg-info" id="pgInfo">显示 … 条，共 … 条</div><div class="pg-ctrl"><button class="pg-btn" onclick="gotoPage(&#39;pgApp&#39;,3)">‹</button><button class="pg-btn" onclick="gotoPage(&#39;pgApp&#39;,1)">1</button><button class="pg-btn" onclick="gotoPage(&#39;pgApp&#39;,2)">2</button><button class="pg-btn" onclick="gotoPage(&#39;pgApp&#39;,3)">3</button><button class="pg-btn active" onclick="gotoPage(&#39;pgApp&#39;,4)">4</button><button class="pg-btn" onclick="gotoPage(&#39;pgApp&#39;,5)" disabled="">›</button></div></div></div>
   </div>
 
@@ -782,6 +782,9 @@ input[type=number]{-moz-appearance:textfield;}
         <div class="fr3">
           <div class="fg"><label>客户名称<span class="req">*</span></label><input class="fi" name="customer" required=""></div>
           <div class="fg"><label>商机号<span class="req">*</span></label><input class="fi" name="oppNo" required=""></div>
+          <div class="fg"><label>协作人</label><input class="fi" name="collaborators" placeholder="多顾问用顿号分隔"></div>
+        </div>
+        <div class="fr3">
           <div class="fg"><label>项目名称<span class="req">*</span></label><input class="fi" name="projectName" required=""></div>
         </div>
         <div class="fr3">
@@ -3215,12 +3218,13 @@ function renderAppTable() {
   const start = (ps.page - 1) * ps.size;
   const paged = filtered.slice(start, start + ps.size);
   let html = '<table class="dt"><thead><tr>' +
-    '<th>申请日期</th><th>申请人</th><th>部门</th><th>售前顾问</th><th>客户名称</th><th>商机号</th><th>项目名称</th>' +
+    '<th>申请日期</th><th>申请人</th><th>部门</th><th>售前顾问</th><th>客户名称</th><th>商机号</th><th>协作人</th><th>项目名称</th>' +
     '<th>预购产品</th><th>购买模式</th><th>当前阶段</th><th>项目状态</th><th>预计签单</th><th>预计金额</th><th>签单金额</th><th>操作</th>' +
     '</tr></thead><tbody>';
   paged.forEach(a => {
     const sel = a.id === state.selectedAppId ? ' sel' : '';
     const amt = a.status === '签单' ? fmtMoney((parseFloat(a.signAmount) || 0) / 10000) + '万' : (a.status === '预计' ? fmtMoney((parseFloat(a.expectedSignAmount) || 0) / 10000) + '万' : '—');
+    const collabs = Array.isArray(a.collaborators) ? a.collaborators.join('、') : (a.collaborators || '');
     html += '<tr class="clickable' + sel + '" onclick="selectApp(\'' + a.id + '\')">' +
       '<td>' + fmtDate(a.applyDate) + '</td>' +
       '<td>' + (a.applicant || '—') + '</td>' +
@@ -3228,6 +3232,7 @@ function renderAppTable() {
       '<td>' + (a.consultant || '—') + '</td>' +
       '<td title="' + (a.customer || '') + '">' + (a.customer || '—') + '</td>' +
       '<td>' + (a.oppNo || '—') + '</td>' +
+      '<td title="' + (collabs) + '">' + (collabs || '—') + '</td>' +
       '<td title="' + (a.projectName || '') + '">' + (a.projectName || '—') + '</td>' +
       '<td>' + (a.product || '—') + '</td>' +
       '<td>' + (a.buyMode || '—') + '</td>' +
@@ -4213,6 +4218,17 @@ function saveApp() {
     // 新建时写入当前顾问，确保权限过滤能识别记录归属人
     if (!data.consultant) data.consultant = state.consultant || '';
     state.applications.push(data);
+  }
+  // 协作人字段：字符串转数组（PC端表单提交时是普通文本框）
+  if (data.collaborators != null) {
+    const txt = String(data.collaborators).trim();
+    if (txt) {
+      const rec = state.applications.find(r => r.id === (editingId || data.id));
+      if (rec) rec.collaborators = txt.split(/[、,，]/).map(s => s.trim()).filter(Boolean);
+    } else {
+      const rec = state.applications.find(r => r.id === (editingId || data.id));
+      if (rec) rec.collaborators = [];
+    }
   }
   autoSave();
   closeModal('appModal');
