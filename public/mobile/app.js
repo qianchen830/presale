@@ -314,6 +314,7 @@ const CONTRACT_FIELDS = [
 ];
 const FOLLOW_FIELDS = [
   { key:'oppNo', label:'商机号', type:'text', required:true },
+  { key:'consultant', label:'售前顾问', type:'text', required:false },
   { key:'followDate', label:'日期', type:'date', required:true },
   { key:'hours', label:'耗用工时(h)', type:'number', required:true },
   { key:'workItem', label:'工作事项', type:'textarea', required:true },
@@ -323,6 +324,7 @@ const FOLLOW_FIELDS = [
 ];
 const JUDGMENT_FIELDS = [
   { key:'oppNo', label:'商机号', type:'text', required:true },
+  { key:'consultant', label:'售前顾问', type:'text', required:false },
   { key:'judgmentType', label:'判断类型', type:'text', required:true },
   { key:'judgmentDate', label:'判断日期', type:'date', required:true },
   { key:'result', label:'判断结论', type:'textarea', required:true },
@@ -968,9 +970,9 @@ const app = createApp({
           mainSignDate: today, signOpDate: today, isCloudSub: '否', product: record.product || PRODUCTS[0]
         });
       } else if (name === 'follow') {
-        Object.assign(formData, { oppNo: record.oppNo, followDate: today, nextDate: today });
+        Object.assign(formData, { oppNo: record.oppNo, followDate: today, nextDate: today, consultant: state.user?.displayName || state.user?.username || '' });
       } else if (name === 'judgment') {
-        Object.assign(formData, { oppNo: record.oppNo, judgmentDate: today });
+        Object.assign(formData, { oppNo: record.oppNo, judgmentDate: today, consultant: state.user?.displayName || state.user?.username || '' });
       } else if (name === 'salesQ') {
         // 找已有最大seq
         const existing = (state.fullState?.salesQuestions || [])

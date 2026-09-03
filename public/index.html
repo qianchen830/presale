@@ -901,6 +901,7 @@ input[type=number]{-moz-appearance:textfield;}
           <div class="fg"><label>耗用工时（h）<span class="req">*</span></label><input type="number" class="fi" name="hours" step="0.5" min="0" required=""></div>
         </div>
         <div class="fg"><label>工作事项<span class="req">*</span></label><textarea class="fta" name="workItem" required=""></textarea></div>
+        <div class="fg"><label>售前顾问</label><input class="fi" name="consultant" placeholder="默认当前用户" style="background:var(--sf-bg-soft);"></div>
         <div class="fg"><label>成果总结<span class="req">*</span></label><textarea class="fta" name="summary" required=""></textarea></div>
         <div class="fr">
           <div class="fg"><label>下一步工作<span class="req">*</span></label><input class="fi" name="nextWork" required=""></div>
@@ -1693,9 +1694,19 @@ function getFilteredApps() {
         return false;
       });
     } else if (_currentUser.department) {
-      apps = apps.filter(function(a) { return a.consultant === myName || a.department === _currentUser.department; });
+      apps = apps.filter(function(a) {
+        if (a.consultant === myName) return true;
+        if (a.collaborators && Array.isArray(a.collaborators) && a.collaborators.includes(myName)) return true;
+        if (a.department === _currentUser.department) return true;
+        return false;
+      });
     } else {
-      apps = apps.filter(function(a) { return a.consultant === myName; });
+      apps = apps.filter(function(a) {
+        if (a.consultant === myName) return true;
+        // 协作人可见性
+        if (a.collaborators && Array.isArray(a.collaborators) && a.collaborators.includes(myName)) return true;
+        return false;
+      });
     }
   }
   return apps;
@@ -4453,7 +4464,7 @@ function updateJudgeCell(id, field, value) {
 function addJudgeRow() {
   if (!state.selectedAppId) { alert('请先在「售前申请」列表中选择一条记录'); return; }
   const app = state.applications.find(a => a.id === state.selectedAppId);
-  const newRec = { id: uid(), oppNo: app.oppNo, competitor: '', currentStage: '', compStrategy: '', contactPerson: '', contactPosition: '', counterStrategy: '', presaleStrategy: '', managerInv: [], directorInv: [], gmInv: [], isRisk: '否', riskDesc: '', countermeasure: '' };
+  const newRec = { id: uid(), oppNo: app.oppNo, competitor: '', currentStage: '', compStrategy: '', contactPerson: '', contactPosition: '', counterStrategy: '', presaleStrategy: '', consultant: _currentUser.displayName || _currentUser.username || '', managerInv: [], directorInv: [], gmInv: [], isRisk: '否', riskDesc: '', countermeasure: '' };
   state.judgments.push(newRec);
   renderSubTables();
   fetch('/api/modules/judgments', {
@@ -4619,6 +4630,7 @@ function openFollowModal(id) {
   } else {
     document.querySelector('[name="followDate"]').value = today();
     document.getElementById('followTitle').textContent = '新增跟进记录';
+    document.querySelector('[name="consultant"]').value = _currentUser.displayName || _currentUser.username || '';
   }
   openModal('followModal');
 }
@@ -4629,6 +4641,7 @@ function saveFollow() {
   const data = getFormData('followForm');
   const app = state.applications.find(a => a.id === state.selectedAppId);
   data.oppNo = app.oppNo;
+  if (!data.consultant) data.consultant = _currentUser.displayName || _currentUser.username || '';
   if (editingId) {
     const idx = state.followUps.findIndex(r => r.id === editingId);
     if (idx >= 0) state.followUps[idx] = { ...state.followUps[idx], ...data };
