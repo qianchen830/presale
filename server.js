@@ -797,23 +797,7 @@ app.put('/api/state', requireAuth, (req, res) => {
   console.log('[DEBUG apiPutState] body.state.quarter:', req.body?.state?.quarter, 'year:', req.body?.state?.year);
   const body = req.body;
   if (!body || typeof body !== 'object' || !body.state) return res.status(400).json({ error: '请求体需要包含 state 对象' });
-  // 商机号唯一性校验（PC端走PUT /api/state，必须在这里拦）
-  const myApps = body.state.applications || [];
-  const oppNoSeen = {};
-  for (const app of myApps) {
-    if (!app.oppNo) continue;
-    if (oppNoSeen[app.oppNo]) {
-      return res.status(400).json({ error: '商机号 【' + app.oppNo + '】 重复（出现在多条申请记录中），请修正后再保存' });
-    }
-    oppNoSeen[app.oppNo] = app.id;
-    // 同时检查是否与DB中已有记录冲突（排除本次提交自身）
-    const raw = getStateRow();
-    const allApps = raw ? JSON.parse(raw.data).applications || [] : [];
-    const conflict = allApps.find(a => a.oppNo === app.oppNo && String(a.id) !== String(app.id) && !a.deleted);
-    if (conflict) {
-      return res.status(400).json({ error: '商机号 【' + app.oppNo + '】 已存在，属于顾问 【' + (conflict.consultant || '未知') + '】' });
-    }
-  }
+  // 商机号唯一性校验在【弹窗填写时】由前端检查，不在后端 autoSave 时拦截
   // injectCreatedBy 在此处只补 createdBy，不做全量序列化
   const enriched = injectCreatedBy(body.state, req.session.displayName);
   // 个人偏好字段 → 存到 user_prefs（不再写入全局，防止串头像/串期间）
