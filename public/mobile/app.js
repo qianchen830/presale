@@ -1065,6 +1065,29 @@ const app = createApp({
           return;
         }
       }
+      // ── 售前申请必填字段校验 ──
+      if (state.modal.name === 'app' && state.modal.mode !== 'view') {
+        const requiredFields = [
+          { key: 'applyDate', label: '申请日期' },
+          { key: 'applicant', label: '申请人' },
+          { key: 'department', label: '申请部门' },
+          { key: 'customer', label: '客户名称' },
+          { key: 'oppNo', label: '商机号' },
+          { key: 'projectName', label: '项目名称' },
+          { key: 'product', label: '预购产品' },
+          { key: 'buyMode', label: '购买模式' },
+          { key: 'currentStage', label: '当前阶段' },
+          { key: 'status', label: '项目状态' },
+          { key: 'expectedAmount', label: '预计金额' },
+        ];
+        for (const f of requiredFields) {
+          const val = formData[f.key];
+          if (val === undefined || val === null || String(val).trim() === '') {
+            showToast('请填写：' + f.label);
+            return;
+          }
+        }
+      }
       formLoading.value = true;
       try {
         const { name, mode, data } = state.modal;
