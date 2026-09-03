@@ -2869,7 +2869,7 @@ function _contractYearMonth(c) {
   return null;
 }
 
-// admin/部门权限视角：合同签单金额合计（subAmount，10万门槛，单位元→万元）
+// admin/部门权限视角：售前合同业绩合计（presalePerformance，10万门槛，单位元→万元）
 function _contractSignActual(year, quarterIdx, filteredApps) {
   var THRESHOLD = 100000;
   var sum = 0;
@@ -2880,7 +2880,7 @@ function _contractSignActual(year, quarterIdx, filteredApps) {
     var parts = m.split('-');
     if (parseInt(parts[0]) !== year) return;
     if (quarterIdx != null && Math.floor((parseInt(parts[1]) - 1) / 3) + 1 !== quarterIdx) return;
-    sum += parseFloat(c.subAmount) || 0;
+    sum += parseFloat(c.presalePerformance) || 0;
   });
   return sum / 10000;
 }
@@ -2924,11 +2924,15 @@ function renderCards() {
 
   // 各状态金额口径（单位万元）：
   //   签单/预计/活跃/丢失/暂停：个人视角优先本人分配份额，无分配则用合同subAmount（10万门槛）；部门/admin视角直接用合同subAmount
+  // 各状态下申请金额计算（与文档 amtOf 完全一致）
+  // 签单：consultantPerfOf(有则) > 退回 presalePerformance > 0
+  // 预计：expectedSignAmount
+  // 活跃/暂停/丢失：0
   const amtOfApp = function(a) {
-    if (a.status === '签单' || a.status === '预计' || a.status === '活跃' || a.status === '丢失' || a.status === '暂停') {
+    if (a.status === '签单') {
       var myName = _isPersonalScope() ? ((_currentUser && (_currentUser.displayName || _currentUser.username)) || state.consultant || '') : null;
+      // 个人视角：优先用 allocations consultantPerformance
       if (myName) {
-        // 个人视角：先查本人分配份额
         var matched = (state.allocations || []).filter(function(al) {
           if (al.consultant !== myName) return false;
           if (al.oppNo === a.oppNo) return true;
@@ -2945,14 +2949,14 @@ function renderCards() {
           return matched.reduce(function(s, al) { return s + (parseFloat(al.consultantPerformance) || 0); }, 0) / 10000;
         }
       }
-      // 无分配或个人视角：用合同subAmount
-      if (a.status === '签单') {
-        var wonCon = state.contracts.filter(function(c) { return c.oppNo === a.oppNo && (parseFloat(c.subAmount) || 0) >= 100000; });
-        if (wonCon.length > 0) return wonCon.reduce(function(s, c) { return s + (parseFloat(c.subAmount) || 0); }, 0) / 10000;
-        return (parseFloat(a.signAmount) || 0) / 10000;
-      }
-      return (parseFloat(a.expectedSignAmount) || 0) / 10000;
+      // 无分配或个人视角：退回 presalePerformance（售前合同业绩）
+      var wonCon = state.contracts.filter(function(c) {
+        return c.oppNo === a.oppNo && (parseFloat(c.subAmount) || 0) >= 100000;
+      });
+      if (wonCon.length > 0) return wonCon.reduce(function(s, c) { return s + (parseFloat(c.presalePerformance) || 0); }, 0) / 10000;
+      return 0;
     }
+    if (a.status === '预计') return (parseFloat(a.expectedSignAmount) || 0);
     return 0;
   };
   // 签单金额（与年度指标实际值完全一致，dedupView时用合同口径，个人视角统一用个人分配口径）

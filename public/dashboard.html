@@ -1270,12 +1270,12 @@ function fmtAmtWan(v) { return v != null && v !== '' ? fmtWan(parseFloat(v) || 0
 function fmtMoneyInputFocus(el) { var raw = (el.value || '').replace(/[,，\s]/g, ''); var n = parseFloat(raw); el.value = isNaN(n) ? '' : String(n); }
 function fmtMoneyInputBlur(el) { var raw = (el.value || '').replace(/[,，\s]/g, ''); var n = parseFloat(raw); if (isNaN(n)) n = 0; el.value = fmtMoney2(n); }
 function fmtDate(d) { return d || '—'; }
+// amtOf：签单→admin/dept用售前合同业绩；个人→优先分配额/退回售前合同业绩；预计→预计签单金额；其余→0
 function amtOf(a) {
-  // 10万门槛：合同金额<10万不计售前绩效
-  // 普通账号视角：优先取本人分配份额（consultantPerformance），无分配才用合同金额；admin/部门视角直接用合同金额
-  if (a.status === '签单' || a.status === '预计' || a.status === '活跃' || a.status === '丢失' || a.status === '暂停') {
+  if (a.status === '签单') {
     var myName = _isPersonalDash() ? (state.consultant || (window._dashUser && (window._dashUser.displayName || window._dashUser.username))) : null;
     if (myName) {
+      // 个人视角：先查本人分配份额
       var matched = (state.allocations || []).filter(function(al) {
         if (al.consultant !== myName) return false;
         if (al.oppNo === a.oppNo) return true;
@@ -1288,31 +1288,18 @@ function amtOf(a) {
         }
         return false;
       });
-      if (matched.length > 0) {
-        return matched.reduce(function(s, al) { return s + (parseFloat(al.consultantPerformance) || 0); }, 0) / 10000;
-      }
-    }
-    if (a.status === '签单') {
-      var myName = _isPersonalDash() ? (state.consultant || (window._dashUser && (window._dashUser.displayName || window._dashUser.username))) : null;
-      if (!myName) return (parseFloat(a.signAmount) || 0) / 10000;
-      var matched = (state.allocations || []).filter(function(al) {
-        if (al.consultant !== myName) return false;
-        if (al.oppNo === a.oppNo) return true;
-        if (al.contractId) {
-          var c = (state.contracts || []).find(function(cc) { return cc.id === al.contractId; });
-          if (!c) return false;
-          return c.oppNo === a.oppNo;
-        }
-        return false;
-      });
       if (matched.length > 0) return matched.reduce(function(s, al) { return s + (parseFloat(al.consultantPerformance) || 0); }, 0) / 10000;
-      var contracts = (state.contracts || []).filter(function(c) { return c.oppNo === a.oppNo && (parseFloat(c.subAmount) || 0) >= 100000; });
-      if (!contracts.length) return 0;
-      return contracts.reduce(function(s, c) { return s + (parseFloat(c.subAmount) || 0); }, 0) / 10000;
+      // 无分配或个人视角：退回 presalePerformance（售前合同业绩）
+      var wonCon = (state.contracts || []).filter(function(c) { return c.oppNo === a.oppNo && (parseFloat(c.subAmount) || 0) >= 100000; });
+      if (wonCon.length > 0) return wonCon.reduce(function(s, c) { return s + (parseFloat(c.presalePerformance) || 0); }, 0) / 10000;
+      return 0;
     }
-    if (a.status === '预计' || a.status === '活跃' || a.status === '丢失' || a.status === '暂停' || a.status === '关闭') return (parseFloat(a.expectedSignAmount) || 0) / 10000;
-
+    // admin/部门视角：直接用 presalePerformance（售前合同业绩）
+    var wonCon = (state.contracts || []).filter(function(c) { return c.oppNo === a.oppNo && (parseFloat(c.subAmount) || 0) >= 100000; });
+    if (wonCon.length > 0) return wonCon.reduce(function(s, c) { return s + (parseFloat(c.presalePerformance) || 0); }, 0) / 10000;
+    return 0;
   }
+  if (a.status === '预计') return (parseFloat(a.expectedSignAmount) || 0) / 10000;
   return 0;
 }
 /* 业绩分配顾问业绩合计（以 allocations 的 consultantPerformance 为准；无分配返回 0） */
@@ -2556,9 +2543,9 @@ function renderCards() {
   var _pkYear = parseInt(_pk[1]);
   var _perfActual = 0;
   if (_dedupView) {
-    // admin/部门视角：筛选期内签订合同，subAmount≥10万
+    // admin/部门视角：筛选期内签订合同，subAmount≥10万，用售前合同业绩 presalePerformance
     const _yearWon = getFilteredContracts().filter(function(c) { return (parseFloat(c.subAmount) || 0) >= 100000; });
-    _perfActual = _yearWon.reduce(function(s, c) { return s + (parseFloat(c.subAmount) || 0); }, 0) / 10000;
+    _perfActual = _yearWon.reduce(function(s, c) { return s + (parseFloat(c.presalePerformance) || 0); }, 0) / 10000;
   } else {
     // 个人视角： allocations 中本人的 consultantPerformance（与 index.html _personalAllocActual 一致）
     _perfActual = _personalAllocActual(_pkYear, null);
@@ -2591,7 +2578,7 @@ function renderCards() {
       else if (_pk[0] === 'week') { if (inRange(con.mainSignDate || con.signOpDate, getPeriodRange(getPeriodKey()))) inPeriod = true; }
       if (!inPeriod) return;
       conOppSet[con.oppNo] = true;
-      _wonAmt += (parseFloat(con.subAmount) || 0) / 10000;
+      _wonAmt += (parseFloat(con.presalePerformance) || 0) / 10000;
     });
   } else {
     // 个人视角：用 allocations 本人份额（与 _perfActual 一致）
@@ -2775,7 +2762,7 @@ function renderCards() {
     if (!productMap[p]) productMap[p] = { count: 0, amount: 0 };
     productMap[p].count++;
     // subAmount 单位元，amount 统一存元，fmtMoney2 时 /10000 转万
-    productMap[p].amount += (parseFloat(c.subAmount) || 0);
+    productMap[p].amount += (parseFloat(c.presalePerformance) || 0);
   });
   const productArr = Object.entries(productMap).sort((a, b) => b[1].amount - a[1].amount).slice(0, 5);
   const productTotalAmount = productArr.reduce((s, p) => s + p[1].amount, 0);
