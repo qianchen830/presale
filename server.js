@@ -250,20 +250,56 @@ function saveState(newState) {
       (incomingArr || []).forEach(x => { if (x && x.id) map.set(x.id, x); });
       return [...map.values()];
     };
+    // 协作人字段标准化：在 merge 之前处理 incoming data（修复双重编码问题）
+    if (newState.applications) {
+      newState.applications.forEach(a => {
+        if (a.collaborators == null) return;
+        // 双重编码修复：stringify 后 parse 还原，再标准化
+        if (typeof a.collaborators === 'string') {
+          try { a.collaborators = JSON.parse(a.collaborators); } catch(_) {}
+        }
+        if (Array.isArray(a.collaborators)) {
+          // 数组内部若有双重编码字符串，逐个修复
+          a.collaborators = a.collaborators.map(v => {
+            if (typeof v === 'string') {
+              try { return JSON.parse(v); } catch(_) { return v; }
+            }
+            return v;
+          }).flat().filter(v => typeof v === 'string' && v.trim());
+        } else if (typeof a.collaborators === 'string') {
+          // 纯字符串：顿号/逗号分隔
+          a.collaborators = a.collaborators.trim()
+            ? a.collaborators.split(/[、,，]/).map(s => s.trim()).filter(Boolean)
+            : [];
+        } else {
+          a.collaborators = [];
+        }
+      });
+    }
     for (const key of ['applications','contracts','judgments','followUps','salesQuestions','requirements','allocations']) {
       if (newState[key] !== undefined) {
         merged[key] = mergeById(merged[key] || [], newState[key] || []);
       }
     }
-    // 协作人字段标准化：字符串→数组
+    // 协作人字段标准化（处理非 applications 模块及历史遗留数据）
     if (merged.applications) {
       merged.applications.forEach(a => {
         if (a.collaborators == null) return;
         if (typeof a.collaborators === 'string') {
+          try { a.collaborators = JSON.parse(a.collaborators); } catch(_) {}
+        }
+        if (Array.isArray(a.collaborators)) {
+          a.collaborators = a.collaborators.map(v => {
+            if (typeof v === 'string') {
+              try { return JSON.parse(v); } catch(_) { return v; }
+            }
+            return v;
+          }).flat().filter(v => typeof v === 'string' && v.trim());
+        } else if (typeof a.collaborators === 'string') {
           a.collaborators = a.collaborators.trim()
             ? a.collaborators.split(/[、,，]/).map(s => s.trim()).filter(Boolean)
             : [];
-        } else if (!Array.isArray(a.collaborators)) {
+        } else {
           a.collaborators = [];
         }
       });
@@ -755,6 +791,23 @@ app.put('/api/state', requireAuth, (req, res) => {
   console.log('[DEBUG apiPutState] body.state.quarter:', req.body?.state?.quarter, 'year:', req.body?.state?.year);
   const body = req.body;
   if (!body || typeof body !== 'object' || !body.state) return res.status(400).json({ error: '请求体需要包含 state 对象' });
+  // 商机号唯一性校验（PC端走PUT /api/state，必须在这里拦）
+  const myApps = body.state.applications || [];
+  const oppNoSeen = {};
+  for (const app of myApps) {
+    if (!app.oppNo) continue;
+    if (oppNoSeen[app.oppNo]) {
+      return res.status(400).json({ error: '商机号 【' + app.oppNo + '】 重复（出现在多条申请记录中），请修正后再保存' });
+    }
+    oppNoSeen[app.oppNo] = app.id;
+    // 同时检查是否与DB中已有记录冲突（排除本次提交自身）
+    const raw = getStateRow();
+    const allApps = raw ? JSON.parse(raw.data).applications || [] : [];
+    const conflict = allApps.find(a => a.oppNo === app.oppNo && String(a.id) !== String(app.id) && !a.deleted);
+    if (conflict) {
+      return res.status(400).json({ error: '商机号 【' + app.oppNo + '】 已存在，属于顾问 【' + (conflict.consultant || '未知') + '】' });
+    }
+  }
   // injectCreatedBy 在此处只补 createdBy，不做全量序列化
   const enriched = injectCreatedBy(body.state, req.session.displayName);
   // 个人偏好字段 → 存到 user_prefs（不再写入全局，防止串头像/串期间）
@@ -1060,9 +1113,11 @@ function moduleOp(key, action, record, session) {
   const arr = state[key] || [];
   const now = new Date().toISOString();
   if (action === 'create') {
-    // 商机号唯一性校验
+    // 商机号唯一性校验（直接读DB，避免缓存问题）
     if (key === 'applications' && record.oppNo) {
-      const dup = (state.applications || []).find(a => a.oppNo === record.oppNo && !a.deleted);
+      const raw = getStateRow();
+      const allApps = raw ? JSON.parse(raw.data).applications || [] : [];
+      const dup = allApps.find(a => a.oppNo === record.oppNo && String(a.id) !== String(record.id) && !a.deleted);
       if (dup) return { error: '商机号 【' + record.oppNo + '】 已存在，属于顾问 【' + (dup.consultant || '未知') + '】' };
     }
     if (!record.id) record.id = Date.now();
@@ -1097,9 +1152,11 @@ function moduleOp(key, action, record, session) {
     console.log('[UPDATE] owner.consultant=' + (owner.consultant||'') + ' owner.answerBy=' + (owner.answerBy||'') + ' canEdit=' + canEdit);
     if (!canEdit) return { error: '无权限修改此记录' };
     var oldOppNo = key === 'contracts' ? arr[idx].oppNo : null;
-    // 商机号唯一性校验（修改时排除自身）
+    // 商机号唯一性校验（修改时排除自身，直接读DB）
     if (key === 'applications' && record.oppNo) {
-      const dup = (state.applications || []).find(a => a.oppNo === record.oppNo && String(a.id) !== String(record.id) && !a.deleted);
+      const raw = getStateRow();
+      const allApps = raw ? JSON.parse(raw.data).applications || [] : [];
+      const dup = allApps.find(a => a.oppNo === record.oppNo && String(a.id) !== String(record.id) && !a.deleted);
       if (dup) return { error: '商机号 【' + record.oppNo + '】 已存在，属于顾问 【' + (dup.consultant || '未知') + '】' };
     }
     record.consultant = arr[idx].consultant;

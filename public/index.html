@@ -1184,9 +1184,13 @@ async function apiPutState(stateObj) {
       credentials: 'include',
       body: JSON.stringify({ state: stateObj })
     });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
+    var data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      var msg = (data && data.error) ? data.error : ('HTTP ' + res.status);
+      throw Object.assign(new Error(msg), { _serverError: true, _status: res.status });
+    }
     _serverSyncOk = true;
-    return await res.json();
+    return data;
   } catch(e) {
     console.error('保存到服务器失败:', e);
     _serverSyncOk = false;
@@ -2448,7 +2452,12 @@ function autoSave() {
       setSaveStatus('saved', '已保存 ✓ ' + ts);
     } catch (e) {
       sessionStorage.setItem(EXPORT_DIRTY_KEY, '1');
-      setSaveStatus('warn', '已保存本地 · 服务器未连接');
+      if (e && e._serverError) {
+        setSaveStatus('warn', '保存失败：' + (e.message || '服务器错误'));
+        if (typeof showToast === 'function') showToast('保存失败：' + (e.message || '服务器错误'));
+      } else {
+        setSaveStatus('warn', '已保存本地 · 服务器未连接');
+      }
     }
   }, 600);
 }
