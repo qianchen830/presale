@@ -164,6 +164,12 @@ function initDb() {
       updated_at TEXT NOT NULL,
       FOREIGN KEY (user_id) REFERENCES users(id)
     );
+    CREATE TABLE IF NOT EXISTS system_config (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL DEFAULT '{}',
+      updated_at TEXT NOT NULL,
+      updated_by TEXT NOT NULL DEFAULT ''
+    );
   `);
 
   // 兼容旧数据库
@@ -702,6 +708,14 @@ app.get('/api/state', requireAuth, (req, res) => {
   });
   merged.deptSupportTargets = computedDeptSupport;
 
+  // 读取系统配置（季度比例等全局配置）
+  try {
+    const cfgRows = db.prepare('SELECT key, value FROM system_config').all();
+    const sysCfg = {};
+    cfgRows.forEach(r => { sysCfg[r.key] = JSON.parse(r.value); });
+    merged.systemConfig = sysCfg;
+  } catch (e) { merged.systemConfig = {}; }
+
   res.json({ state: merged, updatedAt: result.updatedAt, user: user });
 });
 
@@ -766,6 +780,34 @@ app.put('/api/user/targets', requireAuth, (req, res) => {
   } catch (e) {
     console.error('保存用户指标失败:', e);
     res.status(500).json({ error: '保存失败: ' + e.message });
+  }
+});
+
+// 系统配置（季度指标比例等全局配置，所有人都读同一份）
+app.get('/api/system/config', requireAuth, (req, res) => {
+  try {
+    const rows = db.prepare('SELECT key, value, updated_at, updated_by FROM system_config').all();
+    const config = {};
+    rows.forEach(r => { config[r.key] = JSON.parse(r.value); });
+    res.json({ ok: true, config });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.put('/api/system/config', requireAuth, (req, res) => {
+  if (req.session.role !== 'admin') return res.status(403).json({ error: '仅管理员可修改系统配置' });
+  const { key, value } = req.body || {};
+  if (!key) return res.status(400).json({ error: '缺少 key' });
+  const now = new Date().toISOString();
+  try {
+    db.prepare(`INSERT INTO system_config (key, value, updated_at, updated_by) VALUES (?, ?, ?, ?)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at, updated_by = excluded.updated_by`)
+      .run(key, JSON.stringify(value), now, req.session.username);
+    saveDbs();
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
 

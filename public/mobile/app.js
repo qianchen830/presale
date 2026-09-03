@@ -277,6 +277,7 @@ const APP_FIELDS = [
   { key:'coreRequirement', label:'核心需求', type:'textarea', required:false },
   { key:'expectedSignDate', label:'预计签单时间', type:'date', required:false },
   { key:'expectedSignAmount', label:'预计签单金额', type:'number', required:false },
+  { key:'expectedAmount', label:'预计金额', type:'number', required:true },
 ];
 const CONTRACT_FIELDS = [
   { key:'oppNo', label:'申请商机编号', type:'text', required:true },

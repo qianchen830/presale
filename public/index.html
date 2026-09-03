@@ -792,7 +792,8 @@ input[type=number]{-moz-appearance:textfield;}
         <div class="fr">
           <div class="fg"><label>项目状态<span class="req">*</span></label><select class="fs cs-native" name="status" required="" onchange="toggleAppFields(this.value)" style="display: none;"><option value="">请选择</option><option>活跃</option><option>暂停</option><option>预计</option><option>丢失</option><option>关闭</option><option value="签单">签单（合同驱动）</option></select></div>
           <div class="fg" id="fg-expDate" style="display: none;"><label>预计签单时间<span class="req">*</span></label><input type="date" class="fi" name="expectedSignDate"></div>
-          <div class="fg" id="fg-expAmt" style="display: none;"><label>预计签单金额（元）<span class="req">*</span></label><input type="number" class="fi" name="expectedSignAmount" step="0.01" min="0"></div>
+          <div class="fg" id="fg-expAmt"><label>预计签单金额（元）<span class="req" id="expAmtReq" style="display:none">*</span></label><input type="number" class="fi" name="expectedSignAmount" step="0.01" min="0"></div>
+          <div class="fg" id="fg-expAmount"><label>预计金额（元）<span class="req">*</span></label><input type="number" class="fi" name="expectedAmount" step="0.01" min="0" required=""></div>
         </div>
         <div class="fg"><label>核心需求<span class="req">*</span></label><textarea class="fta" name="coreRequirement" required=""></textarea></div>
       </form>
@@ -1193,7 +1194,8 @@ let state = {
   annualTargets: { 2024: 400, 2025: 450, 2026: 500 },
   annualActuals: {},
   quarterTargets: { Q1: 100, Q2: 120, Q3: 130, Q4: 150 },
-  quarterPcts: { Q1: 25, Q2: 25, Q3: 25, Q4: 25 },
+  quarterPcts: { Q1: 16, Q2: 27, Q3: 23, Q4: 34 },
+  systemConfig: {},
   activeTab: 'q12',
   year: new Date().getFullYear(),
   quarter: null,
@@ -2598,7 +2600,7 @@ function applyStateObj(obj, keepExistingData) {
       }
     });
     // 全局配置字段：用服务器的值覆盖本地，但空对象 {} 不覆盖本地非空默认值
-    ['annualTargets','annualActuals','quarterTargets','quarterPcts','annualTarget','year','quarter','month','weekNum','weekYear','weekStart','weekEnd','activeTab'].forEach(function(key) {
+    ['annualTargets','annualActuals','quarterTargets','quarterPcts','annualTarget','year','quarter','month','weekNum','weekYear','weekStart','weekEnd','activeTab','systemConfig'].forEach(function(key) {
       if (obj[key] !== undefined && obj[key] !== null) {
         if (typeof obj[key] === 'object' && obj[key] !== null && Object.keys(obj[key]).length === 0) {
           // 服务器是空对象 {}：仅当本地也是空对象或无值时才用服务器空值覆盖
@@ -3031,19 +3033,20 @@ function renderCards() {
     '<table class="q-tbl"><thead><tr><th>年度</th><th>指标(万)</th><th>实际(万)</th><th>完成率</th></tr></thead><tbody>' + targetRows + '</tbody></table>';
 
   let qRows = '';
-  // 季度比例：未设置时按四季度均分（各25%）自动分解
-  var qpSum = ['Q1','Q2','Q3','Q4'].reduce(function(s, q) { return s + (parseFloat(state.quarterPcts && state.quarterPcts[q]) || 0); }, 0);
-  var qpDefault = qpSum > 0 ? null : { Q1: 25, Q2: 25, Q3: 25, Q4: 25 };
+  // 季度比例：优先读 systemConfig（系统全局配置），无则退回个人 quarterPcts，都无则均分25%
+  var sysQp = state.systemConfig && state.systemConfig.quarterPcts;
+  var qpSum = sysQp ? ['Q1','Q2','Q3','Q4'].reduce(function(s, q) { return s + (parseFloat(sysQp[q]) || 0); }, 0) : 0;
+  var qpSrc = (sysQp && qpSum > 0) ? sysQp : (state.quarterPcts && Object.keys(state.quarterPcts).length > 0) ? state.quarterPcts : { Q1: 25, Q2: 25, Q3: 25, Q4: 25 };
   ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => {
     // 季度实际：按过滤条件统计合同 presalePerformance
     var qActual = getCardsQuarterActual(state.year, q, filtered);
     const annualT = state.annualTargets[state.year] || state.annualTarget;
-    const qPctVal = qpDefault ? qpDefault[q] : (state.quarterPcts[q] || 0);
+    const qPctVal = qpSrc[q] || 0;
     const qTarget = Math.round(annualT * qPctVal / 100);
     const qPct = qTarget > 0 ? Math.min((qActual / qTarget * 100), 100).toFixed(1) : '0.0';
     const qPctColor = qPct >= 80 ? 'var(--sf-success-text)' : qPct >= 50 ? 'var(--sf-warning-text)' : 'var(--sf-text-danger)';
     qRows += '<tr><td style="font-weight:600">' + q + '</td>'
-      + '<td class="q-pct" style="color:var(--sf-text-muted)">' + qPctVal + '%</td>'
+      + '<td class="q-pct" onclick="editQuarterPct(this,\'' + q + '\')" style="color:var(--sf-text-muted);cursor:' + ((_currentUser && _currentUser.role === 'admin') ? 'pointer' : 'default') + '" title="' + ((_currentUser && _currentUser.role === 'admin') ? '点击编辑比例' : '比例') + '">' + qPctVal + '% <i data-lucide="pencil" style="width:10px;height:10px;opacity:.25;vertical-align:-1px"></i></td>'
       + '<td class="q-tgt" style="color:var(--sf-text-muted)">' + fmtMoney2(qTarget) + '</td>'
       + '<td class="q-val" onclick="showDetail(\'quarter\',\'' + q + '\')" style="cursor:pointer">' + fmtMoney2(qActual) + '</td>'
       + '<td class="q-val" style="color:' + qPctColor + ';font-weight:600">' + qPct + '%</td></tr>';
@@ -3143,6 +3146,30 @@ function saveYearActual(input, year) {
   if (!isNaN(v) && v >= 0) state.annualActuals[year] = v;
   saveUserTargets(); autoSave(); renderCards(); lucide.createIcons();
 }
+
+function editQuarterPct(el, q) {
+  var sysQp = state.systemConfig && state.systemConfig.quarterPcts;
+  var cur = sysQp ? (sysQp[q] || 0) : (state.quarterPcts && state.quarterPcts[q]) || 0;
+  el.innerHTML = '<input type="number" step="1" min="0" max="100" value="' + cur + '" style="width:52px;padding:2px 4px;font-size:13px;font-weight:600;border:1px solid var(--sf-border-primary);border-radius:4px;outline:none;text-align:center;background:var(--sf-blue-light)" onkeydown="if(event.key===\'Enter\')this.blur()" onblur="saveQuarterPct(this,\'' + q + '\')"> <span style="font-size:12px;color:var(--sf-text-muted)">%</span>';
+  el.querySelector('input').focus();
+  el.querySelector('input').select();
+}
+
+async function saveQuarterPct(input, q) {
+  var v = Math.max(0, Math.min(100, Math.round(parseFloat(input.value) || 0)));
+  input.parentElement.innerHTML = v + '%';
+  var newQp = {};
+  ['Q1','Q2','Q3','Q4'].forEach(function(qq) { newQp[qq] = (qq === q) ? v : ((state.systemConfig && state.systemConfig.quarterPcts && state.systemConfig.quarterPcts[qq]) || state.quarterPcts[qq] || 0); });
+  // admin：同步写 system_config；所有人：同步更新本地 quarterPcts
+  if (_currentUser && _currentUser.role === 'admin') {
+    await syncQuarterPctsToSystem(newQp);
+  }
+  state.quarterPcts = newQp;
+  await saveUserTargets();
+  autoSave();
+  renderCards();
+  lucide.createIcons();
+}
 async function saveUserTargets() {
   try {
     await fetch('/api/user/targets', {
@@ -3156,6 +3183,20 @@ async function saveUserTargets() {
       })
     });
   } catch(e) { console.warn('saveUserTargets failed:', e); }
+}
+
+// 管理员修改季度比例时，同步写入 system_config（所有人共用同一份）
+async function syncQuarterPctsToSystem(qp) {
+  if (!(_currentUser && _currentUser.role === 'admin')) return;
+  try {
+    await fetch('/api/system/config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: 'quarterPcts', value: qp })
+    });
+    state.systemConfig = state.systemConfig || {};
+    state.systemConfig.quarterPcts = qp;
+  } catch(e) { console.warn('syncQuarterPctsToSystem failed:', e); }
 }
 /* ----- APPLICATION TABLE ----- */
 function filterAppList(keyword) {
@@ -3179,7 +3220,7 @@ function renderAppTable() {
   const paged = filtered.slice(start, start + ps.size);
   let html = '<table class="dt"><thead><tr>' +
     '<th>申请日期</th><th>申请人</th><th>部门</th><th>售前顾问</th><th>客户名称</th><th>商机号</th><th>项目名称</th>' +
-    '<th>预购产品</th><th>购买模式</th><th>当前阶段</th><th>项目状态</th><th>预计签单</th><th>签单金额</th><th>操作</th>' +
+    '<th>预购产品</th><th>购买模式</th><th>当前阶段</th><th>项目状态</th><th>预计签单</th><th>预计金额</th><th>签单金额</th><th>操作</th>' +
     '</tr></thead><tbody>';
   paged.forEach(a => {
     const sel = a.id === state.selectedAppId ? ' sel' : '';
@@ -3197,6 +3238,7 @@ function renderAppTable() {
       '<td>' + (a.currentStage || '—') + '</td>' +
       '<td>' + statusBadge(a.status) + '</td>' +
       '<td>' + fmtDate(a.expectedSignDate) + '</td>' +
+      '<td>' + ((parseFloat(a.expectedAmount) || 0) > 0 ? fmtMoney(a.expectedAmount) + '万' : '—') + '</td>' +
       '<td>' + amt + '</td>' +
       '<td onclick="event.stopPropagation()">' +
       '<button onclick="openAppModal(\'' + a.id + '\')" style="background:none;border:none;padding:1px;color:var(--sf-blue);cursor:pointer" title="编辑"><i data-lucide="edit-2" style="width:12px;height:12px"></i></button> ' +
