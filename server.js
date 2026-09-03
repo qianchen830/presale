@@ -592,6 +592,8 @@ app.use(express.static(path.join(__dirname, 'public'), {
 // ---- 静态文件错误处理（防止偶发 500 扩散）----
 app.use((err, req, res, next) => {
   if (err) {
+    // session not found 不算错误，静默放行让静态文件继续（未登录用户访问 /mobile/ 也正常）
+    if (err.message === 'session not found') return next();
     console.error('[static error]', req.path, err.message);
     if (!res.headersSent) res.status(500).send('Internal Server Error');
   } else {
