@@ -43,6 +43,10 @@ const state = reactive({
   toastTimer: null,
   activeTab: 'dashboard',
   year: new Date().getFullYear(),
+  quarter: null,   // 'Q1'|'Q2'|'Q3'|'Q4'|null
+  month: null,     // 1-12 或 null
+  weekNum: null,   // 1-53 或 null
+  weekYear: null,  // 周所在的年份
   // 列表页（dashboard 等其他模块仍在用）
   activeListTab: 'applications',
   searchText: '',
@@ -153,6 +157,21 @@ function filterRecords(records, opts = {}) {
     list = list.filter(r => {
       const d = new Date(r.applyDate || r.mainSignDate || r.followDate || r.signDate || '');
       return d.getFullYear() === opts.year;
+    });
+  }
+  if (opts.quarter) {
+    const q = opts.quarter; // 'Q1'..'Q4'
+    const qNum = parseInt(q[1]);
+    list = list.filter(r => {
+      const d = new Date(r.applyDate || r.mainSignDate || '');
+      return Math.floor(d.getMonth() / 3) + 1 === qNum;
+    });
+  }
+  if (opts.month) {
+    const m = parseInt(opts.month);
+    list = list.filter(r => {
+      const d = new Date(r.applyDate || r.mainSignDate || '');
+      return d.getMonth() + 1 === m;
     });
   }
   if (opts.status) {
@@ -426,7 +445,7 @@ const app = createApp({
 
     const myVisibleApps = computed(() => getVisibleRecords('applications'));
     const myVisibleContracts = computed(() => getVisibleRecords('contracts'));
-    const filteredApps = computed(() => filterRecords(myVisibleApps.value, { year: state.year, status: state.filterStatus, search: state.searchText }));
+    const filteredApps = computed(() => filterRecords(myVisibleApps.value, { year: state.year, quarter: state.quarter, month: state.month, status: state.filterStatus, search: state.searchText }));
     const filteredContracts = computed(() => filterRecords(myVisibleContracts.value, { search: state.searchText }));
     const myFollows = computed(() => getVisibleRecords('followUps'));
     const myJudgments = computed(() => getVisibleRecords('judgments'));
@@ -616,26 +635,47 @@ const app = createApp({
     // 本人的商机（申请人 或 顾问）
     const boardApps = computed(() => {
       const year = state.year;
+      const myName = state.user?.displayName || state.user?.username || '';
+      const viewDepts = state.user?.viewDepts || [];
       return (state.fullState?.applications || []).filter(a => {
         if (a.deleted) return false;
         const d = a.applyDate || '';
-        return d.startsWith(String(year));
+        if (!d.startsWith(String(year))) return false;
+        // 权限过滤
+        if (state.user?.role === 'admin') return true;
+        if (viewDepts.length > 0) return (a.consultant === myName) || viewDepts.includes(a.department);
+        return a.consultant === myName;
       });
     });
 
+    // 看板顾问实际业绩（按allocations统计，与PC端一致）
     const boardWonAmount = computed(() => {
+      const myName = state.user?.displayName || state.user?.username || '';
       const wonOppNos = new Set(boardApps.value.filter(a => a.status === '签单').map(a => a.oppNo));
-      const total = (state.fullState?.contracts || [])
-        .filter(c => !c.deleted && wonOppNos.has(c.oppNo))
-        .reduce((s, c) => s + (parseFloat(c.subAmount) || 0), 0);
-      return total / 10000;
+      // 有业绩分配时用 allocations consultantPerformance
+      const fromAllocs = (state.fullState?.allocations || [])
+        .filter(a => !a.deleted && a.consultant === myName && wonOppNos.has(a.oppNo))
+        .reduce((s, a) => s + (parseFloat(a.consultantPerformance) || 0), 0);
+      if (fromAllocs > 0) return fromAllocs / 10000;
+      // 无分配时退回合同 presalePerformance（accountMgr=本人）
+      const fromContracts = (state.fullState?.contracts || [])
+        .filter(c => !c.deleted && wonOppNos.has(c.oppNo) && c.accountMgr === myName)
+        .reduce((s, c) => s + (parseFloat(c.presalePerformance) || 0), 0);
+      return fromContracts / 10000;
     });
     const boardTotalAmount = computed(() => {
+      const myName = state.user?.displayName || state.user?.username || '';
       const myOppNos = new Set(boardApps.value.map(a => a.oppNo));
-      const total = (state.fullState?.contracts || [])
-        .filter(c => !c.deleted && myOppNos.has(c.oppNo))
-        .reduce((s, c) => s + (parseFloat(c.subAmount) || 0), 0);
-      return total / 10000;
+      // 有业绩分配时用 allocations consultantPerformance
+      const fromAllocs = (state.fullState?.allocations || [])
+        .filter(a => !a.deleted && a.consultant === myName && myOppNos.has(a.oppNo))
+        .reduce((s, a) => s + (parseFloat(a.consultantPerformance) || 0), 0);
+      if (fromAllocs > 0) return fromAllocs / 10000;
+      // 无分配时退回合同 presalePerformance（accountMgr=本人）
+      const fromContracts = (state.fullState?.contracts || [])
+        .filter(c => !c.deleted && myOppNos.has(c.oppNo) && c.accountMgr === myName)
+        .reduce((s, c) => s + (parseFloat(c.presalePerformance) || 0), 0);
+      return fromContracts / 10000;
     });
     const boardAnnualTarget = computed(() => {
       const t = userTargets.annualTargets?.[state.year];
@@ -644,18 +684,47 @@ const app = createApp({
     const boardProgress = computed(() => {
       const t = boardAnnualTarget.value;
       if (!t) return -1;
-      return Math.round((boardTotalAmount.value / t) * 100);
+      return Math.min(Math.round((boardTotalAmount.value / t) * 100), 100);
     });
 
-    // 按产品线分组
+    // 赢单率 / 周期（与PC端完全一致的统计口径）
+    const boardWinRate = computed(() => {
+      const total = boardApps.value.length;
+      const won = boardApps.value.filter(a => a.status === '签单').length;
+      return total > 0 ? (won / total * 100).toFixed(1) : '0.0';
+    });
+    const boardCycleDays = computed(() => {
+      const signed = boardApps.value.filter(a => a.status === '签单' && a.signDate && a.applyDate);
+      if (signed.length === 0) return 0;
+      const total = signed.reduce((s, a) => {
+        const diff = (new Date(a.signDate) - new Date(a.applyDate)) / 86400000;
+        return s + Math.max(diff, 0);
+      }, 0);
+      return Math.round(total / signed.length);
+    });
+    const boardFastCycle = computed(() => {
+      return boardApps.value.filter(a => {
+        if (a.status !== '签单' || !a.signDate || !a.applyDate) return false;
+        const d = (new Date(a.signDate) - new Date(a.applyDate)) / 86400000;
+        return d <= 30;
+      }).length;
+    });
+    const boardSlowCycle = computed(() => {
+      return boardApps.value.filter(a => {
+        if (a.status !== '签单' || !a.signDate || !a.applyDate) return false;
+        const d = (new Date(a.signDate) - new Date(a.applyDate)) / 86400000;
+        return d > 90;
+      }).length;
+    });
+
+    // 按产品线分组（金额口径：presalePerformance，不受时间筛选影响）
     const boardByProduct = computed(() => {
-      const wonOppNos = new Set(boardApps.value.filter(a => a.status === '签单').map(a => a.oppNo));
-      const contracts = (state.fullState?.contracts || []).filter(c => !c.deleted && wonOppNos.has(c.oppNo) && (parseFloat(c.subAmount) || 0) >= 100000);
       const map = {};
-      contracts.forEach(c => {
+      (state.fullState?.contracts || []).forEach(c => {
+        if (c.deleted || (parseFloat(c.subAmount) || 0) < 100000) return;
         const p = c.product || '其他';
         if (!map[p]) map[p] = { product: p, won: 0 };
-        map[p].won += parseFloat(c.subAmount) || 0;
+        map[p].won += parseFloat(c.presalePerformance) || 0;
       });
       return Object.values(map).sort((a, b) => b.won - a.won);
     });
@@ -1131,6 +1200,7 @@ const app = createApp({
       queryPage, queryPageCount, queryPageRecords, queryFilteredApps,
       queryContracts, queryFollows, queryJudgments, querySalesQs, queryAllocs, querySelectedApp,
       boardApps, boardWonAmount, boardTotalAmount, boardAnnualTarget, boardProgress,
+      boardWinRate, boardCycleDays, boardFastCycle, boardSlowCycle,
       boardByProduct, boardByStage, boardRecentFollows, boardPendingQs, boardAppMap,
     };
   },
@@ -1274,14 +1344,67 @@ const app = createApp({
 
     <!-- ── Board（我的数据看板） ── -->
     <div v-if="state.activeTab === 'board'" class="dt-page board-page">
-      <!-- 年份选择 -->
+      <!-- 时间筛选：年 / 季 / 月 -->
       <div class="dt-year-bar">
         <button class="dt-year-btn" @click="changeYear(-1)">‹</button>
         <span class="dt-year-label">{{ state.year }}年</span>
         <button class="dt-year-btn" @click="changeYear(1)">›</button>
+        <select class="dt-input dt-select" style="height:28px;font-size:12px;padding:0 6px;border-radius:6px;margin-left:6px" v-model="state.quarter">
+          <option value="">全年</option>
+          <option value="Q1">Q1</option>
+          <option value="Q2">Q2</option>
+          <option value="Q3">Q3</option>
+          <option value="Q4">Q4</option>
+        </select>
+        <select class="dt-input dt-select" style="height:28px;font-size:12px;padding:0 6px;border-radius:6px;margin-left:4px" v-model="state.month">
+          <option value="">全月</option>
+          <option v-for="m in 12" :key="m" :value="String(m)">{{ m }}月</option>
+        </select>
       </div>
 
       <!-- 核心指标 -->
+      <div class="board-stats-grid">
+        <div class="board-stat-card board-stat-primary">
+          <div class="board-stat-num" v-text="boardApps.length"></div>
+          <div class="board-stat-lbl">商机总数</div>
+        </div>
+        <div class="board-stat-card board-stat-success">
+          <div class="board-stat-num" v-text="boardApps.filter(a=>a.status==='签单').length"></div>
+          <div class="board-stat-lbl">签单数</div>
+        </div>
+        <div class="board-stat-card board-stat-warning">
+          <div class="board-stat-num" v-text="boardApps.filter(a=>a.status==='活跃'||a.status==='预计').length"></div>
+          <div class="board-stat-lbl">跟进中</div>
+        </div>
+        <div class="board-stat-card board-stat-danger">
+          <div class="board-stat-num" v-text="boardApps.filter(a=>a.status==='丢失').length"></div>
+          <div class="board-stat-lbl">丢失</div>
+        </div>
+      </div>
+
+      <!-- 赢单率 / 周期 -->
+      <div class="board-money-card" style="padding:10px 14px">
+        <div style="display:flex;gap:16px;justify-content:space-around;text-align:center">
+          <div>
+            <div style="font-size:22px;font-weight:700;color:var(--sf-success-text)" v-text="boardWinRate + '%'"></div>
+            <div style="font-size:11px;color:#999">赢单率</div>
+          </div>
+          <div>
+            <div style="font-size:22px;font-weight:700;color:var(--sf-text)" v-text="boardCycleDays + '天'"></div>
+            <div style="font-size:11px;color:#999">平均周期</div>
+          </div>
+          <div>
+            <div style="font-size:22px;font-weight:700;color:var(--sf-success-text)" v-text="boardFastCycle"></div>
+            <div style="font-size:11px;color:#999">快速≤30天</div>
+          </div>
+          <div>
+            <div style="font-size:22px;font-weight:700;color:var(--sf-text-danger)" v-text="boardSlowCycle"></div>
+            <div style="font-size:11px;color:#999">缓慢>90天</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 金额汇总 -->
       <div class="board-stats-grid">
         <div class="board-stat-card board-stat-primary">
           <div class="board-stat-num" v-text="boardApps.length"></div>

@@ -1259,7 +1259,30 @@ function fmtMoney2(v) { var n = parseFloat(v); return isNaN(n) ? '0.00' : n.toLo
 function fmtMoneyInputFocus(el) { var raw = (el.value || '').replace(/[,，\s]/g, ''); var n = parseFloat(raw); el.value = isNaN(n) ? '' : String(n); }
 function fmtMoneyInputBlur(el) { var raw = (el.value || '').replace(/[,，\s]/g, ''); var n = parseFloat(raw); if (isNaN(n)) n = 0; el.value = fmtMoney2(n); }
 function fmtDate(d) { return d || '—'; }
-function amtOf(a) { return a.status === '签单' ? (parseFloat(a.signAmount) || 0) / 10000 : a.status === '预计' ? (parseFloat(a.expectedSignAmount) || 0) : 0; }
+function amtOf(a) {
+  // 签单金额口径：优先 allocations consultantPerformance（顾问实际分配业绩），无则退回 presalePerformance（accountMgr=本人）
+  if (a.status === '签单') {
+    var perf = getConsultantPerfOf(a.oppNo);
+    return perf;
+  }
+  return a.status === '预计' ? (parseFloat(a.expectedSignAmount) || 0) : 0;
+}
+// oppNo 对应的顾问实际分配业绩（单位：万元）
+function getConsultantPerfOf(oppNo) {
+  if (!oppNo) return 0;
+  var myName = (_currentUser && (_currentUser.displayName || _currentUser.username)) || state.consultant || '';
+  var matched = (state.allocations || []).filter(function(al) {
+    return al.oppNo === oppNo && !al.deleted && al.consultant === myName;
+  });
+  if (matched.length > 0) {
+    return matched.reduce(function(s, al) { return s + (parseFloat(al.consultantPerformance) || 0); }, 0) / 10000;
+  }
+  // 无 allocations 时退回合同 presalePerformance（accountMgr = 本人）
+  var contracts = (state.contracts || []).filter(function(c) {
+    return c.oppNo === oppNo && !c.deleted && c.accountMgr === myName && (parseFloat(c.subAmount) || 0) >= 100000;
+  });
+  return contracts.reduce(function(s, c) { return s + (parseFloat(c.presalePerformance) || 0); }, 0) / 10000;
+}
 function today() { return new Date().toISOString().slice(0, 10); }
 
 function getISOWeekInfo(d) {
