@@ -282,7 +282,7 @@ const APP_FIELDS = [
   { key:'department', label:'申请部门', type:'text', required:true },
   { key:'customer', label:'客户名称', type:'text', required:true },
   { key:'oppNo', label:'商机号', type:'text', required:true },
-  { key:'collaborators', label:'协作人', type:'text', required:false },
+  { key:'_collaborators', label:'协作人', type:'collab', required:false },
   { key:'projectName', label:'项目名称', type:'text', required:false },
   { key:'product', label:'预购产品', type:'select', options:PRODUCTS, required:true },
   { key:'buyMode', label:'购买模式', type:'select', options:BUY_MODES, required:true },
@@ -548,6 +548,14 @@ const app = createApp({
           .filter(c => !kw || (c.signCustomer||'').toLowerCase().includes(kw) ||
             (c.oppNo||'').toLowerCase().includes(kw))
           .slice(0, 30);
+      }
+      if (pickerStep.value === 'collab') {
+        var curUser = state.user?.displayName || state.user?.username || '';
+        var selected = formData.collaborators || [];
+        return (state.employees || []).filter(function(e) {
+          if (!e.name || e.name === curUser) return false;
+          return !selected.includes(e.name);
+        });
       }
       if (pickerStep.value === 'emp') {
         // 员工选择（用于合同选择客户经理）
@@ -974,6 +982,11 @@ const app = createApp({
           contractId: record.id, oppNo: record.oppNo,
           month: today.slice(0, 7), consultant: state.user?.displayName || state.user?.username || ''
         });
+      } else if (name === 'collab') {
+        // 协作人多选：追加到数组（不重复）
+        var arr = formData.collaborators || [];
+        if (!arr.includes(record.name)) arr = arr.concat([record.name]);
+        formData.collaborators = arr;
       } else if (name === 'emp') {
         // 选择客户经理（组织架构）
         Object.assign(formData, {
@@ -1858,7 +1871,7 @@ const app = createApp({
                pickerStep === 'judgment' ? '选择关联的售前申请' :
                pickerStep === 'salesQ' ? '选择关联的售前申请' :
                pickerStep === 'allocation' ? '选择关联的合同（分配将记录在该合同下）' :
-               pickerStep === 'emp' ? '选择客户经理' : '选择关联记录' }}
+               pickerStep === 'emp' ? '选择客户经理' : pickerStep === 'collab' ? '选择协作人' : '选择关联记录' }}
           </div>
           <div class="search-bar">
             <span class="search-icon">🔍</span>
@@ -1866,12 +1879,13 @@ const app = createApp({
           </div>
           <div class="picker-list">
             <div v-if="pickerList.length === 0" class="dt-empty-cell">无匹配记录</div>
-            <div v-for="item in pickerList" :key="item.id" class="picker-item" @click="doPickerSelect(item)">
+            <div v-for="item in pickerList" :key="item.id" class="picker-item" @click="pickerStep === 'collab' ? (function() { var arr = formData.collaborators || []; if (!arr.includes(item.name)) { arr = arr.concat([item.name]); } else { arr = arr.filter(function(n) { return n !== item.name; }); } formData.collaborators = arr; })() : doPickerSelect(item)">
               <div style="flex:1;min-width:0">
-                <div class="dt-list-title" v-if="pickerStep === 'emp'" v-text="item.name"></div>
+                <div class="dt-list-title" v-if="pickerStep === 'emp' || pickerStep === 'collab'" v-text="item.name"></div>
                 <div class="dt-list-title" v-else-if="item.customer || item.projectName" v-text="(item.customer||'') + (item.projectName ? ' / '+item.projectName : '')"></div>
                 <div class="dt-list-title" v-else v-text="item.signCustomerName || item.signCustomer || item.oppNo"></div>
                 <div class="dt-list-sub" v-if="pickerStep === 'emp'" v-text="(item.empNo||'') + (item.deptName ? ' | '+item.deptName : '')"></div>
+                <div class="dt-list-sub" v-if="pickerStep === 'collab'" v-text="(item.empNo||'') + (item.deptName ? ' | '+item.deptName : '')"></div>
                 <div class="dt-list-sub" v-else v-text="item.oppNo + ' | ' + (item.applyDate || item.mainSignDate || '')"></div>
                 <div v-if="pickerStep === 'allocation'" class="picker-alloc-hint"
                   :style="{ color: (contractAllocStats.get(item.id)?.remainPct || 100) > 0 ? '#4caf50' : '#f44336' }">
@@ -1881,7 +1895,11 @@ const app = createApp({
               <div class="dt-list-arrow">›</div>
             </div>
           </div>
-          <button v-if="pickerStep !== 'allocation'" class="dt-btn dt-btn-default dt-btn-block" style="margin-top:12px" @click="pickerStep = null">取消并直接新建</button>
+          <div v-if="pickerStep === 'collab' && (formData.collaborators||[]).length" style="padding:8px 12px;background:rgba(76,175,80,0.1);border-radius:8px;margin-bottom:8px;font-size:13px;color:#4caf50">
+            已选：<span v-text="(formData.collaborators||[]).join('、')"></span>
+          </div>
+          <button class="dt-btn dt-btn-primary dt-btn-block" style="margin-top:8px" @click="pickerStep = null">确定</button>
+          <button v-if="pickerStep !== 'allocation'" class="dt-btn dt-btn-default dt-btn-block" style="margin-top:8px" @click="pickerStep = null">取消</button>
           <div v-if="pickerStep === 'allocation'" style="font-size:12px;color:#888;text-align:center;padding:8px 0">必须选择关联合同后才能分配</div>
         </template>
 
@@ -1918,6 +1936,10 @@ const app = createApp({
                 <div class="detail-cell">
                   <div class="detail-lbl">申请人</div>
                   <div class="detail-val" v-text="formData.applicant || '—'"></div>
+                </div>
+                <div class="detail-cell">
+                  <div class="detail-lbl">售前顾问</div>
+                  <div class="detail-val" v-text="formData.consultant || '—'"></div>
                 </div>
                 <div class="detail-cell">
                   <div class="detail-lbl">协作人</div>
@@ -2299,6 +2321,10 @@ const app = createApp({
                 <option v-for="opt in field.options" :key="opt" :value="opt" v-text="opt"></option>
               </select>
               <textarea v-else-if="field.type === 'textarea'" class="dt-input dt-textarea" v-model="formData[field.key]" :disabled="state.modal.mode === 'view'" :rows="field.key === 'coreRequirement' ? 4 : 3"></textarea>
+              <div v-else-if="field.type === 'collab'" class="dt-input dt-input-chooser" :class="{ 'chooser-active': (formData.collaborators||[]).length }" @click="pickerStep = 'collab'; pickerSearch = ''">
+                <span v-if="(formData.collaborators||[]).length" v-text="formData.collaborators.join('、')"></span>
+                <span v-else style="color:#999">点击选择协作人</span>
+              </div>
               <input v-else :type="field.type === 'number' ? 'number' : 'text'" class="dt-input" v-model="formData[field.key]" :disabled="state.modal.mode === 'view'" />
             </div>
             <div v-if="formData._oppNoError" style="color:#ff4d4f;font-size:12px;margin-top:4px;padding:6px 10px;background:rgba(255,77,79,0.1);border-radius:4px;word-break:break-all;white-space:normal;line-height:1.5;" v-text="formData._oppNoError"></div>
