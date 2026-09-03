@@ -2977,7 +2977,7 @@ function renderCards() {
     '<div class="overview-top" onclick="showDetail(\'overview\',\'all\')">' +
     '<span class="ov-num">' + topCount + '<b>个</b></span>' +
     '<span class="ov-split"></span>' +
-    '<span class="ov-amt">金额：' + fmtMoney2(topAmount) + '万</span>' +
+    '<span class="ov-amt">金额：' + fmtMoney2(topAmount) + '</span>' +
     '</div>';
 
   // fmtAmt 直接显示万元值（已除万）
@@ -5338,7 +5338,7 @@ function finishInit() {
     var ovCount = document.getElementById('ovCount');
     var ovAmount = document.getElementById('ovAmount');
     if (ovCount) ovCount.textContent = total;
-    if (ovAmount) ovAmount.textContent = '金额：' + amt.toLocaleString('zh-CN', {minimumFractionDigits:0, maximumFractionDigits:2}) + '万';
+    if (ovAmount) ovAmount.textContent = '金额：' + amt.toLocaleString('zh-CN', {minimumFractionDigits:0, maximumFractionDigits:2});
   }
   renderOverviewNums();
 
