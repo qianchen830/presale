@@ -2301,7 +2301,7 @@ const app = createApp({
               <textarea v-else-if="field.type === 'textarea'" class="dt-input dt-textarea" v-model="formData[field.key]" :disabled="state.modal.mode === 'view'" :rows="field.key === 'coreRequirement' ? 4 : 3"></textarea>
               <input v-else :type="field.type === 'number' ? 'number' : 'text'" class="dt-input" v-model="formData[field.key]" :disabled="state.modal.mode === 'view'" />
             </div>
-            <div v-if="formData._oppNoError" style="color:#ff4d4f;font-size:12px;margin-top:4px;padding:6px 10px;background:rgba(255,77,79,0.1);border-radius:4px;" v-text="formData._oppNoError"></div>
+            <div v-if="formData._oppNoError" style="color:#ff4d4f;font-size:12px;margin-top:4px;padding:6px 10px;background:rgba(255,77,79,0.1);border-radius:4px;word-break:break-all;white-space:normal;line-height:1.5;" v-text="formData._oppNoError"></div>
           </div>
         </template>
 
