@@ -324,6 +324,10 @@ input[type=number]{-moz-appearance:textfield;}
 .ss-opt{padding:8px 12px;font-size:var(--text-xs);color:var(--sf-text);cursor:pointer;border-radius:var(--sf-radius);transition:background .08s;display:flex;align-items:center;gap:8px;}
 .ss-opt:hover{background:var(--sf-blue-light);color:var(--sf-blue);}
 .ss-opt.cur{background:var(--sf-blue-light);color:var(--sf-blue);font-weight:var(--weight-semibold);}
+.collab-tag{display:inline-flex;align-items:center;gap:3px;padding:1px 6px;background:var(--sf-blue-light);color:var(--sf-blue);border-radius:10px;font-size:10px;white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis;}
+.collab-tag-rm{background:none;border:none;padding:0;cursor:pointer;color:var(--sf-blue);font-size:12px;line-height:1;flex-shrink:0;}
+.collab-tag-rm:hover{color:var(--sf-red);}
+#collaboratorsTags:empty::after{content:'点击选择协作人';color:var(--sf-text-muted);font-size:var(--text-xs);}
 .ss-opt .ss-opt-no{color:var(--sf-text-muted);font-size:10px;}
 .ss-empty{padding:12px;text-align:center;color:var(--sf-text-muted);font-size:var(--text-xs);}
 .fi[readonly]{background:var(--sf-bg-soft);color:var(--sf-text-secondary);cursor:not-allowed;}
@@ -782,7 +786,18 @@ input[type=number]{-moz-appearance:textfield;}
         <div class="fr3">
           <div class="fg"><label>客户名称<span class="req">*</span></label><input class="fi" name="customer" required=""></div>
           <div class="fg"><label>商机号<span class="req">*</span></label><input class="fi" name="oppNo" required=""></div>
-          <div class="fg"><label>协作人</label><input class="fi" name="collaborators" placeholder="多顾问用顿号分隔"></div>
+          <div class="fg"><label>协作人</label>
+            <div class="ss-wrap" id="collaboratorsSS" data-ss-init="1">
+              <input type="hidden" name="collaborators" id="collaboratorsHidden" value="">
+              <div class="ss-trigger" id="collaboratorsTrigger" onclick="toggleCollaboratorsSS(event)">
+                <div id="collaboratorsTags" style="flex:1;display:flex;flex-wrap:wrap;gap:4px;min-width:0;"></div>
+                <span class="ss-arr"></span>
+              </div>
+              <div class="ss-panel" id="collaboratorsPanel" style="position:fixed;width:274px;">
+                <input type="text" class="ss-search" id="collaboratorsSearch" placeholder="搜索姓名/工号" oninput="filterCollaborators(this.value)" onclick="event.stopPropagation()">
+                <div class="ss-list" id="collaboratorsList"></div>
+              </div>
+            </div></div>
         </div>
         <div class="fr3">
           <div class="fg"><label>项目名称<span class="req">*</span></label><input class="fi" name="projectName" required=""></div>
@@ -3838,10 +3853,12 @@ function setFormData(formId, data) {
     }
   });
   syncAllCS();
+  syncCollaboratorsDisplay();
 }
 
 function resetForm(formId) {
   document.getElementById(formId).reset();
+  setCollaboratorsArr([]);
   syncAllCS();
 }
 
@@ -4020,14 +4037,128 @@ function _repositionApplicantSS() {
     panel.style.bottom = (window.innerHeight - r.top + 4) + 'px';
   }
 }
+
+// ---- 协作人多选选择器 ----
+function getCollaboratorsArr() {
+  var hidden = document.getElementById('collaboratorsHidden');
+  if (!hidden) return [];
+  try { return JSON.parse(hidden.value || '[]'); } catch(e) { return []; }
+}
+function setCollaboratorsArr(arr) {
+  var hidden = document.getElementById('collaboratorsHidden');
+  if (hidden) hidden.value = JSON.stringify(arr || []);
+  syncCollaboratorsDisplay();
+}
+function syncCollaboratorsDisplay() {
+  var tags = document.getElementById('collaboratorsTags');
+  var arr = getCollaboratorsArr();
+  if (!tags) return;
+  if (arr.length === 0) {
+    tags.innerHTML = '';
+    return;
+  }
+  tags.innerHTML = arr.map(function(name) {
+    return '<span class="collab-tag">' + escHtml(name) + '<button class="collab-tag-rm" onclick="event.stopPropagation();removeCollaborator(\'' + escHtml(name).replace(/'/g, "\\'") + '\')">×</button></span>';
+  }).join('');
+}
+function buildCollaboratorsListHTML(keyword) {
+  var current = getCollaboratorsArr();
+  var curSet = {};
+  current.forEach(function(n) { curSet[n] = true; });
+  var consultant = (document.getElementById('applicantHidden') || {}).value || '';
+  var filtered = (state.employees || []).filter(function(e) {
+    if (!e.name || e.name === consultant) return false;
+    if (!keyword) return true;
+    var kw = keyword.toLowerCase();
+    return (e.name||'').toLowerCase().includes(kw) || (e.empNo||'').toLowerCase().includes(kw);
+  });
+  if (filtered.length === 0) return '<div style="padding:8px 12px;color:var(--sf-text-muted);font-size:var(--text-xs)">无匹配</div>';
+  return filtered.map(function(e) {
+    var checked = curSet[e.name || ''];
+    var label = escHtml(e.name || '');
+    return '<div class="ss-opt' + (checked ? ' cur' : '') + '" onclick="toggleCollaborator(\'' + (e.name||'').replace(/'/g, "\\'") + '\')">' +
+      '<span style="color:' + (checked ? 'var(--sf-blue)' : 'var(--sf-text)') + '">' + label + '</span>' +
+      (e.empNo ? '<span class="ss-opt-no">' + escHtml(e.empNo) + '</span>' : '') +
+      '</div>';
+  }).join('');
+}
+function toggleCollaboratorsSS(e) {
+  if (e) e.stopPropagation();
+  var wrap = document.getElementById('collaboratorsSS');
+  if (!wrap) return;
+  var willOpen = !wrap.classList.contains('open');
+  closeAllCS(null);
+  closeCollaboratorsSS();
+  if (willOpen) {
+    wrap.classList.add('open');
+    var search = document.getElementById('collaboratorsSearch');
+    var list = document.getElementById('collaboratorsList');
+    if (search) { search.value = ''; }
+    if (list) { list.innerHTML = buildCollaboratorsListHTML(''); }
+    if (search) { setTimeout(function() { search.focus(); }, 50); }
+    repositionCollaboratorsSS();
+  }
+}
+function closeCollaboratorsSS() {
+  var wrap = document.getElementById('collaboratorsSS');
+  if (!wrap) return;
+  wrap.classList.remove('open');
+}
+function filterCollaborators(keyword) {
+  var list = document.getElementById('collaboratorsList');
+  if (list) list.innerHTML = buildCollaboratorsListHTML(keyword);
+}
+function toggleCollaborator(name) {
+  var arr = getCollaboratorsArr();
+  var idx = arr.indexOf(name);
+  if (idx >= 0) { arr.splice(idx, 1); }
+  else { arr.push(name); }
+  setCollaboratorsArr(arr);
+  var search = document.getElementById('collaboratorsSearch');
+  filterCollaborators(search ? search.value : '');
+}
+function removeCollaborator(name) {
+  var arr = getCollaboratorsArr();
+  var idx = arr.indexOf(name);
+  if (idx >= 0) { arr.splice(idx, 1); }
+  setCollaboratorsArr(arr);
+  var search = document.getElementById('collaboratorsSearch');
+  filterCollaborators(search ? search.value : '');
+}
+function repositionCollaboratorsSS() {
+  var wrap = document.getElementById('collaboratorsSS');
+  if (!wrap || !wrap.classList.contains('open')) return;
+  var trigger = wrap.querySelector('.ss-trigger');
+  var panel = document.getElementById('collaboratorsPanel');
+  if (!trigger || !panel) return;
+  var r = trigger.getBoundingClientRect();
+  var spaceBelow = window.innerHeight - r.bottom;
+  var spaceAbove = r.top;
+  panel.style.position = 'fixed';
+  panel.style.width = r.width + 'px';
+  panel.style.left = r.left + 'px';
+  panel.style.right = 'auto';
+  panel.style.top = 'auto';
+  panel.style.bottom = 'auto';
+  if (spaceBelow >= 260 || spaceBelow >= spaceAbove) {
+    panel.style.top = (r.bottom + 4) + 'px';
+  } else {
+    panel.style.bottom = (window.innerHeight - r.top + 4) + 'px';
+  }
+}
+// Global click handler: add collaboratorsSS close
 // 全局点击关闭 + 滚动/resize 同步定位
 document.addEventListener('click', function(e) {
   if (!e.target.closest('#applicantSS')) closeApplicantSS();
+  if (!e.target.closest('#collaboratorsSS')) closeCollaboratorsSS();
   if (!e.target.closest('#mgrSS')) closeMgrSS();
 });
 window.addEventListener('resize', function() {
   if (document.getElementById('applicantSS') && document.getElementById('applicantSS').classList.contains('open')) {
     _repositionApplicantSS();
+  }
+  if (document.getElementById('collaboratorsSS') && document.getElementById('collaboratorsSS').classList.contains('open')) {
+    repositionCollaboratorsSS();
   }
   if (document.getElementById('mgrSS') && document.getElementById('mgrSS').classList.contains('open')) {
     _repositionMgrSS();
@@ -4219,15 +4350,17 @@ function saveApp() {
     if (!data.consultant) data.consultant = state.consultant || '';
     state.applications.push(data);
   }
-  // 协作人字段：字符串转数组（PC端表单提交时是普通文本框）
-  if (data.collaborators != null) {
-    const txt = String(data.collaborators).trim();
-    if (txt) {
-      const rec = state.applications.find(r => r.id === (editingId || data.id));
-      if (rec) rec.collaborators = txt.split(/[、,，]/).map(s => s.trim()).filter(Boolean);
-    } else {
-      const rec = state.applications.find(r => r.id === (editingId || data.id));
-      if (rec) rec.collaborators = [];
+  // 协作人字段：统一转为数组（支持新UI的JSON数组和旧数据字符串两种格式）
+  {
+    const rec = state.applications.find(r => r.id === (editingId || data.id));
+    if (rec) {
+      if (typeof rec.collaborators === 'string') {
+        rec.collaborators = rec.collaborators.trim()
+          ? rec.collaborators.split(/[、,，]/).map(s => s.trim()).filter(Boolean)
+          : [];
+      } else if (!Array.isArray(rec.collaborators)) {
+        rec.collaborators = [];
+      }
     }
   }
   autoSave();
