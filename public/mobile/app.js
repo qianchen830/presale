@@ -552,10 +552,12 @@ const app = createApp({
       if (pickerStep.value === 'collab') {
         var curUser = state.user?.displayName || state.user?.username || '';
         var selected = formData.collaborators || [];
-        return (state.employees || []).filter(function(e) {
+        return (state.fullState?.employees || []).filter(function(e) {
           if (!e.name || e.name === curUser) return false;
           return !selected.includes(e.name);
-        });
+        }).filter(function(e) {
+          return !kw || (e.name||'').toLowerCase().includes(kw) || (e.empNo||'').toLowerCase().includes(kw);
+        }).slice(0, 50);
       }
       if (pickerStep.value === 'emp') {
         // 员工选择（用于合同选择客户经理）
@@ -2327,7 +2329,7 @@ const app = createApp({
               </div>
               <input v-else :type="field.type === 'number' ? 'number' : 'text'" class="dt-input" v-model="formData[field.key]" :disabled="state.modal.mode === 'view'" />
             </div>
-            <div v-if="formData._oppNoError" style="color:#ff4d4f;font-size:12px;margin-top:4px;padding:6px 10px;background:rgba(255,77,79,0.1);border-radius:4px;word-break:break-all;white-space:normal;line-height:1.5;" v-text="formData._oppNoError"></div>
+            <div v-if="formData._oppNoError" style="color:#ff4d4f;font-size:12px;margin-top:4px;padding:6px 10px;background:rgba(255,77,79,0.1);border-radius:4px;word-break:break-all;overflow-wrap:break-word;white-space:normal;line-height:1.5;display:block;width:100%;box-sizing:border-box;" v-text="formData._oppNoError"></div>
           </div>
         </template>
 
