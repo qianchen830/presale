@@ -590,6 +590,18 @@ const app = createApp({
       return options;
     });
 
+    // ── 商机号实时查重（应用在填写时即时提示） ──
+    watch(() => formData.oppNo, function(newOpp) {
+      if (!newOpp || state.modal?.name !== 'app' || state.modal?.mode === 'view') return;
+      const myApps = (state.fullState?.applications || []).filter(function(a) { return !a.deleted && String(a.id) !== String(formData.id); });
+      const dup = myApps.find(function(a) { return a.oppNo === newOpp; });
+      if (dup) {
+        formData._oppNoError = '商机号 【' + newOpp + '】 已存在，属于顾问 【' + (dup.consultant || '未知') + '】';
+      } else {
+        formData._oppNoError = null;
+      }
+    });
+
     // ── 业绩分配 pct 变化时自动计算 consultantPerformance ──
     watch([() => formData.pct, () => formData.oppNo], () => {
       const pct = parseFloat(formData.pct) || 0;
@@ -917,6 +929,22 @@ const app = createApp({
       } else {
         // 查看/编辑模式
         Object.assign(formData, { ...data });
+        // 协作人字段标准化：如果是JSON字符串或畸形数组，修复为干净数组
+        if (formData.collaborators != null) {
+          if (typeof formData.collaborators === 'string') {
+            try { formData.collaborators = JSON.parse(formData.collaborators); } catch(_) {}
+          }
+          if (Array.isArray(formData.collaborators)) {
+            formData.collaborators = formData.collaborators.map(function(v) {
+              if (typeof v === 'string') {
+                try { return JSON.parse(v); } catch(_) { return v; }
+              }
+              return v;
+            }).flat().filter(function(v) { return typeof v === 'string' && v.trim(); });
+          } else {
+            formData.collaborators = '';
+          }
+        }
       }
     }
 
@@ -1041,14 +1069,33 @@ const app = createApp({
         } else {
           // 通用模块
           const module = getModuleName(name === 'salesQ' ? 'salesQuestions' : name === 'judgment' ? 'judgments' : name === 'follow' ? 'followUps' : name === 'allocation' ? 'allocations' : name === 'app' ? 'applications' : name === 'contract' ? 'contracts' : name);
+          // 商机号重复校验（填写弹窗内的实时检查，保存时再次确认）
+          if (name === 'app' && formData.oppNo) {
+            const myApps = (state.fullState?.applications || []).filter(function(a) { return !a.deleted && String(a.id) !== String(formData.id); });
+            const dup = myApps.find(function(a) { return a.oppNo === formData.oppNo; });
+            if (dup) {
+              showToast('商机号 【' + formData.oppNo + '】 已存在，属于顾问 【' + (dup.consultant || '未知') + '】');
+              return;
+            }
+          }
           // 协作人字段：文本转数组（逗号/顿号分隔）
           const recordToSave = { ...formData };
           if (module === 'applications' && recordToSave.collaborators != null) {
-            const txt = String(recordToSave.collaborators).trim();
-            if (txt) {
-              recordToSave.collaborators = txt.split(/[、,，]/).map(s => stripQuotes(s)).filter(Boolean);
+            if (Array.isArray(recordToSave.collaborators)) {
+              // 已经是数组（正常情况），确保干净
+              recordToSave.collaborators = recordToSave.collaborators.map(function(v) {
+                if (typeof v === 'string') {
+                  try { return JSON.parse(v); } catch(_) { return v; }
+                }
+                return v;
+              }).flat().filter(function(v) { return typeof v === 'string' && v.trim(); });
             } else {
-              recordToSave.collaborators = [];
+              const txt = String(recordToSave.collaborators).trim();
+              if (txt) {
+                recordToSave.collaborators = txt.split(/[、,，]/).map(s => stripQuotes(s)).filter(Boolean);
+              } else {
+                recordToSave.collaborators = [];
+              }
             }
           }
           if (mode === 'create') {
@@ -2254,6 +2301,7 @@ const app = createApp({
               <textarea v-else-if="field.type === 'textarea'" class="dt-input dt-textarea" v-model="formData[field.key]" :disabled="state.modal.mode === 'view'" :rows="field.key === 'coreRequirement' ? 4 : 3"></textarea>
               <input v-else :type="field.type === 'number' ? 'number' : 'text'" class="dt-input" v-model="formData[field.key]" :disabled="state.modal.mode === 'view'" />
             </div>
+            <div v-if="formData._oppNoError" style="color:#ff4d4f;font-size:12px;margin-top:4px;padding:6px 10px;background:rgba(255,77,79,0.1);border-radius:4px;" v-text="formData._oppNoError"></div>
           </div>
         </template>
 

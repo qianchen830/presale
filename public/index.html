@@ -785,7 +785,7 @@ input[type=number]{-moz-appearance:textfield;}
         </div>
         <div class="fr3">
           <div class="fg"><label>客户名称<span class="req">*</span></label><input class="fi" name="customer" required=""></div>
-          <div class="fg"><label>商机号<span class="req">*</span></label><input class="fi" name="oppNo" required=""></div>
+          <div class="fg"><label>商机号<span class="req">*</span></label><input class="fi" name="oppNo" required="" oninput="checkOppNoDup(this.value)"><div class="oppno-error" id="oppNoDupError" style="display:none;color:#ff4d4f;font-size:11px;margin-top:2px;"></div></div>
           <div class="fg"><label>协作人</label>
             <div class="ss-wrap" id="collaboratorsSS" data-ss-init="1">
               <input type="hidden" name="collaborators" id="collaboratorsHidden" value="">
@@ -4305,6 +4305,20 @@ function _repositionMgrSS() {
   }
 }
 
+function checkOppNoDup(val) {
+  var errEl = document.getElementById('oppNoDupError');
+  if (!errEl) return;
+  if (!val || !val.trim()) { errEl.style.display = 'none'; errEl.textContent = ''; return; }
+  var dup = state.applications.find(function(a) { return String(a.id) !== String(editingId) && !a.deleted && a.oppNo === val; });
+  if (dup) {
+    errEl.textContent = '商机号 【' + val + '】 已存在，属于顾问 【' + (dup.consultant || '未知') + '】';
+    errEl.style.display = 'block';
+  } else {
+    errEl.style.display = 'none';
+    errEl.textContent = '';
+  }
+}
+
 function saveApp() {
   const form = document.getElementById('appForm');
   // 自定义下拉/只读字段做显式校验（原生 reportValidity 对 hidden/readonly 常不显示提示，用户会以为"保存无反应"）
@@ -4337,10 +4351,14 @@ function saveApp() {
     return;
   }
   const data = getFormData('appForm');
-  // 商机号重复校验：新建时若同oppNo已存在，提醒并允许继续保存
-  if (!editingId && data.oppNo) {
-    var exists = state.applications.some(function(a) { return a.oppNo === data.oppNo; });
-    if (exists && !confirm('商机号「' + data.oppNo + '」已存在，是否继续保存？（同一商机可录入多条记录）')) return;
+  // 商机号重复校验（填写弹窗内的实时检查，保存时再次确认）
+  if (data.oppNo) {
+    var exists = state.applications.filter(function(a) { return String(a.id) !== String(editingId) && !a.deleted; });
+    var dup = exists.find(function(a) { return a.oppNo === data.oppNo; });
+    if (dup) {
+      alert('商机号 【' + data.oppNo + '】 已存在，属于顾问 【' + (dup.consultant || '未知') + '】');
+      return;
+    }
   }
   // 签单状态门禁：仅原状态已是"签单"（合同驱动）才允许保持为签单；其余情况禁止写为签单
   const origStatus = editingId ? (state.applications.find(function(r) { return r.id === editingId; }) || {}).status : null;
