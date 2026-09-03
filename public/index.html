@@ -563,6 +563,7 @@ input[type=number]{-moz-appearance:textfield;}
   <div class="t-card" style="margin-bottom:16px">
     <div class="t-card-hdr">
       <div class="t-card-title"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="file-text" aria-hidden="true" class="lucide lucide-file-text"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"></path><path d="M14 2v5a1 1 0 0 0 1 1h5"></path><path d="M10 9H8"></path><path d="M16 13H8"></path><path d="M16 17H8"></path></svg> 售前申请列表</div>
+      <input type="text" class="fi" id="appSearch" placeholder="按单号/销售员/售前顾问/项目名称模糊搜索" oninput="filterAppList(this.value)" style="width:280px;height:28px;font-size:var(--text-xs);margin:0 12px;flex:1">
       <div class="t-card-acts">
         <button class="btn btn-p" onclick="openAppModal()"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="plus" aria-hidden="true" class="lucide lucide-plus"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg> 新增</button>
       </div>
@@ -1595,6 +1596,18 @@ function inRange(dateStr, range) {
 function getFilteredApps() {
   const range = getPeriodRange(getPeriodKey());
   var apps = state.applications.filter(a => inRange(a.applyDate, range));
+  // 搜索过滤：售前申请单号、销售员（申请人）、售前顾问、项目名称模糊匹配
+  if (_appSearchText) {
+    var kw = _appSearchText.toLowerCase();
+    apps = apps.filter(a =>
+      (a.oppNo || '').toLowerCase().includes(kw) ||
+      (a.applicant || '').toLowerCase().includes(kw) ||
+      (a.consultant || '').toLowerCase().includes(kw) ||
+      (a.projectName || '').toLowerCase().includes(kw) ||
+      (a.customer || '').toLowerCase().includes(kw) ||
+      (a.department || '').toLowerCase().includes(kw)
+    );
+  }
   // 权限过滤：非管理员可见 = (本人是顾问的申请) OR (申请部门在可查看部门范围内)
   // view_depts 权限的语义：能够看到这些部门的顾问所负责的所有项目
   // 过滤时同时按【申请记录department】和【顾问归属部门】两种口径，以申请记录department为主
@@ -3118,6 +3131,12 @@ async function saveUserTargets() {
   } catch(e) { console.warn('saveUserTargets failed:', e); }
 }
 /* ----- APPLICATION TABLE ----- */
+function filterAppList(keyword) {
+  _appSearchText = keyword.trim();
+  pageState.applications.page = 1;
+  renderAppTable();
+  renderSubTables();
+}
 function renderAppTable() {
   const filtered = getFilteredApps().slice().sort((a, b) => new Date(a.applyDate) - new Date(b.applyDate));
   const ps = pageState.applications;
@@ -5540,6 +5559,7 @@ window.addEventListener('scroll', function() {
 
 // ===== 登录鉴权 =====
 var _currentUser = null;
+var _appSearchText = '';
 
 (async function checkAuth() {
   try {
@@ -5555,9 +5575,9 @@ var _currentUser = null;
     // 所有用户右上角显示用户管理按钮
     var btn = document.getElementById('adminUserBtn');
     if (btn) btn.style.display = '';
-    // admin 角色额外显示看板入口
+    // 仅 admin 角色显示看板入口
     var dashBtn = document.getElementById('dashboardBtn');
-    if (dashBtn) dashBtn.style.display = '';
+    if (dashBtn) dashBtn.style.display = (d.role === 'admin') ? '' : 'none';
 
     // 恢复数据
     await loadState();

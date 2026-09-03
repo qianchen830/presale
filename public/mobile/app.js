@@ -1611,7 +1611,7 @@ const app = createApp({
         <div class="dt-tab-icon">📋</div>
         <div class="dt-tab-lbl">数据</div>
       </div>
-      <div class="dt-tab-item" :class="{ active: state.activeTab === 'board' }" @click="state.activeTab = 'board'">
+      <div v-if="state.user?.role === 'admin'" class="dt-tab-item" :class="{ active: state.activeTab === 'board' }" @click="state.activeTab = 'board'">
         <div class="dt-tab-icon">📊</div>
         <div class="dt-tab-lbl">看板</div>
       </div>

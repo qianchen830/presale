@@ -1198,10 +1198,10 @@ app.delete('/api/admin/employees/:id', requireAuth, (req, res) => {
 function getCompanyTargets() {
   const out = {};
   try {
-    const r = db.prepare('SELECT annual_targets FROM user_targets').all();
-    (r[0] && r[0].values || []).forEach(v => {
+    const rows = db.prepare('SELECT annual_targets FROM user_targets').all();
+    rows.forEach(row => {
       try {
-        const t = JSON.parse(v[0] || '{}');
+        const t = JSON.parse(row.annual_targets || '{}');
         Object.keys(t).forEach(y => { out[y] = (out[y] || 0) + (parseFloat(t[y]) || 0); });
       } catch(e) {}
     });
