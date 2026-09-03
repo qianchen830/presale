@@ -4051,7 +4051,19 @@ function _repositionApplicantSS() {
 function getCollaboratorsArr() {
   var hidden = document.getElementById('collaboratorsHidden');
   if (!hidden) return [];
-  try { return JSON.parse(hidden.value || '[]'); } catch(e) { return []; }
+  try {
+    var raw = JSON.parse(hidden.value || '[]');
+    // 修复双重编码或单元素数组：每个元素尝试 parse，再扁平化
+    if (Array.isArray(raw)) {
+      return raw.map(function(v) {
+        if (typeof v === 'string') {
+          try { return JSON.parse(v); } catch(_) { return v; }
+        }
+        return v;
+      }).flat().filter(function(v) { return typeof v === 'string' && v.trim(); });
+    }
+    return [];
+  } catch(e) { return []; }
 }
 function setCollaboratorsArr(arr) {
   var hidden = document.getElementById('collaboratorsHidden');
@@ -4308,6 +4320,12 @@ function _repositionMgrSS() {
 function checkOppNoDup(val) {
   var errEl = document.getElementById('oppNoDupError');
   if (!errEl) return;
+  // 弹窗关着时 autoSave 不干扰（弹窗开着时 editingId 才有效）
+  var appModal = document.getElementById('appModal');
+  if (!appModal || !appModal.classList.contains('show')) {
+    if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+    return;
+  }
   if (!val || !val.trim()) { errEl.style.display = 'none'; errEl.textContent = ''; return; }
   var dup = state.applications.find(function(a) { return String(a.id) !== String(editingId) && !a.deleted && a.oppNo === val; });
   if (dup) {
@@ -4377,17 +4395,27 @@ function saveApp() {
     if (!data.consultant) data.consultant = state.consultant || '';
     state.applications.push(data);
   }
-  // 协作人字段：统一转为数组（支持新UI的JSON数组和旧数据字符串两种格式）
+  // 协作人字段：统一转为数组，存入 hidden 前先规范化
   {
     const rec = state.applications.find(r => r.id === (editingId || data.id));
     if (rec) {
-      if (typeof rec.collaborators === 'string') {
-        rec.collaborators = rec.collaborators.trim()
-          ? rec.collaborators.split(/[、,，]/).map(function(s) { return s.replace(/^[\"'"'"'"'"'"'"']+|[\"'"'"'"'"'"'"']+$/g, '').trim(); }).filter(Boolean)
-          : [];
-      } else if (!Array.isArray(rec.collaborators)) {
-        rec.collaborators = [];
+      if (rec.collaborators != null) {
+        if (typeof rec.collaborators === 'string') {
+          try { rec.collaborators = JSON.parse(rec.collaborators); } catch(_) {}
+        }
+        if (Array.isArray(rec.collaborators)) {
+          rec.collaborators = rec.collaborators.map(function(v) {
+            if (typeof v === 'string') {
+              try { return JSON.parse(v); } catch(_) { return v; }
+            }
+            return v;
+          }).flat().filter(function(v) { return typeof v === 'string' && v.trim(); });
+        } else {
+          rec.collaborators = [];
+        }
       }
+      var collabHidden = document.getElementById('collaboratorsHidden');
+      if (collabHidden) collabHidden.value = JSON.stringify(Array.isArray(rec.collaborators) ? rec.collaborators : []);
     }
   }
   autoSave();
