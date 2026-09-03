@@ -1112,7 +1112,7 @@ const app = createApp({
             const myApps = (state.fullState?.applications || []).filter(function(a) { return !a.deleted && String(a.id) !== String(formData.id); });
             const dup = myApps.find(function(a) { return a.oppNo === formData.oppNo; });
             if (dup) {
-              showToast('商机号 【' + formData.oppNo + '】 已存在，属于顾问 【' + (dup.consultant || '未知') + '】');
+              alert('商机号 【' + formData.oppNo + '】 已存在\n属于顾问：【' + (dup.consultant || '未知') + '】');
               return;
             }
           }
@@ -2341,18 +2341,24 @@ const app = createApp({
         <template v-else-if="state.modal.name === 'app' && state.modal.mode !== 'view' && pickerStep === null">
           <div class="dt-form">
             <div v-for="field in APP_FIELDS" :key="field.key" class="dt-form-group">
-              <div class="dt-form-label" v-text="field.label + (field.required ? ' *' : '')"></div>
-              <select v-if="field.type === 'select'" class="dt-input dt-select" v-model="formData[field.key]" :disabled="state.modal.mode === 'view'">
-                <option v-for="opt in field.options" :key="opt" :value="opt" v-text="opt"></option>
-              </select>
-              <textarea v-else-if="field.type === 'textarea'" class="dt-input dt-textarea" v-model="formData[field.key]" :disabled="state.modal.mode === 'view'" :rows="field.key === 'coreRequirement' ? 4 : 3"></textarea>
-              <div v-else-if="field.type === 'collab'" class="dt-input dt-input-chooser" :class="{ 'chooser-active': (formData.collaborators||[]).length }" @click="pickerStep = 'collab'; pickerSearch = ''">
-                <span v-if="(formData.collaborators||[]).length" v-text="formData.collaborators.join('、')"></span>
-                <span v-else style="color:#999">点击选择协作人</span>
+              <div v-if="field.key !== 'oppNo'">
+                <div class="dt-form-label" v-text="field.label + (field.required ? ' *' : '')"></div>
+                <select v-if="field.type === 'select'" class="dt-input dt-select" v-model="formData[field.key]" :disabled="state.modal.mode === 'view'">
+                  <option v-for="opt in field.options" :key="opt" :value="opt" v-text="opt"></option>
+                </select>
+                <textarea v-else-if="field.type === 'textarea'" class="dt-input dt-textarea" v-model="formData[field.key]" :disabled="state.modal.mode === 'view'" :rows="field.key === 'coreRequirement' ? 4 : 3"></textarea>
+                <div v-else-if="field.type === 'collab'" class="dt-input dt-input-chooser" :class="{ 'chooser-active': (formData.collaborators||[]).length }" @click="pickerStep = 'collab'; pickerSearch = ''">
+                  <span v-if="(formData.collaborators||[]).length" v-text="formData.collaborators.join('、')"></span>
+                  <span v-else style="color:#999">点击选择协作人</span>
+                </div>
+                <input v-else :type="field.type === 'number' ? 'number' : 'text'" class="dt-input" v-model="formData[field.key]" :disabled="state.modal.mode === 'view'" />
               </div>
-              <input v-else :type="field.type === 'number' ? 'number' : 'text'" class="dt-input" v-model="formData[field.key]" :disabled="state.modal.mode === 'view'" />
+              <div v-else>
+                <div class="dt-form-label">商机号 <span class="req">*</span></div>
+                <input type="text" class="dt-input" v-model="formData.oppNo" :disabled="state.modal.mode === 'view'" />
+                <div v-if="formData._oppNoError" style="color:#ff4d4f;font-size:12px;margin-top:4px;word-break:break-all;overflow-wrap:break-word;white-space:normal;line-height:1.4;" v-text="formData._oppNoError"></div>
+              </div>
             </div>
-            <div v-if="formData._oppNoError" style="color:#ff4d4f;font-size:12px;margin-top:4px;padding:6px 10px;background:rgba(255,77,79,0.1);border-radius:4px;word-break:break-all;overflow-wrap:break-word;white-space:normal;line-height:1.5;display:block;width:100%;box-sizing:border-box;" v-text="formData._oppNoError"></div>
           </div>
         </template>
 
