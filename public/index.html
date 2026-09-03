@@ -4365,7 +4365,7 @@ function saveApp() {
     if (rec) {
       if (typeof rec.collaborators === 'string') {
         rec.collaborators = rec.collaborators.trim()
-          ? rec.collaborators.split(/[、,，]/).map(s => s.trim()).filter(Boolean)
+          ? rec.collaborators.split(/[、,，]/).map(function(s) { return s.replace(/^[\"'"'"'"'"'"'"']+|[\"'"'"'"'"'"'"']+$/g, '').trim(); }).filter(Boolean)
           : [];
       } else if (!Array.isArray(rec.collaborators)) {
         rec.collaborators = [];

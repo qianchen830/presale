@@ -15,6 +15,11 @@ const DEPT_FIELDS = [
   { key: 'manager', label: '负责人', type: 'text' },
   { key: 'remark', label: '备注', type: 'text' },
 ];
+
+// 通用字符串清理函数：去除首尾空格、中文引号 "" '' 英文引号 ' "
+function stripQuotes(s) {
+  return String(s).replace(/^["'""'']+|["'""'']+$/g, '').trim();
+}
 const EMP_FIELDS = [
   { key: 'name', label: '姓名', type: 'text', required: true },
   { key: 'deptId', label: '部门ID', type: 'number', required: true },
@@ -1041,7 +1046,7 @@ const app = createApp({
           if (module === 'applications' && recordToSave.collaborators != null) {
             const txt = String(recordToSave.collaborators).trim();
             if (txt) {
-              recordToSave.collaborators = txt.split(/[、,，]/).map(s => s.trim()).filter(Boolean);
+              recordToSave.collaborators = txt.split(/[、,，]/).map(s => stripQuotes(s)).filter(Boolean);
             } else {
               recordToSave.collaborators = [];
             }

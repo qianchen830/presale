@@ -20,6 +20,12 @@ function deriveKey(secret) {
 }
 const ENCRYPTION_KEY = deriveKey(SESSION_SECRET);
 
+// 通用字符串清理函数：去除首尾空格、中文引号 "" '' 英文引号 " '
+function stripQuotes(s) {
+  return String(s).replace(/^["'""'']+|["'""'']+$/g, '').trim();
+}
+
+
 // 加密数据
 function encrypt(plaintext) {
   const iv = crypto.randomBytes(12);
@@ -269,7 +275,7 @@ function saveState(newState) {
         } else if (typeof a.collaborators === 'string') {
           // 纯字符串：顿号/逗号分隔
           a.collaborators = a.collaborators.trim()
-            ? a.collaborators.split(/[、,，]/).map(s => s.trim()).filter(Boolean)
+            ? a.collaborators.split(/[、,，]/).map(s => stripQuotes(s)).filter(Boolean)
             : [];
         } else {
           a.collaborators = [];
@@ -297,7 +303,7 @@ function saveState(newState) {
           }).flat().filter(v => typeof v === 'string' && v.trim());
         } else if (typeof a.collaborators === 'string') {
           a.collaborators = a.collaborators.trim()
-            ? a.collaborators.split(/[、,，]/).map(s => s.trim()).filter(Boolean)
+            ? a.collaborators.split(/[、,，]/).map(s => stripQuotes(s)).filter(Boolean)
             : [];
         } else {
           a.collaborators = [];
