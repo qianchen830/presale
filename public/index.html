@@ -2983,7 +2983,7 @@ function renderCards() {
     '</div>';
 
   // fmtAmt 直接显示万元值（已除万）
-  const fmtAmt = function(v) { return v > 0 ? fmtMoney2(v) + '万' : '-'; };
+  const fmtAmt = function(v) { return v > 0 ? fmtMoney2(v) : '-'; };
   const statusGroups = [
     { label: '风险', count: riskApps.length, amount: riskApps.reduce((s, a) => s + amtOfApp(a), 0), color: 'var(--sf-text-danger)', type: 'risk' },
     { label: '新增', count: newApps.length, amount: newApps.reduce((s, a) => s + amtOfApp(a), 0), color: 'var(--sf-blue)', type: 'new' },
@@ -5077,10 +5077,17 @@ function showDetail(card, type) {
   } else if (card === 'target') {
     title = type === 'target' ? '年度指标明细' : '实际完成明细';
     const signedContracts = getFilteredContracts();
-    rows = signedContracts.map(c => ({
-      '签单时间': c.signDate || c.month, '客户': c.signCustomerName || c.signCustomer || '—', '项目名称': c.projectName || '—',
-      '商机号': c.oppNo || '—', '签单金额(万)': fmtMoney((parseFloat(c.presalePerformance) || 0) / 10000), '产品': c.product || '—'
-    }));
+    rows = signedContracts.map(c => {
+      var allocs = (state.allocations || []).filter(function(al) { return al.contractId === c.id || al.oppNo === c.oppNo || al.oppNo === c.mainContractNo; });
+      var consMap = {};
+      allocs.forEach(function(al) { var n = al.consultant || '—'; consMap[n] = (consMap[n] || 0) + (parseFloat(al.pct) || 0); });
+      var consStr = Object.keys(consMap).map(function(n) { return n + '(' + consMap[n] + '%)'; }).join(', ') || '—';
+      return {
+        '签单时间': c.signDate || c.month, '客户': c.signCustomerName || c.signCustomer || '—', '项目名称': c.projectName || '—',
+        '商机号': c.oppNo || '—', '签单金额(万)': fmtMoney((parseFloat(c.presalePerformance) || 0) / 10000), '产品': c.product || '—',
+        '支持顾问': consStr
+      };
+    });
   } else if (card === 'yearActual') {
     title = type + '年 实际完成明细';
     // 收集所有商机的所有 oppNo 变体（支持多编号格式），用于判断业绩归属
@@ -5098,11 +5105,13 @@ function showDetail(card, type) {
     var yAllocs = (state.allocations || []).filter(function(a) {
       var aYear = a.month ? parseInt(String(a.month).split('-')[0]) : null;
       if (aYear !== parseInt(type)) return false;
-      // 合同归属申请
+      // 合同归属申请：优先用 contractId 匹配，contractId 错误时用 oppNo 兜底
       if (a.contractId) {
         var c = state.contracts.find(function(r) { return r.id === a.contractId; });
         if (c && (filteredOppNos.has(c.oppNo) || (c.oppNo || '').split('、').some(function(s) { return filteredOppNos.has(s.trim()); }))) return true;
       }
+      // contractId 无效或缺失时，用 oppNo 直接匹配合同
+      if (a.oppNo && state.contracts.some(function(c) { return c.oppNo === a.oppNo || c.mainContractNo === a.oppNo; })) return true;
       // 个人视角：本人参与的分配（不受申请可见性限制）
       if (isPersonal && a.consultant === myName) return true;
       return false;
@@ -5159,11 +5168,13 @@ function showDetail(card, type) {
       if (a.quarter !== type) return false;
       var aYear = a.month ? parseInt(String(a.month).split('-')[0]) : null;
       if (aYear !== state.year) return false;
-      // 合同归属申请
+      // 合同归属申请：优先用 contractId 匹配，contractId 错误时用 oppNo 兜底
       if (a.contractId) {
         var c = state.contracts.find(function(r) { return r.id === a.contractId; });
         if (c && (filteredOppNosQ.has(c.oppNo) || (c.oppNo || '').split('、').some(function(s) { return filteredOppNosQ.has(s.trim()); }))) return true;
       }
+      // contractId 无效或缺失时，用 oppNo 直接匹配合同
+      if (a.oppNo && state.contracts.some(function(c) { return c.oppNo === a.oppNo || c.mainContractNo === a.oppNo; })) return true;
       // 个人视角：本人参与的分配（不受申请可见性限制）
       if (isPersonalQ && a.consultant === myNameQ) return true;
       return false;
@@ -5211,9 +5222,14 @@ function showDetail(card, type) {
     const apps = type === 'all' ? riskApps : riskApps.filter(a => type === 'active' ? a.status === '活跃' : a.status === '暂停');
     rows = apps.map(a => {
       const j = state.judgments.find(j => j.oppNo === a.oppNo && j.isRisk === '是');
+      var allocs = (state.allocations || []).filter(al => al.oppNo === a.oppNo);
+      var consMap = {};
+      allocs.forEach(function(al) { var n = al.consultant || '—'; consMap[n] = (consMap[n] || 0) + (parseFloat(al.pct) || 0); });
+      var consStr = Object.keys(consMap).map(function(n) { return n + '(' + consMap[n] + '%)'; }).join(', ') || '—';
       return {
         '客户': a.customer, '项目名称': a.projectName, '状态': a.status,
-        '竞争对手': j ? j.competitor : '—', '风险描述': j ? truncate(j.riskDesc, 30) : '—'
+        '竞争对手': j ? j.competitor : '—', '风险描述': j ? truncate(j.riskDesc, 30) : '—',
+        '支持顾问': consStr
       };
     });
   } else if (card === 'cycle') {
@@ -5223,10 +5239,15 @@ function showDetail(card, type) {
       : type === 'slow' ? signedApps.filter(a => (new Date(a.signDate) - new Date(a.applyDate)) / 86400000 > 90)
       : signedApps;
     rows = cycleApps.map(a => {
-      const days = Math.round((new Date(a.signDate) - new Date(a.applyDate)) / 86400000);
+      var days = Math.round((new Date(a.signDate) - new Date(a.applyDate)) / 86400000);
+      var allocs = (state.allocations || []).filter(al => al.oppNo === a.oppNo);
+      var consMap = {};
+      allocs.forEach(function(al) { var n = al.consultant || '—'; consMap[n] = (consMap[n] || 0) + (parseFloat(al.pct) || 0); });
+      var consStr = Object.keys(consMap).map(function(n) { return n + '(' + consMap[n] + '%)'; }).join(', ') || '—';
       return {
         '客户': a.customer, '项目名称': a.projectName,
-        '申请日期': a.applyDate, '签单时间': a.signDate, '周期(天)': days
+        '申请日期': a.applyDate, '签单时间': a.signDate, '周期(天)': days,
+        '支持顾问': consStr
       };
     });
   }
