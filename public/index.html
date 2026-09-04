@@ -1643,7 +1643,15 @@ function inRange(dateStr, range) {
 
 function getFilteredApps(personalOnly) {
   const range = getPeriodRange(getPeriodKey());
-  var apps = state.applications.filter(a => inRange(a.applyDate, range));
+  // 收集范围内有跟进记录的商机号（跟进时间也算过滤条件）
+  var followedOppNos = {};
+  (state.followUps||[]).forEach(function(f){
+    if (inRange(f.followDate, range)) followedOppNos[f.oppNo] = true;
+  });
+  // 申请日期在范围内 OR 有跟进记录在范围内
+  var apps = state.applications.filter(function(a){
+    return inRange(a.applyDate, range) || followedOppNos[a.oppNo];
+  });
   // 搜索过滤：售前申请单号、销售员（申请人）、售前顾问、项目名称模糊匹配
   if (_appSearchText) {
     var kw = _appSearchText.toLowerCase();
