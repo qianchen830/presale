@@ -4382,16 +4382,20 @@ function _repositionMgrSS() {
 function checkOppNoDup(val) {
   var errEl = document.getElementById('oppNoDupError');
   if (!errEl) return;
-  // 弹窗关着时 autoSave 不干扰（弹窗开着时 editingId 才有效）
-  var appModal = document.getElementById('appModal');
-  if (!appModal || !appModal.classList.contains('show')) {
-    if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+  if (!val || !val.trim()) {
+    errEl.style.display = 'none';
+    errEl.textContent = '';
     return;
   }
-  if (!val || !val.trim()) { errEl.style.display = 'none'; errEl.textContent = ''; return; }
-  var dup = state.applications.find(function(a) { return String(a.id) !== String(editingId) && !a.deleted && a.oppNo === val; });
+  // 新建时 editingId 为 null，所有已有记录都应参与比较（id!==null 恒成立）
+  // 编辑时跳过自身：String(null)==='null'，现有记录的 id 都不会等于 'null'，恰好不跳过任何记录
+  var dup = state.applications.find(function(a) {
+    if (a.deleted) return false;
+    if (editingId !== null && String(a.id) === String(editingId)) return false;
+    return a.oppNo === val;
+  });
   if (dup) {
-    errEl.textContent = '商机号 【' + val + '】 已存在，属于顾问 【' + (dup.consultant || '未知') + '】';
+    errEl.textContent = '\u5546\u673a\u53f7 \u3010' + val + '\u3011 \u5df2\u5b58\u5728\uff0c\u5c5e\u4e8e\u987e\u95ee \u3010' + (dup.consultant || '\u672a\u77e5') + '\u3011';
     errEl.style.display = 'block';
   } else {
     errEl.style.display = 'none';
