@@ -1703,8 +1703,6 @@ function getFilteredApps() {
     } else {
       apps = apps.filter(function(a) {
         if (a.consultant === myName) return true;
-        // 协作人可见性
-        if (a.collaborators && Array.isArray(a.collaborators) && a.collaborators.includes(myName)) return true;
         return false;
       });
     }
