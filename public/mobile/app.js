@@ -1719,6 +1719,7 @@ const app = createApp({
           <template v-if="state.queryDetailTab === 'follow'">
             <div v-if="queryFollows.length === 0" class="dv-no-data">暂无关联跟进</div>
             <div v-for="f in queryFollows" :key="f.id" class="dv-record-card">
+              <div class="dv-record-row"><span class="dv-record-label">售前顾问</span><span class="dv-record-val" v-text="f.consultant||'—'"></span></div>
               <div class="dv-record-row"><span class="dv-record-label">日期</span><span class="dv-record-val" v-text="fmtDate(f.followDate)"></span></div>
               <div class="dv-record-row"><span class="dv-record-label">工时</span><span class="dv-record-val highlight" v-text="(f.hours||'—')+' h'"></span></div>
               <div class="dv-record-row"><span class="dv-record-label">工作事项</span><span class="dv-record-val" v-text="f.workItem||'—'"></span></div>
@@ -1731,6 +1732,7 @@ const app = createApp({
           <template v-if="state.queryDetailTab === 'judgment'">
             <div v-if="queryJudgments.length === 0" class="dv-no-data">暂无关联判断</div>
             <div v-for="j in queryJudgments" :key="j.id" class="dv-record-card">
+              <div class="dv-record-row"><span class="dv-record-label">售前顾问</span><span class="dv-record-val" v-text="j.consultant||'—'"></span></div>
               <div class="dv-record-row"><span class="dv-record-label">判断类型</span><span class="dv-record-val" v-text="j.judgmentType||'—'"></span></div>
               <div class="dv-record-row"><span class="dv-record-label">阶段</span><span class="dv-record-val" v-text="j.currentStage||'—'"></span></div>
               <div class="dv-record-row"><span class="dv-record-label">判断日期</span><span class="dv-record-val" v-text="fmtDate(j.judgmentDate)"></span></div>
