@@ -1011,6 +1011,12 @@ body::after {
 
 .dt-input::placeholder { color: var(--text-muted); }
 
+.dt-input[readonly] {
+  background: var(--glass-bg);
+  color: var(--text-secondary);
+  cursor: default;
+}
+
 .dt-input-disabled {
   opacity: 0.5;
   cursor: not-allowed;

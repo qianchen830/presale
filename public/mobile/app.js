@@ -314,7 +314,7 @@ const CONTRACT_FIELDS = [
 ];
 const FOLLOW_FIELDS = [
   { key:'oppNo', label:'商机号', type:'text', required:true },
-  { key:'consultant', label:'售前顾问', type:'text', required:false },
+  { key:'consultant', label:'售前顾问', type:'text', required:false, readonly:true },
   { key:'followDate', label:'日期', type:'date', required:true },
   { key:'hours', label:'耗用工时(h)', type:'number', required:true },
   { key:'workItem', label:'工作事项', type:'textarea', required:true },
@@ -324,7 +324,7 @@ const FOLLOW_FIELDS = [
 ];
 const JUDGMENT_FIELDS = [
   { key:'oppNo', label:'商机号', type:'text', required:true },
-  { key:'consultant', label:'售前顾问', type:'text', required:false },
+  { key:'consultant', label:'售前顾问', type:'text', required:false, readonly:true },
   { key:'judgmentType', label:'判断类型', type:'text', required:true },
   { key:'judgmentDate', label:'判断日期', type:'date', required:true },
   { key:'result', label:'判断结论', type:'textarea', required:true },
@@ -926,9 +926,9 @@ const app = createApp({
               salesDept: state.user?.department || ''
             });
           } else if (name === 'follow') {
-            Object.assign(formData, { oppNo, followDate: today, nextDate: today });
+            Object.assign(formData, { oppNo, followDate: today, nextDate: today, consultant: state.user?.displayName || state.user?.username || '' });
           } else if (name === 'judgment') {
-            Object.assign(formData, { oppNo, judgmentDate: today });
+            Object.assign(formData, { oppNo, judgmentDate: today, consultant: state.user?.displayName || state.user?.username || '' });
           } else if (name === 'salesQ') {
             const existing = (state.fullState?.salesQuestions || [])
               .filter(q => !q.deleted && q.oppNo === oppNo)
@@ -2442,8 +2442,8 @@ const app = createApp({
           <div class="dt-form">
             <div v-for="field in FOLLOW_FIELDS" :key="field.key" class="dt-form-group">
               <div class="dt-form-label" v-text="field.label + (field.required ? ' *' : '')"></div>
-              <textarea v-if="field.type === 'textarea'" class="dt-input dt-textarea" v-model="formData[field.key]" rows="3"></textarea>
-              <input v-else :type="field.type === 'number' ? 'number' : 'text'" class="dt-input" v-model="formData[field.key]" />
+              <textarea v-if="field.type === 'textarea'" class="dt-input dt-textarea" v-model="formData[field.key]" rows="3" :readonly="field.readonly"></textarea>
+              <input v-else :type="field.type === 'number' ? 'number' : 'text'" class="dt-input" v-model="formData[field.key]" :readonly="field.readonly" />
             </div>
           </div>
         </template>
@@ -2453,8 +2453,8 @@ const app = createApp({
           <div class="dt-form">
             <div v-for="field in JUDGMENT_FIELDS" :key="field.key" class="dt-form-group">
               <div class="dt-form-label" v-text="field.label + (field.required ? ' *' : '')"></div>
-              <textarea v-if="field.type === 'textarea'" class="dt-input dt-textarea" v-model="formData[field.key]" rows="3"></textarea>
-              <input v-else :type="field.type === 'number' ? 'number' : 'text'" class="dt-input" v-model="formData[field.key]" />
+              <textarea v-if="field.type === 'textarea'" class="dt-input dt-textarea" v-model="formData[field.key]" rows="3" :readonly="field.readonly"></textarea>
+              <input v-else :type="field.type === 'number' ? 'number' : 'text'" class="dt-input" v-model="formData[field.key]" :readonly="field.readonly" />
             </div>
           </div>
         </template>
