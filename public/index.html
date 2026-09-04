@@ -3320,7 +3320,7 @@ function renderAppTable() {
       '<td>' + (a.currentStage || '—') + '</td>' +
       '<td>' + statusBadge(a.status) + '</td>' +
       '<td>' + fmtDate(a.expectedSignDate) + '</td>' +
-      '<td>' + ((parseFloat(a.expectedAmount) || 0) > 0 ? fmtMoney(a.expectedAmount) + '万' : '—') + '</td>' +
+      '<td>' + ((parseFloat(a.expectedAmount) || 0) > 0 ? fmtMoney((parseFloat(a.expectedAmount) || 0) / 10000) + '万' : '—') + '</td>' +
       '<td>' + amt + '</td>' +
       '<td onclick="event.stopPropagation()">' +
       '<button onclick="openAppModal(\'' + a.id + '\')" style="background:none;border:none;padding:1px;color:var(--sf-blue);cursor:pointer" title="编辑"><i data-lucide="edit-2" style="width:12px;height:12px"></i></button> ' +
@@ -4437,7 +4437,7 @@ function saveApp() {
     var dup = exists.find(function(a) { return a.oppNo === data.oppNo; });
     if (dup) {
       alert('商机号 【' + data.oppNo + '】 已存在，属于顾问 【' + (dup.consultant || '未知') + '】');
-      return;
+      return;  // 阻止保存
     }
   }
   // 签单状态门禁：仅原状态已是"签单"（合同驱动）才允许保持为签单；其余情况禁止写为签单
