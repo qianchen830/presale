@@ -438,9 +438,12 @@ const app = createApp({
     const dashboardStats = computed(() => {
       if (!state.fullState) return { total: 0, won: 0, lost: 0, totalAmount: 0, wonAmount: 0, activeCount: 0, annualTarget: 0, annualTargets: {}, quarterTargets: {}, quarterPcts: {} };
       const year = state.year;
-      const apps = (state.fullState.applications || []).filter(a =>
+      const allApps = (state.fullState.applications || []).filter(a =>
         new Date(a.applyDate || 0).getFullYear() === year && !a.deleted
       );
+      // 按 oppNo 去重：同商机号只保留一条（admin/部门视角与 PC 端保持一致）
+      const seen = {};
+      const apps = allApps.filter(a => { if (a.oppNo && !seen[a.oppNo]) { seen[a.oppNo] = true; return true; } return false; });
       const cons = filteredContracts.value.filter(c =>
         new Date(c.mainSignDate || 0).getFullYear() === year
       );
@@ -678,17 +681,31 @@ const app = createApp({
     // 本人的商机（申请人 或 顾问）
     const boardApps = computed(() => {
       const year = state.year;
+      const quarter = state.quarter;
+      const month = state.month;
       const myName = state.user?.displayName || state.user?.username || '';
       const viewDepts = state.user?.viewDepts || [];
-      return (state.fullState?.applications || []).filter(a => {
+      const allApps = (state.fullState?.applications || []).filter(a => {
         if (a.deleted) return false;
-        const d = a.applyDate || '';
-        if (!d.startsWith(String(year))) return false;
+        const d = new Date(a.applyDate || 0);
+        if (d.getFullYear() !== year) return false;
+        // 季度过滤
+        if (quarter) {
+          const qNum = parseInt(quarter[1]);
+          if (Math.floor(d.getMonth() / 3) + 1 !== qNum) return false;
+        }
+        // 月份过滤
+        if (month) {
+          if (d.getMonth() + 1 !== parseInt(month)) return false;
+        }
         // 权限过滤（含协作人）
         if (state.user?.role === 'admin') return true;
         if (viewDepts.length > 0) return (a.consultant === myName || (Array.isArray(a.collaborators) && a.collaborators.includes(myName))) || viewDepts.includes(a.department);
         return a.consultant === myName || (Array.isArray(a.collaborators) && a.collaborators.includes(myName));
       });
+      // 按 oppNo 去重：同商机号只保留一条（与 PC 端一致）
+      const seen = {};
+      return allApps.filter(a => { if (a.oppNo && !seen[a.oppNo]) { seen[a.oppNo] = true; return true; } return false; });
     });
 
     // 看板顾问实际业绩（与PC端口径一致）
