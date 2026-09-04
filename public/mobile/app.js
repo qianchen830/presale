@@ -1196,8 +1196,8 @@ const app = createApp({
     function getListItemSub(record, module) {
       if (module === 'applications') return `${record.oppNo||''} | ${record.product||''} | ${record.currentStage||''}`;
       if (module === 'contracts') return `${fmtMoney(record.subAmount)}元 | ${fmtDate(record.mainSignDate)}`;
-      if (module === 'followUps') return `${fmtDate(record.followDate)} | ${record.hours||''}h`;
-      if (module === 'judgments') return `${record.competitor?'竞品:'+record.competitor:''} | ${fmtDate(record.judgmentDate)}`;
+      if (module === 'followUps') return `${record.consultant||''} | ${fmtDate(record.followDate)} | ${record.hours||''}h`;
+      if (module === 'judgments') return `${record.consultant||''} | ${record.competitor?'竞品:'+record.competitor:''} | ${fmtDate(record.judgmentDate)}`;
       if (module === 'salesQuestions') return `回答: ${record.answer?'已填写':'未填写'}`;
       if (module === 'allocations') return `${record.month||record.quarter||''}`;
       return '';
@@ -2017,7 +2017,7 @@ const app = createApp({
               <div v-if="relatedFollows.length === 0" class="rel-empty">暂无关联跟进</div>
               <div v-for="f in relatedFollows" :key="f.id" class="rel-card" @click="openModal('follow','view',f)">
                 <div class="rel-card-main" v-text="f.workItem || '跟进记录'"></div>
-                <div class="rel-card-sub" v-text="fmtDate(f.followDate) + ' | ' + (f.hours||'')+'h'"></div>
+                <div class="rel-card-sub" v-text="(f.consultant||'—') + ' | ' + fmtDate(f.followDate) + ' | ' + (f.hours||'')+'h'"></div>
               </div>
             </div>
 
@@ -2027,7 +2027,7 @@ const app = createApp({
               <div v-if="relatedJudgments.length === 0" class="rel-empty">暂无关联判断</div>
               <div v-for="j in relatedJudgments" :key="j.id" class="rel-card" @click="openModal('judgment','view',j)">
                 <div class="rel-card-main" v-text="j.currentStage || '判断记录'"></div>
-                <div class="rel-card-sub" v-text="fmtDate(j.updatedAt) + ' | 竞争对手: ' + (j.competitor||'—')"></div>
+                <div class="rel-card-sub" v-text="(j.consultant||'—') + ' | ' + fmtDate(j.updatedAt) + ' | 竞争对手: ' + (j.competitor||'—')"></div>
               </div>
             </div>
 
@@ -2149,6 +2149,10 @@ const app = createApp({
                   <div class="detail-val mono" v-text="formData.oppNo || '—'"></div>
                 </div>
                 <div class="detail-cell">
+                  <div class="detail-lbl">售前顾问</div>
+                  <div class="detail-val" v-text="formData.consultant || '—'"></div>
+                </div>
+                <div class="detail-cell">
                   <div class="detail-lbl">日期</div>
                   <div class="detail-val" v-text="fmtDate(formData.followDate)"></div>
                 </div>
@@ -2199,9 +2203,15 @@ const app = createApp({
               </div>
               <div class="detail-card-row">
                 <div class="detail-cell">
+                  <div class="detail-lbl">售前顾问</div>
+                  <div class="detail-val" v-text="formData.consultant || '—'"></div>
+                </div>
+                <div class="detail-cell">
                   <div class="detail-lbl">竞争对手</div>
                   <div class="detail-val" v-text="formData.competitor || '—'"></div>
                 </div>
+              </div>
+              <div class="detail-card-row">
                 <div class="detail-cell">
                   <div class="detail-lbl">判断日期</div>
                   <div class="detail-val" v-text="fmtDate(formData.judgmentDate)"></div>
