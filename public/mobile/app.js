@@ -1269,10 +1269,28 @@ const app = createApp({
 
     // Dashboard 计算属性
     const dashboardWonAmount = computed(() => {
-      return (filteredContracts.value || []).reduce((s,c) => {
-        const sa = parseFloat(c.subAmount) || 0;
-        return s + (sa >= 100000 ? (parseFloat(c.presalePerformance) || 0) : 0);
-      }, 0) / 10000;
+      if (state.user?.role === 'admin') {
+        return (filteredContracts.value || []).reduce((s,c) => {
+          const sa = parseFloat(c.subAmount) || 0;
+          return s + (sa >= 100000 ? (parseFloat(c.presalePerformance) || 0) : 0);
+        }, 0) / 10000;
+      } else {
+        // 非admin：已分配取consultantPerformance；本人顾问无分配取presalePerformance；协作人不算
+        const myName = state.user?.displayName || state.user?.username || '';
+        const wonApps = (state.fullState?.applications || []).filter(a => !a.deleted && a.status === '签单');
+        const fromAllocs = (state.fullState?.allocations || [])
+          .filter(a => !a.deleted && a.consultant === myName && wonApps.some(wa => wa.oppNo === a.oppNo))
+          .reduce((s, a) => s + (parseFloat(a.consultantPerformance) || 0), 0);
+        if (fromAllocs > 0) return fromAllocs / 10000;
+        const fromContracts = (state.fullState?.contracts || [])
+          .filter(c => !c.deleted && (parseFloat(c.subAmount) || 0) >= 100000 && wonApps.some(wa => wa.oppNo === c.oppNo))
+          .reduce((s, c) => {
+            const app = (state.fullState?.applications || []).find(a => a.oppNo === c.oppNo);
+            if (app && app.consultant === myName) return s + (parseFloat(c.presalePerformance) || 0);
+            return s;
+          }, 0);
+        return fromContracts / 10000;
+      }
     });
     const dashboardTotalAmount = computed(() => {
       if (state.user?.role === 'admin') {
