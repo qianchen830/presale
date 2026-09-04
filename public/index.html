@@ -1641,7 +1641,7 @@ function inRange(dateStr, range) {
 }
 
 
-function getFilteredApps() {
+function getFilteredApps(personalOnly) {
   const range = getPeriodRange(getPeriodKey());
   var apps = state.applications.filter(a => inRange(a.applyDate, range));
   // 搜索过滤：售前申请单号、销售员（申请人）、售前顾问、项目名称模糊匹配
@@ -1655,6 +1655,14 @@ function getFilteredApps() {
       (a.customer || '').toLowerCase().includes(kw) ||
       (a.department || '').toLowerCase().includes(kw)
     );
+  }
+  // personalOnly=true：明细表等场景，只看本人顾问的申请（不含协作人、不含部门其他人的申请）
+  if (personalOnly) {
+    if (_currentUser && _currentUser.role !== 'admin') {
+      var myName = _currentUser.displayName || _currentUser.username;
+      apps = apps.filter(function(a) { return a.consultant === myName; });
+    }
+    return apps;
   }
   // 权限过滤：非管理员可见 = (本人是顾问的申请) OR (申请部门在可查看部门范围内)
   // view_depts 权限的语义：能够看到这些部门的顾问所负责的所有项目
@@ -5298,7 +5306,7 @@ function getSupportConsultants(oppNoOrContractId, contractOppNo) {
 function showDetail(card, type) {
   let title = '';
   let rows = [];
-  const filtered = getFilteredApps();
+  const filtered = getFilteredApps(true);
   const all = getAllApps();
 
   if (card === 'overview') {
