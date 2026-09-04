@@ -2866,6 +2866,15 @@ function getConsultantActual(year, quarter) {
 function getCardsContracts(filteredApps) {
   var oppNos = {};
   (filteredApps||[]).forEach(function(a) { if (a.oppNo) oppNos[(a.oppNo || '').trim()] = true; });
+  // 协作人视角：当前用户作为协作人的项目，对应合同也纳入统计
+  var myName = _currentUser && (_currentUser.displayName || _currentUser.username) || '';
+  if (myName) {
+    (state.applications||[]).forEach(function(a) {
+      if (a.collaborators && Array.isArray(a.collaborators) && a.collaborators.includes(myName) && a.oppNo) {
+        oppNos[(a.oppNo || '').trim()] = true;
+      }
+    });
+  }
   return state.contracts.filter(function(c) { return oppNos[(c.oppNo || '').trim()]; });
 }
 
@@ -4630,7 +4639,13 @@ function openFollowModal(id) {
   } else {
     document.querySelector('[name="followDate"]').value = today();
     document.getElementById('followTitle').textContent = '新增跟进记录';
-    document.querySelector('[name="consultant"]').value = _currentUser.displayName || _currentUser.username || '';
+  }
+  // 新建时默认填入当前用户为售前顾问（编辑时由 setFormData 覆盖已有值）
+  if (!id) {
+    setTimeout(function() {
+      var inp = document.querySelector('#followForm [name="consultant"]');
+      if (inp) inp.value = _currentUser.displayName || _currentUser.username || '';
+    }, 0);
   }
   openModal('followModal');
 }
