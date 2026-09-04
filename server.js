@@ -331,6 +331,18 @@ function saveState(newState) {
   console.log("[saveState] merged.applications count:", merged.applications.length, " deletedIds:", JSON.stringify([...(_deletedIds.applications||[])]));
   const dataStr = JSON.stringify(merged);
   db.prepare('INSERT INTO app_state_history (data, created_at) VALUES (?, ?)').run(existing ? existing.data : '{}', now);
+
+  // 自动清理：只保留最近 500 条历史快照
+  const MAX_HISTORY = 500;
+  db.prepare(`
+    DELETE FROM app_state_history
+    WHERE id NOT IN (
+      SELECT id FROM app_state_history
+      ORDER BY id DESC
+      LIMIT ${MAX_HISTORY}
+    )
+  `).run();
+
   db.prepare("UPDATE app_state SET data = ?, updated_at = ? WHERE id = 1").run(dataStr, now);
   saveDbs();
   return now;

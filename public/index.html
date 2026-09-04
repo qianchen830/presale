@@ -3951,13 +3951,15 @@ function openAppModal(id) {
   // 不能调用 rebuildCSPanel，否则会因找不到 cs-wrap 而无效。
   statusSel.innerHTML = '<option value="">请选择</option><option>活跃</option><option>暂停</option><option>预计</option><option>丢失</option><option>关闭</option>';
   if (id) {
-    const rec = state.applications.find(r => r.id === id);
+    // id 可能是字符串或数值，统一按字符串比较防止类型不匹配
+    const rec = state.applications.find(r => String(r.id) === String(id));
     if (rec) {
       // 2. 编辑模式：若原状态为"签单"（合同驱动），追加该选项用于回显
       if (rec.status === '签单') {
         statusSel.appendChild(new Option('签单（合同驱动）', '签单'));
       }
       setFormData('appForm', rec);
+      setCollaboratorsArr(rec.collaborators || []);
       toggleAppFields(rec.status);
       document.getElementById('appModalTitle').textContent = '编辑售前申请';
     }
@@ -4453,7 +4455,7 @@ function saveApp() {
     }
   }
   // 签单状态门禁：仅原状态已是"签单"（合同驱动）才允许保持为签单；其余情况禁止写为签单
-  const origStatus = editingId ? (state.applications.find(function(r) { return r.id === editingId; }) || {}).status : null;
+  const origStatus = editingId ? (state.applications.find(function(r) { return String(r.id) === String(editingId); }) || {}).status : null;
   if (data.status === '签单' && origStatus !== '签单') {
     alert('「签单」状态由合同签订自动变更，如需置为签单，请先在「合同签订」中录入合同。');
     return;
@@ -4461,7 +4463,7 @@ function saveApp() {
   // 如原状态是合同驱动的签单，提交时保持不变（避免显示值被替换）
   if (origStatus === '签单') data.status = '签单';
   if (editingId) {
-    const idx = state.applications.findIndex(r => r.id === editingId);
+    const idx = state.applications.findIndex(r => String(r.id) === String(editingId));
     if (idx >= 0) state.applications[idx] = { ...state.applications[idx], ...data };
   } else {
     data.id = uid();
@@ -4471,7 +4473,7 @@ function saveApp() {
   }
   // 协作人字段：统一转为数组，存入 hidden 前先规范化
   {
-    const rec = state.applications.find(r => r.id === (editingId || data.id));
+    const rec = state.applications.find(r => String(r.id) === String(editingId || data.id));
     if (rec) {
       if (rec.collaborators != null) {
         if (typeof rec.collaborators === 'string') {
