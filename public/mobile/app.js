@@ -691,33 +691,43 @@ const app = createApp({
       });
     });
 
-    // 看板顾问实际业绩（按allocations统计，与PC端一致）
+    // 看板顾问实际业绩（与PC端口径一致）
+    // 已分配：取 consultantPerformance；无分配：只有本人顾问算 presalePerformance，协作人不算
     const boardWonAmount = computed(() => {
       const myName = state.user?.displayName || state.user?.username || '';
-      const wonOppNos = new Set(boardApps.value.filter(a => a.status === '签单').map(a => a.oppNo));
-      // 有业绩分配时用 allocations consultantPerformance
+      const wonApps = (boardApps.value || []).filter(a => a.status === '签单');
+      const wonOppNos = new Set(wonApps.map(a => a.oppNo));
+      // 有业绩分配时用 allocations consultantPerformance（签单项目的分配）
       const fromAllocs = (state.fullState?.allocations || [])
-        .filter(a => !a.deleted && (a.consultant === myName || myOppNos.has(a.oppNo)) && wonOppNos.has(a.oppNo))
+        .filter(a => !a.deleted && a.consultant === myName && wonOppNos.has(a.oppNo))
         .reduce((s, a) => s + (parseFloat(a.consultantPerformance) || 0), 0);
       if (fromAllocs > 0) return fromAllocs / 10000;
-      // 无分配时退回合同 presalePerformance（accountMgr=本人）
+      // 无分配：本人顾问的签单合同 → presalePerformance；协作人不算
       const fromContracts = (state.fullState?.contracts || [])
-        .filter(c => !c.deleted && wonOppNos.has(c.oppNo) && c.accountMgr === myName)
-        .reduce((s, c) => s + (parseFloat(c.presalePerformance) || 0), 0);
+        .filter(c => !c.deleted && wonOppNos.has(c.oppNo) && (parseFloat(c.subAmount) || 0) >= 100000)
+        .reduce((s, c) => {
+          const app = (state.fullState?.applications || []).find(a => a.oppNo === c.oppNo);
+          if (app && app.consultant === myName) return s + (parseFloat(c.presalePerformance) || 0);
+          return s;
+        }, 0);
       return fromContracts / 10000;
     });
     const boardTotalAmount = computed(() => {
       const myName = state.user?.displayName || state.user?.username || '';
-      const myOppNos = new Set(boardApps.value.map(a => a.oppNo));
+      const myApps = boardApps.value || [];
       // 有业绩分配时用 allocations consultantPerformance
       const fromAllocs = (state.fullState?.allocations || [])
-        .filter(a => !a.deleted && (a.consultant === myName || myOppNos.has(a.oppNo)) && myOppNos.has(a.oppNo))
+        .filter(a => !a.deleted && a.consultant === myName)
         .reduce((s, a) => s + (parseFloat(a.consultantPerformance) || 0), 0);
       if (fromAllocs > 0) return fromAllocs / 10000;
-      // 无分配时退回合同 presalePerformance（accountMgr=本人）
+      // 无分配：本人顾问的合同 → presalePerformance；协作人不算
       const fromContracts = (state.fullState?.contracts || [])
-        .filter(c => !c.deleted && myOppNos.has(c.oppNo) && c.accountMgr === myName)
-        .reduce((s, c) => s + (parseFloat(c.presalePerformance) || 0), 0);
+        .filter(c => !c.deleted && (parseFloat(c.subAmount) || 0) >= 100000)
+        .reduce((s, c) => {
+          const app = (state.fullState?.applications || []).find(a => a.oppNo === c.oppNo);
+          if (app && app.consultant === myName) return s + (parseFloat(c.presalePerformance) || 0);
+          return s;
+        }, 0);
       return fromContracts / 10000;
     });
     const boardAnnualTarget = computed(() => {
@@ -1272,16 +1282,23 @@ const app = createApp({
           return s + (sa >= 100000 ? (parseFloat(c.presalePerformance) || 0) : 0);
         }, 0) / 10000;
       } else {
-        // 非admin：显示本人已分配的业绩（含作为协作人参与的申请产生的分配）
+        // 非admin：已分配取 consultantPerformance；本人顾问无分配取 presalePerformance；协作人不算
         const myName = state.user?.displayName || state.user?.username || '';
-        const myOppNos = new Set(
-          (state.fullState?.applications || [])
-            .filter(a => !a.deleted && (a.consultant === myName || (Array.isArray(a.collaborators) && a.collaborators.includes(myName))))
-            .map(a => a.oppNo)
-        );
-        return (state.fullState?.allocations || [])
-          .filter(a => !a.deleted && a.contractId && myOppNos.has(a.oppNo))
-          .reduce((s, a) => s + (parseFloat(a.consultantPerformance) || 0), 0) / 10000;
+        const wonApps = (state.fullState?.applications || []).filter(a => !a.deleted && a.status === '签单');
+        // 有分配：取签单项目的分配业绩
+        const fromAllocs = (state.fullState?.allocations || [])
+          .filter(a => !a.deleted && a.consultant === myName && wonApps.some(wa => wa.oppNo === a.oppNo))
+          .reduce((s, a) => s + (parseFloat(a.consultantPerformance) || 0), 0);
+        if (fromAllocs > 0) return fromAllocs / 10000;
+        // 无分配：本人顾问的签单合同 → presalePerformance
+        const fromContracts = (state.fullState?.contracts || [])
+          .filter(c => !c.deleted && (parseFloat(c.subAmount) || 0) >= 100000 && wonApps.some(wa => wa.oppNo === c.oppNo))
+          .reduce((s, c) => {
+            const app = (state.fullState?.applications || []).find(a => a.oppNo === c.oppNo);
+            if (app && app.consultant === myName) return s + (parseFloat(c.presalePerformance) || 0);
+            return s;
+          }, 0);
+        return fromContracts / 10000;
       }
     });
     const dashboardAnnualTarget = computed(() => {
