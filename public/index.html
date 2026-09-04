@@ -4500,7 +4500,7 @@ function addFollowRow() {
   if (!state.selectedAppId) { alert('请先在「售前申请」列表中选择一条记录'); return; }
   const app = state.applications.find(a => a.id === state.selectedAppId);
   const today = new Date().toISOString().slice(0, 10);
-  const newRec = { id: uid(), oppNo: app.oppNo, followDate: today, workItem: '', hours: 0, summary: '', nextWork: '', nextDate: today };
+  const newRec = { id: uid(), oppNo: app.oppNo, followDate: today, consultant: _currentUser.displayName || _currentUser.username || '', workItem: '', hours: 0, summary: '', nextWork: '', nextDate: today };
   state.followUps.push(newRec);
   renderSubTables();
   fetch('/api/modules/followUps', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newRec) }).catch(() => {});
