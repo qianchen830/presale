@@ -5865,6 +5865,7 @@ var _scYear = null, _scMonth = null;   // 月历当前年（1-12 月）
 var _scFilter = '';                     // 月历顾问筛选（'' = 全部）
 var _scEditingId = null;                // 编辑中的排程 id
 var _scAppId = '';                      // 当前表单关联的售前申请 id
+var _scPrefilledAppId = null;            // 从售前申请点安排时预填的申请 id（仅一次性使用）
 var _scPopEl = null;                    // 当日安排浮层
 var _rbWeekStart = null;                // 资源看板周一（Date）
 var _rbOpenState = {};                  // 资源看板部门分组展开状态
@@ -5907,9 +5908,10 @@ function scRefreshAfterChange() {
 
 /* ---------- 安排日历（月视图） ---------- */
 function openScheduleCalendar() {
-  console.log('[DEBUG] openScheduleCalendar', { isAdmin: scIsAdmin(), hasDept: scHasDeptScope(), viewDepts: scViewDepts(), currentUser: _currentUser });
   if (!scIsAdmin() && !scHasDeptScope()) return;
   closeScDayPop();
+  // 记住当前选中的售前申请，用于从申请点安排时自动预填商机号
+  _scPrefilledAppId = (state.selectedAppId && state.applications && state.applications.find(function(a){return a.id===state.selectedAppId;})) ? state.selectedAppId : null;
   var now = new Date();
   if (_scYear == null) { _scYear = now.getFullYear(); _scMonth = now.getMonth() + 1; }
   var sel = document.getElementById('scFilter');
@@ -6066,6 +6068,15 @@ function openScheduleForm(dateStr, id, ev) {
   document.getElementById('scAppInput').value = '';
   document.getElementById('scNote').value = '';
   document.getElementById('scDate').value = dateStr || scFmtDate(new Date());
+  // 若是从售前申请点安排过来的，自动预填商机号（仅新增时有效）
+  if (!id && _scPrefilledAppId) {
+    var prefilledApp = (state.applications || []).find(function(a){ return a.id === _scPrefilledAppId; });
+    if (prefilledApp) {
+      document.getElementById('scAppInput').value = scAppLabel(prefilledApp.id);
+      _scAppId = prefilledApp.id;
+    }
+    _scPrefilledAppId = null; // 仅一次性使用
+  }
   document.getElementById('scStart').value = '09:00';
   document.getElementById('scEnd').value = '10:00';
   scApplyApp('');
