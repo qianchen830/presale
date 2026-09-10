@@ -5912,6 +5912,7 @@ function openScheduleCalendar() {
   closeScDayPop();
   // 记住当前选中的售前申请，用于从申请点安排时自动预填商机号
   _scPrefilledAppId = (state.selectedAppId && state.applications && state.applications.find(function(a){return a.id===state.selectedAppId;})) ? state.selectedAppId : null;
+  console.log('[DEBUG openScheduleCalendar] selectedAppId:', state.selectedAppId, 'applications count:', (state.applications||[]).length, '_scPrefilledAppId:', _scPrefilledAppId);
   var now = new Date();
   if (_scYear == null) { _scYear = now.getFullYear(); _scMonth = now.getMonth() + 1; }
   var sel = document.getElementById('scFilter');
@@ -6069,8 +6070,10 @@ function openScheduleForm(dateStr, id, ev) {
   document.getElementById('scNote').value = '';
   document.getElementById('scDate').value = dateStr || scFmtDate(new Date());
   // 若是从售前申请点安排过来的，自动预填商机号（仅新增时有效）
+  console.log('[DEBUG openScheduleForm] id:', id, '_scPrefilledAppId:', _scPrefilledAppId, 'applications count:', (state.applications||[]).length);
   if (!id && _scPrefilledAppId) {
     var prefilledApp = (state.applications || []).find(function(a){ return a.id === _scPrefilledAppId; });
+    console.log('[DEBUG openScheduleForm] prefilledApp:', prefilledApp);
     if (prefilledApp) {
       document.getElementById('scAppInput').value = scAppLabel(prefilledApp.id);
       _scAppId = prefilledApp.id;
