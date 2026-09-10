@@ -1027,7 +1027,7 @@ input[type=number]{-moz-appearance:textfield;}
           <div class="fg"><label>所属部门</label><input id="scDept" class="fi" readonly style="background:var(--sf-bg-soft)"></div>
         </div>
         <div class="fr">
-          <div class="fg"><label>顾问人员<span class="req">*</span></label><select id="scConsultant" class="sc-select" onchange="scPrecheck()"></select></div>
+          <div class="fg"><label>顾问人员<span class="req">*</span></label><input id="scConsultant" class="fi" list="scConsultantList" placeholder="输入顾问姓名搜索" oninput="scConsultantFilter()" autocomplete="off"><datalist id="scConsultantList"></datalist></div>
           <div class="fg"><label>日期<span class="req">*</span></label><input type="date" id="scDate" class="fi" onchange="scPrecheck()"></div>
         </div>
         <div class="fr">
@@ -6026,7 +6026,16 @@ function scAppInputChanged() {
   if (found) { _scAppId = found.id; scApplyApp(found.id); document.getElementById('scAppInput').value = scAppLabel(found.id); }
   else scApplyApp('');
 }
-function scTypeChanged() {
+function scConsultantFilter() {
+  var v = (document.getElementById('scConsultant').value || '').trim();
+  var list = document.getElementById('scConsultantList');
+  list.innerHTML = '';
+  if (!v) { scConsultantNames().forEach(function(n) { var o = document.createElement('option'); o.value = n; list.appendChild(o); }); return; }
+  var filtered = scConsultantNames().filter(function(n) { return n.includes(v); });
+  filtered.forEach(function(n) { var o = document.createElement('option'); o.value = n; list.appendChild(o); });
+}
+
+function scTypeChanged()
   var t = document.getElementById('scType').value;
   document.getElementById('scAppLbl').innerHTML = '售前申请' + (t === '项目' ? ' <span class="req">*</span>' : '（选填）');
 }
@@ -6056,11 +6065,11 @@ function openScheduleForm(dateStr, id, ev) {
   var typeSel = document.getElementById('scType');
   typeSel.innerHTML = '';
   SC_TYPES.forEach(function(t) { var o = document.createElement('option'); o.value = t; o.textContent = t; typeSel.appendChild(o); });
-  // 顾问下拉（员工表去重）
+  // 顾问下拉（员工表去重，输入框+datalist 支持实时过滤）
   var cSel = document.getElementById('scConsultant');
-  cSel.innerHTML = '';
-  var c0 = document.createElement('option'); c0.value = ''; c0.textContent = '请选择顾问'; cSel.appendChild(c0);
-  scConsultantNames().forEach(function(n) { var o = document.createElement('option'); o.value = n; o.textContent = n; cSel.appendChild(o); });
+  var cList = document.getElementById('scConsultantList');
+  cList.innerHTML = '';
+  scConsultantNames().forEach(function(n) { var o = document.createElement('option'); o.value = n; cList.appendChild(o); });
   // 售前申请 datalist（DOM 构建，保证与输入值精确匹配）
   var dl = document.getElementById('scAppList');
   dl.innerHTML = '';
