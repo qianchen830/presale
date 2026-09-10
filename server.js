@@ -1094,7 +1094,7 @@ function checkModuleOwnership(record, session, state, key) {
   }
   // 部门级授权用户可改/可删授权部门所有顾问的记录（含分配：归属顾问在其授权部门内）
   var viewDepts = [];
-  try { viewDepts = JSON.parse(session.view_depts || '[]'); } catch(e) {}
+  try { viewDepts = JSON.parse(session.viewDepts || '[]'); } catch(e) {}
   if (viewDepts.length > 0) {
     // 注意：employees 存的是 deptId（部门id），需经 departments 映射为部门名后再比对授权部门名
     var deptById = {};
@@ -1136,7 +1136,7 @@ function enrichScheduleSnapshot(record, state) {
 function canManageSchedule(session, consultant, state, alsoReturnsDepts) {
   if (session.role === 'admin') return alsoReturnsDepts ? null : true; // null 表示不限部门
   const vd = [];
-  try { const parsed = JSON.parse(session.view_depts || '[]'); if (Array.isArray(parsed)) vd.push(...parsed); } catch(e) {}
+  try { const parsed = JSON.parse(session.viewDepts || '[]'); if (Array.isArray(parsed)) vd.push(...parsed); } catch(e) {}
   if (!vd.length) return false;
   if (!consultant) return alsoReturnsDepts ? vd : true; // 新建时仅检查是否有权限
   // 查顾问所属部门
