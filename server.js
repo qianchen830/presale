@@ -1193,7 +1193,7 @@ function moduleOp(key, action, record, session) {
     // admin 或有 view_depts 的部门负责人可操作（部门负责人仅能操作本部门顾问的排程）
     if (!session) return { error: '未登录或会话已过期' };
     const scDepts = canManageSchedule(session, null, getState().state, true);
-    if (!scDepts) return { error: '仅管理员或具备部门权限的用户可操作排程' };
+    if (scDepts === false) return { error: '仅管理员或具备部门权限的用户可操作排程' };
   }
   const state = getState().state;
   const arr = state[key] || [];
