@@ -514,9 +514,12 @@ input[type=number]{-moz-appearance:textfield;}
 .rb-scope{margin-left:auto;font-size:var(--text-xs);color:var(--sf-text-muted)}
 .rb-wrap{max-height:62vh;overflow:auto;border:1px solid var(--sf-border);border-radius:var(--sf-radius)}
 .rb-table{width:100%;border-collapse:separate;border-spacing:0;font-size:var(--text-xs);table-layout:fixed}
+.rb-table colgroup col{width:1px}
+.rb-table colgroup col.rb-col-name{width:200px;min-width:200px}
+.rb-table colgroup col.rb-col-day{width:calc((100% - 200px) / 7);min-width:60px}
 .rb-table th{position:sticky;top:0;background:var(--sf-bg-soft);z-index:2;border-bottom:1px solid var(--sf-border);padding:6px 4px;text-align:center;color:var(--sf-text-secondary)}
-.rb-table th.rb-th-name{left:0;position:sticky;z-index:3;width:150px;min-width:150px;text-align:left;padding-left:10px}
-.rb-table td.rb-dept-cell{max-width:150px;overflow:hidden;text-overflow:ellipsis}
+.rb-table th.rb-th-name{left:0;position:sticky;z-index:3;min-width:150px;text-align:left;padding-left:10px}
+.rb-table td.rb-dept-cell{white-space:normal;word-break:break-all;overflow:visible;cursor:pointer}
 .rb-table td{border-bottom:1px solid var(--sf-border);border-left:1px solid var(--sf-border);padding:4px;vertical-align:top;background:#fff}
 .rb-table tbody tr td:first-child{border-left:none}
 .rb-wknd{background:#fdf6f6 !important}
@@ -6188,6 +6191,8 @@ function renderRbBoard() {
   });
   // 剩余逻辑不变：未分配部门不再显示（均已归入上述6个部门）
   var WD = ['周一','周二','周三','周四','周五','周六','周日'];
+  // 固定列宽：姓名200px，7天均分剩余宽度（table-layout:fixed 需要 colgroup 配合，colspan=8 的部门行才能正确占满总宽）
+  var colHtml = '<colgroup><col class="rb-col-name"><col class="rb-col-day"><col class="rb-col-day"><col class="rb-col-day"><col class="rb-col-day"><col class="rb-col-day"><col class="rb-col-day"><col class="rb-col-day"></colgroup>';
   var head = '<tr><th class="rb-th-name">顾问信息</th>' + days.map(function(d, i) {
     return '<th class="rb-th-day' + (i >= 5 ? ' rb-wknd' : '') + '"><div>' + WD[i] + '</div><div style="font-weight:400;opacity:.75">' + (d.getMonth() + 1) + '/' + d.getDate() + '</div></th>';
   }).join('') + '</tr>';
@@ -6211,7 +6216,7 @@ function renderRbBoard() {
       body += '</tr>';
     });
   });
-  tbl.innerHTML = '<thead>' + head + '</thead><tbody>' + body + '</tbody>';
+  tbl.innerHTML = '<thead>' + colHtml + head + '</thead><tbody>' + body + '</tbody>';
 }
 function rbToggleDept(id) {
   if (!_rbOpenState.hasOwnProperty(id)) _rbOpenState[id] = true;
