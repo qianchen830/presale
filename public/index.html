@@ -6470,6 +6470,7 @@ var _appSearchText = '';
     _currentUser = d;
     // 解析 view_depts 供权限过滤使用（API返回的viewDepts已是数组，不是字符串，无需JSON.parse）
     _currentUser.view_depts = Array.isArray(d.viewDepts) ? d.viewDepts : [];
+    console.log('[DEBUG checkAuth] d.viewDepts:', JSON.stringify(d.viewDepts), '_currentUser.view_depts:', JSON.stringify(_currentUser.view_depts));
     // 头部显示用户名（右上角），admin角色显示「管理员」
     var lblEl = document.getElementById('hdrConsultLbl');
     if (lblEl) lblEl.textContent = d.role === 'admin' ? '管理员' : '顾问';
