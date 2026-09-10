@@ -2840,8 +2840,9 @@ async function loadState() {
   if (serverData && serverData.state) {
     // 在 applyStateObj 之前设置 _currentUser（其内会调用 renderCards），确保首次渲染用正确的个人/部门视角
     if (serverData.user) {
+      var _saved_view_depts = _currentUser ? _currentUser.view_depts : []; // 保留 checkAuth 设好的 view_depts（/api/modules/state 的 user 不带此字段）
       _currentUser = serverData.user;
-      _currentUser.view_depts = Array.isArray(serverData.user.viewDepts) ? serverData.user.viewDepts : [];
+      _currentUser.view_depts = _saved_view_depts.length ? _saved_view_depts : (Array.isArray(serverData.user.viewDepts) ? serverData.user.viewDepts : []);
     }
     // 传入 true：当 embedded HTML 数据比服务器更丰富时，保留 embedded 数据
     loaded = applyStateObj(serverData.state, true);
