@@ -6192,7 +6192,7 @@ function renderRbBoard() {
   }).join('') + '</tr>';
   var body = '';
   groups.forEach(function(g) {
-    if (!_rbOpenState.hasOwnProperty(g.id)) _rbOpenState[g.id] = true; // 默认展开全部部门，可手动折叠（记住选择）
+    if (!_rbOpenState.hasOwnProperty(g.id)) _rbOpenState[g.id] = g.hasSch; // 默认：无安排则收起，有安排则展开
     var open = !!_rbOpenState[g.id];
     body += '<tr class="rb-dept-row" onclick="rbToggleDept(\'' + g.id + '\')"><td colspan="8"><span class="rb-arrow' + (open ? ' open' : '') + '">▸</span>' + scEscape(g.name) + '（' + g.emps.length + '人' + (g.hasSch ? '' : ' · 本周无安排') + '）</td></tr>';
     if (!open) return;
