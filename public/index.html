@@ -6079,7 +6079,17 @@ function openScheduleForm(dateStr, id, ev) {
   }
   document.getElementById('scStart').value = '09:00';
   document.getElementById('scEnd').value = '10:00';
-  scApplyApp('');
+  // 从售前申请点安排时，自动预填所有关联信息（商机号+客户+项目+销售+部门）
+  if (!id && _scPrefilledAppId) {
+    var prefilledApp = (state.applications || []).find(function(a){ return a.id === _scPrefilledAppId; });
+    if (prefilledApp) {
+      document.getElementById('scAppInput').value = scAppLabel(prefilledApp.id);
+      scApplyApp(prefilledApp.id); // 自动填入客户/项目/销售/部门
+    }
+    _scPrefilledAppId = null; // 仅一次性使用
+  } else {
+    scApplyApp('');
+  }
   cSel.value = _scFilter || ''; // 默认当前筛选的顾问
   var rec = null;
   if (id) {
