@@ -6072,14 +6072,16 @@ function openScheduleForm(dateStr, id, ev) {
   document.getElementById('scStart').value = '09:00';
   document.getElementById('scEnd').value = '10:00';
   // 从售前申请点安排时，自动预填所有关联信息（商机号+客户+项目+销售+部门）
-  if (!id && _scPrefilledAppId) {
-    var prefilledApp = (state.applications || []).find(function(a){ return a.id === _scPrefilledAppId; });
+  // 优先用当前选中的售前申请，编辑时用记录本身的 appId
+  var prefilledAppId = id ? null : (state.selectedAppId || _scPrefilledAppId);
+  if (prefilledAppId) {
+    var prefilledApp = (state.applications || []).find(function(a){ return a.id === prefilledAppId; });
     if (prefilledApp) {
       document.getElementById('scAppInput').value = scAppLabel(prefilledApp.id);
       _scAppId = prefilledApp.id;
       scApplyApp(prefilledApp.id); // 自动填入客户/项目/销售/部门
     }
-    _scPrefilledAppId = null; // 仅一次性使用（用户换了售前申请才清）
+    _scPrefilledAppId = prefilledAppId; // 记住，方便后续使用
   } else {
     scApplyApp('');
   }
