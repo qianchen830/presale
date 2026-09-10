@@ -464,6 +464,70 @@ input[type=number]{-moz-appearance:textfield;}
 .guide-btns .g-next{background:linear-gradient(135deg,var(--sf-blue-dark) 0%,var(--sf-blue) 100%);color:#fff;}
 .guide-btns .g-next:hover{opacity:.9;}
 .guide-btns .g-skip{background:none;color:var(--sf-text-muted);padding:5px 8px;}
+
+/* ===================== 售前安排登记 + 资源看板（仅 admin） ===================== */
+.sc-select{width:100%;box-sizing:border-box;height:36px;padding:0 10px;border:1px solid var(--sf-border);border-radius:var(--sf-radius);font-size:var(--text-xs);background:#fff;color:var(--sf-text-secondary)}
+.sc-toolbar{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.sc-toolbar .sc-title{font-weight:600;font-size:var(--text-sm);min-width:130px;text-align:center;color:var(--sf-text)}
+.sc-filter{max-width:180px}
+.sc-weekhead{display:grid;grid-template-columns:repeat(7,1fr);background:var(--sf-bg-soft);border:1px solid var(--sf-border);border-bottom:none;border-radius:var(--sf-radius) var(--sf-radius) 0 0}
+.sc-weekhead span{padding:6px 0;text-align:center;font-size:var(--text-xs);color:var(--sf-text-secondary)}
+.sc-grid{border:1px solid var(--sf-border);border-radius:0 0 var(--sf-radius) var(--sf-radius);overflow:hidden}
+.sc-row{display:grid;grid-template-columns:repeat(7,1fr);border-top:1px solid var(--sf-border)}
+.sc-row:first-child{border-top:none}
+.sc-cell{min-height:88px;padding:4px 5px;position:relative;border-left:1px solid var(--sf-border);background:#fff;overflow:hidden}
+.sc-cell:first-child{border-left:none}
+.sc-cell.sc-out{background:#fafafa}
+.sc-cell.sc-out .sc-daynum{opacity:.45}
+.sc-cell.sc-wknd{background:#fdf6f6}
+.sc-cell.sc-today{box-shadow:inset 0 0 0 2px var(--sf-blue)}
+.sc-dayhead{display:flex;justify-content:space-between;align-items:center}
+.sc-daynum{font-size:var(--text-xs);font-weight:600;color:var(--sf-text-secondary)}
+.sc-today .sc-daynum{color:var(--sf-blue)}
+.sc-plus{width:18px;height:18px;line-height:16px;text-align:center;border-radius:50%;border:1px solid var(--sf-border);background:#fff;color:var(--sf-text-secondary);cursor:pointer;font-size:12px;padding:0;opacity:0;transition:opacity .12s}
+.sc-cell:hover .sc-plus{opacity:1}
+.sc-plus:hover{background:var(--sf-blue);color:#fff;border-color:var(--sf-blue)}
+.sc-caps{display:flex;flex-direction:column;gap:2px;margin-top:3px}
+.sc-cap{display:block;font-size:11px;line-height:1.4;padding:1px 7px;border-radius:999px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left}
+.sc-cap:hover{filter:brightness(.94)}
+.sc-cap-project{background:#eaf5fe;color:#005fb2}
+.sc-cap-meeting{background:#e7f5ee;color:#04844b}
+.sc-cap-training{background:#fdf3df;color:#9a6b00}
+.sc-cap-leave{background:#f1eafd;color:#6d28d9}
+.sc-cap-other{background:#f2f2f2;color:#5f6368}
+.sc-more{font-size:11px;color:var(--sf-blue);cursor:pointer;padding:1px 2px;width:max-content}
+.sc-more:hover{text-decoration:underline}
+.sc-daypop{position:fixed;z-index:50000;background:#fff;border:1px solid var(--sf-border);border-radius:var(--sf-radius);box-shadow:0 8px 24px rgba(0,0,0,.14);padding:8px;width:240px;display:flex;flex-direction:column;gap:4px}
+.sc-daypop-hd{font-size:var(--text-xs);font-weight:600;color:var(--sf-text-secondary);display:flex;justify-content:space-between;margin-bottom:2px}
+.sc-daypop-x{cursor:pointer;color:var(--sf-text-muted);padding:0 4px}
+.sc-daypop-empty{font-size:var(--text-xs);color:var(--sf-text-muted);padding:6px 0}
+.sc-conflict-tip{color:var(--sf-text-danger);font-size:var(--text-xs);min-height:16px;margin-top:4px}
+.sc-errmsg{color:#fff;background:var(--sf-text-danger);font-size:var(--text-xs);padding:6px 10px;border-radius:var(--sf-radius);margin-top:6px;display:none}
+.sc-errmsg:not(:empty){display:block}
+.sc-legend{display:flex;gap:10px;align-items:center;font-size:11px;color:var(--sf-text-muted);margin-top:10px;flex-wrap:wrap}
+.sc-legend .sc-cap{cursor:default}
+.sc-legend .sc-cap:hover{filter:none}
+.sc-detail-row{display:flex;justify-content:space-between;gap:16px;padding:7px 2px;border-bottom:1px dashed var(--sf-border);font-size:var(--text-sm)}
+.sc-detail-row:last-child{border-bottom:none}
+.sc-detail-k{color:var(--sf-text-muted);flex-shrink:0}
+.sc-detail-v{font-weight:600;text-align:right;word-break:break-all}
+.rb-scope{margin-left:auto;font-size:var(--text-xs);color:var(--sf-text-muted)}
+.rb-wrap{max-height:62vh;overflow:auto;border:1px solid var(--sf-border);border-radius:var(--sf-radius)}
+.rb-table{width:100%;border-collapse:separate;border-spacing:0;font-size:var(--text-xs);table-layout:fixed}
+.rb-table th{position:sticky;top:0;background:var(--sf-bg-soft);z-index:2;border-bottom:1px solid var(--sf-border);padding:6px 4px;text-align:center;color:var(--sf-text-secondary)}
+.rb-table th.rb-th-name{left:0;position:sticky;z-index:3;width:150px;min-width:150px;text-align:left;padding-left:10px}
+.rb-table td{border-bottom:1px solid var(--sf-border);border-left:1px solid var(--sf-border);padding:4px;vertical-align:top;background:#fff}
+.rb-table tbody tr td:first-child{border-left:none}
+.rb-wknd{background:#fdf6f6 !important}
+.rb-dept-row td{background:#f7fafd !important;cursor:pointer;font-weight:600;color:var(--sf-text-secondary);padding:6px 10px}
+.rb-arrow{display:inline-block;transition:transform .12s;margin-right:4px}
+.rb-arrow.open{transform:rotate(90deg)}
+.rb-name{position:sticky;left:0;background:#fff;z-index:1;width:150px;min-width:150px}
+.rb-name b{display:block;font-size:var(--text-xs);font-weight:600}
+.rb-pos{color:var(--sf-text-muted);font-size:10px;display:block}
+.rb-emp-row:hover td{background:#f8fbff}
+.rb-emp-row:hover td.rb-wknd{background:#f8ecec !important}
+.rb-cap{margin-bottom:2px}
 </style>
 <!-- Loading 遮罩 -->
 <style>
@@ -512,6 +576,7 @@ input[type=number]{-moz-appearance:textfield;}
   <div class="sf-hdr-r">
     <button class="btn" onclick="openOrgModal()" id="orgBtn" style="color:#fff;background:transparent;border-color:rgba(255,255,255,.3);font-size:var(--text-xs);display:none"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="users" aria-hidden="true" class="lucide lucide-users"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><path d="M16 3.128a4 4 0 0 1 0 7.744"></path><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><circle cx="9" cy="7" r="4"></circle></svg> 部门人员</button>
     <button class="btn" onclick="openAdminPanel()" id="adminUserBtn" style="color:#fff;background:transparent;border-color:rgba(255,255,255,.3);font-size:var(--text-xs);display:none"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="settings" aria-hidden="true" class="lucide lucide-settings"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg> 用户管理</button>
+    <button class="btn" onclick="openResourceBoard()" id="resourceBoardBtn" style="color:#fff;background:transparent;border-color:rgba(255,255,255,.3);font-size:var(--text-xs);display:none"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="calendar-days" aria-hidden="true"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M3 10h18"></path></svg> 资源看板</button>
     <button class="btn" onclick="location.href='dashboard.html'" id="dashboardBtn" style="color:#fff;background:transparent;border-color:rgba(255,255,255,.3);font-size:var(--text-xs);display:none"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="bar-chart-2" aria-hidden="true"><path d="M5 21v-6"></path><path d="M12 21V3"></path><path d="M19 21V9"></path></svg> 看板</button>
     <button class="btn" onclick="doLogout()" id="logoutBtn" style="color:#fff;background:transparent;border-color:rgba(255,255,255,.3);font-size:var(--text-xs)"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="log-out" aria-hidden="true" class="lucide lucide-log-out"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> 退出</button>
     <button class="btn" onclick="manualSaveToFile()" style="color:#fff;background:transparent;border-color:rgba(255,255,255,.3);font-size:var(--text-xs)"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="download" aria-hidden="true" class="lucide lucide-download"><path d="M12 15V3"></path><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m7 10 5 5 5-5"></path></svg> 导出</button>
@@ -569,6 +634,7 @@ input[type=number]{-moz-appearance:textfield;}
       <div class="t-card-title"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="file-text" aria-hidden="true" class="lucide lucide-file-text"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"></path><path d="M14 2v5a1 1 0 0 0 1 1h5"></path><path d="M10 9H8"></path><path d="M16 13H8"></path><path d="M16 17H8"></path></svg> 售前申请列表</div>
       <input type="text" class="fi" id="appSearch" placeholder="按单号/销售员/售前顾问/项目名称模糊搜索" oninput="filterAppList(this.value)" style="width:280px;height:28px;font-size:var(--text-xs);margin:0 12px;flex:1">
       <div class="t-card-acts">
+        <button class="btn" onclick="openScheduleCalendar()" id="scheduleBtn" style="display:none"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="calendar-days" aria-hidden="true"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M3 10h18"></path></svg> 安排</button>
         <button class="btn btn-p" onclick="openAppModal()"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="plus" aria-hidden="true" class="lucide lucide-plus"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg> 新增</button>
       </div>
     </div>
@@ -912,6 +978,99 @@ input[type=number]{-moz-appearance:textfield;}
     <div class="modal-ft">
       <button class="btn" onclick="closeModal(&#39;followModal&#39;)">取消</button>
       <button class="btn btn-p" onclick="saveFollow()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== Schedule Calendar Modal（售前安排登记，仅admin） ===================== -->
+<div class="modal-ov" id="scheduleCalModal">
+  <div class="modal modal-lg">
+    <div class="modal-hdr"><h3>安排日历</h3><button class="btn-icon" onclick="closeModal('scheduleCalModal')"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="x" aria-hidden="true" class="lucide lucide-x"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></div>
+    <div class="modal-body">
+      <div class="sc-toolbar">
+        <button class="btn" onclick="shiftScMonth(-1)">‹ 上月</button>
+        <span class="sc-title" id="scTitle"></span>
+        <button class="btn" onclick="shiftScMonth(1)">下月 ›</button>
+        <button class="btn" onclick="goScToday()">今天</button>
+        <select id="scFilter" class="sc-select sc-filter" onchange="scFilterChange()"></select>
+      </div>
+      <div class="sc-weekhead"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>
+      <div id="scGrid" class="sc-grid"></div>
+      <div class="sc-legend">
+        <span class="sc-cap sc-cap-project">项目</span><span class="sc-cap sc-cap-meeting">会议</span><span class="sc-cap sc-cap-training">培训</span><span class="sc-cap sc-cap-leave">休假</span><span class="sc-cap sc-cap-other">其他</span>
+        <span style="margin-left:auto">点击胶囊查看/编辑 · 悬停日期格点「+」新增</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Schedule Form Modal（新增/编辑事项） -->
+<div class="modal-ov" id="scheduleModal" style="z-index:1010;">
+  <div class="modal">
+    <div class="modal-hdr"><h3 id="scFormTitle">新增事项</h3><button class="btn-icon" onclick="closeModal('scheduleModal')"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="x" aria-hidden="true" class="lucide lucide-x"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></div>
+    <div class="modal-body">
+      <form id="scheduleForm" onsubmit="return false">
+        <div class="fr">
+          <div class="fg"><label>事项类型<span class="req">*</span></label><select id="scType" class="sc-select" onchange="scTypeChanged()"></select></div>
+          <div class="fg"><label id="scAppLbl">售前申请</label><input id="scAppInput" class="fi" list="scAppList" placeholder="输入商机号/客户/项目名搜索" oninput="scAppInputChanged()"><datalist id="scAppList"></datalist></div>
+        </div>
+        <div class="fr">
+          <div class="fg"><label>客户名称</label><input id="scCustomer" class="fi" readonly style="background:var(--sf-bg-soft)"></div>
+          <div class="fg"><label>项目名称</label><input id="scProject" class="fi" readonly style="background:var(--sf-bg-soft)"></div>
+        </div>
+        <div class="fr">
+          <div class="fg"><label>销售</label><input id="scSales" class="fi" readonly style="background:var(--sf-bg-soft)"></div>
+          <div class="fg"><label>所属部门</label><input id="scDept" class="fi" readonly style="background:var(--sf-bg-soft)"></div>
+        </div>
+        <div class="fr">
+          <div class="fg"><label>顾问人员<span class="req">*</span></label><select id="scConsultant" class="sc-select" onchange="scPrecheck()"></select></div>
+          <div class="fg"><label>日期<span class="req">*</span></label><input type="date" id="scDate" class="fi" onchange="scPrecheck()"></div>
+        </div>
+        <div class="fr">
+          <div class="fg"><label>开始时间<span class="req">*</span></label><input type="time" step="1800" id="scStart" class="fi" onchange="scPrecheck()"></div>
+          <div class="fg"><label>结束时间<span class="req">*</span></label><input type="time" step="1800" id="scEnd" class="fi" onchange="scPrecheck()"></div>
+        </div>
+        <div class="fg"><label>备注</label><textarea id="scNote" class="fta" rows="2" placeholder="选填"></textarea></div>
+        <div id="scConflictTip" class="sc-conflict-tip"></div>
+        <div id="scErrMsg" class="sc-errmsg"></div>
+      </form>
+    </div>
+    <div class="modal-ft">
+      <button class="btn" onclick="closeModal('scheduleModal')">取消</button>
+      <button class="btn btn-p" onclick="saveSchedule()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Schedule Detail Modal（事项详情/只读详情） -->
+<div class="modal-ov" id="scheduleDetailModal" style="z-index:1015;">
+  <div class="modal">
+    <div class="modal-hdr"><h3 id="scDetailModalTitle">事项详情</h3><button class="btn-icon" onclick="closeModal('scheduleDetailModal')"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="x" aria-hidden="true" class="lucide lucide-x"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></div>
+    <div class="modal-body"><div id="scDetailBody"></div></div>
+    <div class="modal-ft">
+      <button class="btn" onclick="closeModal('scheduleDetailModal')">关闭</button>
+      <button class="btn" id="scDetailDel" style="color:var(--sf-text-danger);border-color:var(--sf-text-danger)" onclick="deleteSchedule()">删除</button>
+      <button class="btn btn-p" id="scDetailEdit" onclick="scEditFromDetail()">编辑</button>
+    </div>
+  </div>
+</div>
+
+<!-- Resource Board Modal（资源看板，仅admin） -->
+<div class="modal-ov" id="resourceBoardModal">
+  <div class="modal modal-lg">
+    <div class="modal-hdr"><h3>资源看板</h3><button class="btn-icon" onclick="closeModal('resourceBoardModal')"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="x" aria-hidden="true" class="lucide lucide-x"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></div>
+    <div class="modal-body">
+      <div class="sc-toolbar">
+        <button class="btn" onclick="shiftRbWeek(-1)">‹ 上周</button>
+        <span class="sc-title" id="rbRange"></span>
+        <button class="btn" onclick="shiftRbWeek(1)">下周 ›</button>
+        <button class="btn" onclick="goRbThisWeek()">本周</button>
+        <span class="rb-scope">可见范围：全部部门 · 点击胶囊查看明细（只读）</span>
+      </div>
+      <div class="rb-wrap"><table id="rbTable" class="rb-table"></table></div>
+      <div class="sc-legend">
+        <span class="sc-cap sc-cap-project">项目</span><span class="sc-cap sc-cap-meeting">会议</span><span class="sc-cap sc-cap-training">培训</span><span class="sc-cap sc-cap-leave">休假</span><span class="sc-cap sc-cap-other">其他</span>
+      </div>
     </div>
   </div>
 </div>
@@ -5693,6 +5852,370 @@ function finishInit() {
   // 3. 检查连接
   setTimeout(checkExportReminder, 300);
 })();
+
+/* ===================== 售前安排登记 + 资源看板（仅 admin） ===================== */
+var SC_TYPES = ['项目','会议','培训','休假','其他'];
+var SC_CAP_CLS = {'项目':'sc-cap-project','会议':'sc-cap-meeting','培训':'sc-cap-training','休假':'sc-cap-leave','其他':'sc-cap-other'};
+var _scYear = null, _scMonth = null;   // 月历当前年（1-12 月）
+var _scFilter = '';                     // 月历顾问筛选（'' = 全部）
+var _scEditingId = null;                // 编辑中的排程 id
+var _scAppId = '';                      // 当前表单关联的售前申请 id
+var _scPopEl = null;                    // 当日安排浮层
+var _rbWeekStart = null;                // 资源看板周一（Date）
+var _rbOpenState = {};                  // 资源看板部门分组展开状态
+
+function scSchedules() { return state.schedules || []; }
+function scEmps() { return state.employees || []; }
+function scDepts() { return state.departments || []; }
+function scIsAdmin() { return !!(_currentUser && _currentUser.role === 'admin'); }
+function scFmtDate(d) { var y = d.getFullYear(), m = d.getMonth() + 1, dd = d.getDate(); return y + '-' + (m < 10 ? '0' : '') + m + '-' + (dd < 10 ? '0' : '') + dd; }
+function scWeekMonday(base) { var d = new Date(base.getFullYear(), base.getMonth(), base.getDate()); var w = (d.getDay() + 6) % 7; d.setDate(d.getDate() - w); return d; }
+function scEscape(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function scAppLabel(appId) {
+  var a = (state.applications || []).find(function(x) { return String(x.id) === String(appId); });
+  return a ? ((a.oppNo || '') + ' ' + (a.customer || '') + ' ' + (a.projectName || '')).replace(/\s+/g, ' ').trim() : '';
+}
+function scConsultantNames() {
+  var names = scEmps().map(function(e) { return e.name; }).filter(function(n) { return n; });
+  return names.filter(function(n, i) { return names.indexOf(n) === i; }).sort(function(a, b) { return a.localeCompare(b, 'zh'); });
+}
+function scRefreshAfterChange() {
+  renderScCalendar();
+  var rb = document.getElementById('resourceBoardModal');
+  if (rb && rb.classList.contains('show')) renderRbBoard();
+  try { encryptData(JSON.stringify(state)).then(function(enc) { try { localStorage.setItem(STORAGE_KEY, enc); } catch(e){} }).catch(function(){}); } catch(e) {}
+}
+
+/* ---------- 安排日历（月视图） ---------- */
+function openScheduleCalendar() {
+  if (!scIsAdmin()) return;
+  closeScDayPop();
+  var now = new Date();
+  if (_scYear == null) { _scYear = now.getFullYear(); _scMonth = now.getMonth() + 1; }
+  var sel = document.getElementById('scFilter');
+  var prev = _scFilter || '';
+  sel.innerHTML = '';
+  var o0 = document.createElement('option'); o0.value = ''; o0.textContent = '全部顾问'; sel.appendChild(o0);
+  scConsultantNames().forEach(function(n) { var o = document.createElement('option'); o.value = n; o.textContent = n; sel.appendChild(o); });
+  sel.value = prev; if (sel.value !== prev) { sel.value = ''; _scFilter = ''; } else { _scFilter = prev; }
+  renderScCalendar();
+  openModal('scheduleCalModal');
+}
+function shiftScMonth(n) {
+  if (_scYear == null) return;
+  var m = _scMonth + n;
+  if (m < 1) { m = 12; _scYear--; } else if (m > 12) { m = 1; _scYear++; }
+  _scMonth = m;
+  renderScCalendar();
+}
+function goScToday() { var now = new Date(); _scYear = now.getFullYear(); _scMonth = now.getMonth() + 1; renderScCalendar(); }
+function scFilterChange() { _scFilter = document.getElementById('scFilter').value || ''; renderScCalendar(); }
+
+function scCapsulesHtml(dateStr, withName, max) {
+  var list = scSchedules().filter(function(s) { return s.scheduleDate === dateStr && (!_scFilter || s.consultant === _scFilter); });
+  list.sort(function(a, b) { return (a.startTime || '').localeCompare(b.startTime || ''); });
+  var html = '', shown = Math.min(max, list.length);
+  for (var i = 0; i < shown; i++) {
+    var s = list[i];
+    var label = (withName ? scEscape(s.consultant) + '·' : '') + scEscape(s.type) + ' ' + (s.startTime || '').slice(0, 5) + '-' + (s.endTime || '').slice(0, 5);
+    var tip = scEscape(s.consultant + ' ' + s.type + (s.projectName ? '·' + s.projectName : '') + ' ' + (s.startTime || '') + '-' + (s.endTime || ''));
+    html += '<div class="sc-cap ' + (SC_CAP_CLS[s.type] || 'sc-cap-other') + '" title="' + tip + '" onclick="openScheduleDetail(\'' + s.id + '\',false,event)">' + label + '</div>';
+  }
+  if (list.length > max) html += '<div class="sc-more" onclick="openScDayPop(\'' + dateStr + '\',event)">+' + (list.length - max) + ' 更多</div>';
+  return html;
+}
+
+function renderScCalendar() {
+  var grid = document.getElementById('scGrid');
+  if (!grid) return;
+  document.getElementById('scTitle').textContent = _scYear + '年' + _scMonth + '月';
+  var first = new Date(_scYear, _scMonth - 1, 1);
+  var start = new Date(_scYear, _scMonth - 1, 1 - first.getDay()); // 周日开头
+  var today = scFmtDate(new Date());
+  var html = '';
+  for (var r = 0; r < 6; r++) {
+    html += '<div class="sc-row">';
+    for (var c = 0; c < 7; c++) {
+      var d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + r * 7 + c);
+      var ds = scFmtDate(d);
+      var cls = 'sc-cell' + (d.getMonth() + 1 !== _scMonth ? ' sc-out' : '') + ((c === 0 || c === 6) ? ' sc-wknd' : '') + (ds === today ? ' sc-today' : '');
+      html += '<div class="' + cls + '">'
+        + '<div class="sc-dayhead"><span class="sc-daynum">' + d.getDate() + '</span>'
+        + '<button class="sc-plus" title="新增安排" onclick="openScheduleForm(\'' + ds + '\',null,event)">+</button></div>'
+        + '<div class="sc-caps">' + scCapsulesHtml(ds, true, 2) + '</div>'
+        + '</div>';
+    }
+    html += '</div>';
+  }
+  grid.innerHTML = html;
+}
+
+/* 当日安排浮层（月历 +N 更多） */
+function closeScDayPop() {
+  if (_scPopEl) { _scPopEl.remove(); _scPopEl = null; }
+  document.removeEventListener('click', scDocClosePop);
+}
+function scDocClosePop(e) { if (_scPopEl && !_scPopEl.contains(e.target)) closeScDayPop(); else if (!_scPopEl) document.removeEventListener('click', scDocClosePop); }
+function openScDayPop(dateStr, ev) {
+  if (ev && ev.stopPropagation) ev.stopPropagation();
+  closeScDayPop();
+  var list = scSchedules().filter(function(s) { return s.scheduleDate === dateStr && (!_scFilter || s.consultant === _scFilter); });
+  list.sort(function(a, b) { return (a.startTime || '').localeCompare(b.startTime || ''); });
+  var pop = document.createElement('div');
+  pop.className = 'sc-daypop';
+  var hd = document.createElement('div'); hd.className = 'sc-daypop-hd';
+  hd.innerHTML = '<span>' + dateStr + ' 安排（' + list.length + '）</span><span class="sc-daypop-x" title="关闭">×</span>';
+  hd.querySelector('.sc-daypop-x').onclick = closeScDayPop;
+  pop.appendChild(hd);
+  if (!list.length) {
+    var em = document.createElement('div'); em.className = 'sc-daypop-empty'; em.textContent = '当日暂无安排'; pop.appendChild(em);
+  } else {
+    list.forEach(function(s) {
+      var cap = document.createElement('div');
+      cap.className = 'sc-cap ' + (SC_CAP_CLS[s.type] || 'sc-cap-other');
+      cap.textContent = s.consultant + '·' + s.type + ' ' + (s.startTime || '').slice(0, 5) + '-' + (s.endTime || '').slice(0, 5) + (s.projectName ? '（' + s.projectName + '）' : '');
+      cap.title = cap.textContent;
+      cap.onclick = function(e) { if (e.stopPropagation) e.stopPropagation(); openScheduleDetail(s.id, false, e); };
+      pop.appendChild(cap);
+    });
+  }
+  document.body.appendChild(pop);
+  var rect = (ev && ev.target && ev.target.getBoundingClientRect) ? ev.target.getBoundingClientRect() : { left: 100, bottom: 100 };
+  pop.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 250)) + 'px';
+  pop.style.top = Math.max(8, Math.min(rect.bottom + 6, window.innerHeight - 220)) + 'px';
+  _scPopEl = pop;
+  document.addEventListener('click', scDocClosePop);
+}
+
+/* ---------- 新增/编辑事项表单 ---------- */
+function scApplyApp(appId) {
+  _scAppId = appId || '';
+  var a = appId ? (state.applications || []).find(function(x) { return String(x.id) === String(appId); }) : null;
+  document.getElementById('scCustomer').value = a ? (a.customer || '') : '';
+  document.getElementById('scProject').value = a ? (a.projectName || '') : '';
+  document.getElementById('scSales').value = a ? (a.applicant || '') : '';
+  document.getElementById('scDept').value = a ? (a.department || '') : '';
+}
+function scAppInputChanged() {
+  var v = (document.getElementById('scAppInput').value || '').replace(/\s+/g, ' ').trim();
+  var found = null;
+  (state.applications || []).forEach(function(x) { if (!found && scAppLabel(x.id) === v) found = x; });
+  if (found) { _scAppId = found.id; scApplyApp(found.id); document.getElementById('scAppInput').value = scAppLabel(found.id); }
+  else scApplyApp('');
+}
+function scTypeChanged() {
+  var t = document.getElementById('scType').value;
+  document.getElementById('scAppLbl').innerHTML = '售前申请' + (t === '项目' ? ' <span class="req">*</span>' : '（选填）');
+}
+function scPrecheck() {
+  var tip = document.getElementById('scConflictTip');
+  if (!tip) return;
+  var c = document.getElementById('scConsultant').value;
+  var d = document.getElementById('scDate').value;
+  var st = (document.getElementById('scStart').value || '').slice(0, 5);
+  var et = (document.getElementById('scEnd').value || '').slice(0, 5);
+  tip.textContent = '';
+  if (!c || !d || !st || !et) return;
+  if (st >= et) { tip.textContent = '结束时间必须晚于开始时间'; return; }
+  var s = scSchedules().find(function(x) {
+    return String(x.id) !== String(_scEditingId || '') && !x.deleted && x.consultant === c && x.scheduleDate === d && x.startTime < et && st < x.endTime;
+  });
+  if (s) tip.textContent = '时间冲突：' + s.consultant + ' 当天已有【' + s.type + (s.projectName ? '·' + s.projectName : '') + ' ' + s.startTime + '-' + s.endTime + '】与此时间段重叠';
+}
+function openScheduleForm(dateStr, id, ev) {
+  if (ev && ev.stopPropagation) ev.stopPropagation();
+  if (!scIsAdmin()) return;
+  closeScDayPop();
+  _scEditingId = id || null;
+  document.getElementById('scErrMsg').textContent = '';
+  document.getElementById('scConflictTip').textContent = '';
+  document.getElementById('scFormTitle').textContent = id ? '编辑事项' : '新增事项';
+  var typeSel = document.getElementById('scType');
+  typeSel.innerHTML = '';
+  SC_TYPES.forEach(function(t) { var o = document.createElement('option'); o.value = t; o.textContent = t; typeSel.appendChild(o); });
+  // 顾问下拉（员工表去重）
+  var cSel = document.getElementById('scConsultant');
+  cSel.innerHTML = '';
+  var c0 = document.createElement('option'); c0.value = ''; c0.textContent = '请选择顾问'; cSel.appendChild(c0);
+  scConsultantNames().forEach(function(n) { var o = document.createElement('option'); o.value = n; o.textContent = n; cSel.appendChild(o); });
+  // 售前申请 datalist（DOM 构建，保证与输入值精确匹配）
+  var dl = document.getElementById('scAppList');
+  dl.innerHTML = '';
+  (state.applications || []).forEach(function(a) { var o = document.createElement('option'); o.value = scAppLabel(a.id); dl.appendChild(o); });
+  // 默认值
+  document.getElementById('scAppInput').value = '';
+  document.getElementById('scNote').value = '';
+  document.getElementById('scDate').value = dateStr || scFmtDate(new Date());
+  document.getElementById('scStart').value = '09:00';
+  document.getElementById('scEnd').value = '10:00';
+  scApplyApp('');
+  cSel.value = _scFilter || ''; // 默认当前筛选的顾问
+  var rec = null;
+  if (id) {
+    rec = scSchedules().find(function(x) { return String(x.id) === String(id); });
+    if (rec) {
+      typeSel.value = rec.type;
+      cSel.value = rec.consultant || '';
+      document.getElementById('scDate').value = rec.scheduleDate || '';
+      document.getElementById('scStart').value = (rec.startTime || '').slice(0, 5);
+      document.getElementById('scEnd').value = (rec.endTime || '').slice(0, 5);
+      document.getElementById('scNote').value = rec.note || '';
+      scApplyApp(rec.appId || '');
+      document.getElementById('scAppInput').value = rec.appId ? scAppLabel(rec.appId) : '';
+    }
+  }
+  scTypeChanged();
+  scPrecheck();
+  openModal('scheduleModal');
+}
+async function saveSchedule() {
+  var errMsg = document.getElementById('scErrMsg');
+  errMsg.textContent = '';
+  var type = document.getElementById('scType').value;
+  var consultant = document.getElementById('scConsultant').value;
+  var date = document.getElementById('scDate').value;
+  var st = (document.getElementById('scStart').value || '').slice(0, 5);
+  var et = (document.getElementById('scEnd').value || '').slice(0, 5);
+  var note = (document.getElementById('scNote').value || '').trim();
+  if (!type || !consultant || !date || !st || !et) { errMsg.textContent = '请填写完整（类型/顾问/日期/时间段）'; return; }
+  if (st >= et) { errMsg.textContent = '结束时间必须晚于开始时间'; return; }
+  if (type === '项目' && !_scAppId) { errMsg.textContent = '项目类事项必须关联售前申请（请在“售前申请”框中选择列表项）'; return; }
+  var a = _scAppId ? (state.applications || []).find(function(x) { return String(x.id) === String(_scAppId); }) : null;
+  var rec = {
+    type: type, consultant: consultant, scheduleDate: date, startTime: st, endTime: et, note: note,
+    appId: a ? a.id : '', oppNo: a ? (a.oppNo || '') : '',
+    customer: a ? (a.customer || '') : '', projectName: a ? (a.projectName || '') : '',
+    sales: a ? (a.applicant || '') : '', department: a ? (a.department || '') : ''
+  };
+  try {
+    var url, method;
+    if (_scEditingId) { method = 'PUT'; url = '/api/modules/schedules/' + encodeURIComponent(_scEditingId); rec.id = _scEditingId; }
+    else { method = 'POST'; url = '/api/modules/schedules'; rec.id = uid(); }
+    var res = await fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) });
+    var data = await res.json().catch(function() { return {}; });
+    if (!res.ok) { errMsg.textContent = data.error || ('保存失败（HTTP ' + res.status + '）'); return; }
+    var saved = data.record || rec;
+    if (!state.schedules) state.schedules = [];
+    if (_scEditingId) {
+      var i = state.schedules.findIndex(function(x) { return String(x.id) === String(_scEditingId); });
+      if (i >= 0) state.schedules[i] = saved; else state.schedules.push(saved);
+    } else {
+      state.schedules.push(saved);
+    }
+    closeModal('scheduleModal');
+    scRefreshAfterChange();
+  } catch (e2) {
+    errMsg.textContent = '网络异常，保存失败：' + (e2 && e2.message ? e2.message : e2);
+  }
+}
+
+/* ---------- 事项详情（可编辑 / 只读） ---------- */
+function openScheduleDetail(id, readOnly, ev) {
+  if (ev && ev.stopPropagation) ev.stopPropagation();
+  var s = scSchedules().find(function(x) { return String(x.id) === String(id); });
+  if (!s) return;
+  var rows = [
+    ['类型', s.type], ['项目', s.projectName || '—'], ['客户', s.customer || '—'],
+    ['销售', s.sales || '—'], ['部门', s.department || '—'], ['顾问', s.consultant || '—'],
+    ['日期', s.scheduleDate || '—'], ['时间段', (s.startTime || '').slice(0, 5) + ' - ' + (s.endTime || '').slice(0, 5)],
+    ['备注', s.note || '—']
+  ];
+  document.getElementById('scDetailBody').innerHTML = rows.map(function(r) {
+    return '<div class="sc-detail-row"><span class="sc-detail-k">' + r[0] + '：</span><span class="sc-detail-v">' + scEscape(r[1]) + '</span></div>';
+  }).join('');
+  document.getElementById('scDetailEdit').style.display = readOnly ? 'none' : '';
+  document.getElementById('scDetailDel').style.display = readOnly ? 'none' : '';
+  document.getElementById('scDetailModalTitle').textContent = readOnly ? '安排详情（只读）' : '事项详情';
+  _scEditingId = id;
+  openModal('scheduleDetailModal');
+}
+function scEditFromDetail() {
+  var id = _scEditingId;
+  closeModal('scheduleDetailModal');
+  openScheduleForm(null, id);
+}
+async function deleteSchedule() {
+  if (!_scEditingId) return;
+  if (!window.confirm('确定删除该安排？')) return;
+  try {
+    var res = await fetch('/api/modules/schedules/' + encodeURIComponent(_scEditingId), { method: 'DELETE' });
+    var data = await res.json().catch(function() { return {}; });
+    if (!res.ok) { window.alert(data.error || '删除失败'); return; }
+    state.schedules = (state.schedules || []).filter(function(x) { return String(x.id) !== String(_scEditingId); });
+    closeModal('scheduleDetailModal');
+    scRefreshAfterChange();
+  } catch (e2) { window.alert('网络异常：' + (e2 && e2.message ? e2.message : e2)); }
+}
+
+/* ---------- 资源看板（周视图） ---------- */
+function openResourceBoard() {
+  if (!scIsAdmin()) return;
+  _rbWeekStart = scWeekMonday(new Date());
+  renderRbBoard();
+  openModal('resourceBoardModal');
+}
+function shiftRbWeek(n) {
+  if (!_rbWeekStart) return;
+  _rbWeekStart = new Date(_rbWeekStart.getFullYear(), _rbWeekStart.getMonth(), _rbWeekStart.getDate() + n * 7);
+  renderRbBoard();
+}
+function goRbThisWeek() { _rbWeekStart = scWeekMonday(new Date()); renderRbBoard(); }
+function rbIsoWeek(monday) {
+  var thu = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 3);
+  var fw = scWeekMonday(new Date(thu.getFullYear(), 0, 4));
+  return 1 + Math.round((thu - fw) / (7 * 24 * 3600 * 1000));
+}
+function renderRbBoard() {
+  var tbl = document.getElementById('rbTable');
+  if (!tbl || !_rbWeekStart) return;
+  var days = [];
+  for (var i = 0; i < 7; i++) days.push(new Date(_rbWeekStart.getFullYear(), _rbWeekStart.getMonth(), _rbWeekStart.getDate() + i));
+  document.getElementById('rbRange').textContent = scFmtDate(days[0]) + ' ~ ' + scFmtDate(days[6]) + '（第' + rbIsoWeek(_rbWeekStart) + '周）';
+  var weekSet = {};
+  days.forEach(function(d) { weekSet[scFmtDate(d)] = true; });
+  var byConsultant = {};
+  scSchedules().forEach(function(s) { if (weekSet[s.scheduleDate]) { (byConsultant[s.consultant] = byConsultant[s.consultant] || []).push(s); } });
+  // 按部门分组（未挂部门的员工归入“未分配部门”）
+  var groups = [], usedDept = {};
+  scDepts().forEach(function(dep) {
+    var emps = scEmps().filter(function(e) { return e.deptId === dep.id; });
+    if (!emps.length) return;
+    usedDept[dep.id] = true;
+    groups.push({ id: dep.id, name: dep.name, emps: emps, hasSch: emps.some(function(e) { return (byConsultant[e.name] || []).length > 0; }) });
+  });
+  var stray = scEmps().filter(function(e) { return !usedDept[e.deptId]; });
+  if (stray.length) groups.push({ id: '__none', name: '未分配部门', emps: stray, hasSch: stray.some(function(e) { return (byConsultant[e.name] || []).length > 0; }) });
+  var WD = ['周一','周二','周三','周四','周五','周六','周日'];
+  var head = '<tr><th class="rb-th-name">顾问信息</th>' + days.map(function(d, i) {
+    return '<th class="rb-th-day' + (i >= 5 ? ' rb-wknd' : '') + '"><div>' + WD[i] + '</div><div style="font-weight:400;opacity:.75">' + (d.getMonth() + 1) + '/' + d.getDate() + '</div></th>';
+  }).join('') + '</tr>';
+  var body = '';
+  groups.forEach(function(g) {
+    if (!_rbOpenState.hasOwnProperty(g.id)) _rbOpenState[g.id] = g.hasSch;
+    var open = !!_rbOpenState[g.id];
+    body += '<tr class="rb-dept-row" onclick="rbToggleDept(\'' + g.id + '\')"><td colspan="8"><span class="rb-arrow' + (open ? ' open' : '') + '">▸</span>' + scEscape(g.name) + '（' + g.emps.length + '人' + (g.hasSch ? '' : ' · 本周无安排') + '）</td></tr>';
+    if (!open) return;
+    g.emps.forEach(function(e) {
+      body += '<tr class="rb-emp-row"><td class="rb-name"><b>' + scEscape(e.name) + '</b><span class="rb-pos">' + scEscape(e.position || '') + '</span></td>';
+      days.forEach(function(d, i) {
+        var ds = scFmtDate(d);
+        var list = (byConsultant[e.name] || []).filter(function(s) { return s.scheduleDate === ds; });
+        list.sort(function(a, b) { return (a.startTime || '').localeCompare(b.startTime || ''); });
+        var caps = list.map(function(s) {
+          return '<div class="sc-cap rb-cap ' + (SC_CAP_CLS[s.type] || 'sc-cap-other') + '" title="' + scEscape(s.consultant + ' ' + s.type + (s.projectName ? '·' + s.projectName : '') + ' ' + (s.startTime || '') + '-' + (s.endTime || '')) + '" onclick="openScheduleDetail(\'' + s.id + '\',true,event)">' + scEscape(s.type) + ' ' + (s.startTime || '').slice(0, 5) + '</div>';
+        }).join('');
+        body += '<td class="' + (i >= 5 ? 'rb-wknd' : '') + '">' + caps + '</td>';
+      });
+      body += '</tr>';
+    });
+  });
+  tbl.innerHTML = '<thead>' + head + '</thead><tbody>' + body + '</tbody>';
+}
+function rbToggleDept(id) {
+  if (!_rbOpenState.hasOwnProperty(id)) _rbOpenState[id] = false;
+  _rbOpenState[id] = !_rbOpenState[id];
+  renderRbBoard();
+}
 </script>
 <!-- ONBOARDING GUIDE -->
 <div class="guide-overlay" id="guideOverlay"></div>
@@ -5928,6 +6451,11 @@ var _appSearchText = '';
     // 仅 admin 角色显示看板入口
     var dashBtn = document.getElementById('dashboardBtn');
     if (dashBtn) dashBtn.style.display = (d.role === 'admin') ? '' : 'none';
+    // 仅 admin 角色显示「安排」与「资源看板」入口（售前安排登记+资源看板）
+    var scBtn = document.getElementById('scheduleBtn');
+    if (scBtn) scBtn.style.display = (d.role === 'admin') ? '' : 'none';
+    var rbBtn = document.getElementById('resourceBoardBtn');
+    if (rbBtn) rbBtn.style.display = (d.role === 'admin') ? '' : 'none';
     // 仅 admin 角色显示部门人员按钮
     var orgBtn = document.getElementById('orgBtn');
     if (orgBtn) orgBtn.style.display = (d.role === 'admin') ? '' : 'none';

@@ -282,7 +282,7 @@ function saveState(newState) {
         }
       });
     }
-    for (const key of ['applications','contracts','judgments','followUps','salesQuestions','requirements','allocations']) {
+    for (const key of ['applications','contracts','judgments','followUps','salesQuestions','requirements','allocations','schedules']) {
       if (newState[key] !== undefined) {
         merged[key] = mergeById(merged[key] || [], newState[key] || []);
       }
@@ -325,6 +325,7 @@ function saveState(newState) {
   if (_deletedIds.followUps) merged.followUps = merged.followUps.filter(f => !_deletedIds.followUps.has(String(f.id)));
   if (_deletedIds.requirements) merged.requirements = merged.requirements.filter(r => !_deletedIds.requirements.has(String(r.id)));
   if (_deletedIds.salesQuestions) merged.salesQuestions = merged.salesQuestions.filter(q => !_deletedIds.salesQuestions.has(String(q.id)));
+  if (_deletedIds.schedules) merged.schedules = (merged.schedules || []).filter(s => !_deletedIds.schedules.has(String(s.id)));
   // 清除本次记录
   for (const k in _deletedIds) delete _deletedIds[k];
 
@@ -1052,7 +1053,7 @@ app.get('/api/consultant', requireAuth, (req, res) => {
 });
 
 // 各模块单条 CRUD 路由（实时保存）
-const MODULE_KEYS = ['applications','contracts','judgments','salesQuestions','followUps','allocations'];
+const MODULE_KEYS = ['applications','contracts','judgments','salesQuestions','followUps','allocations','schedules'];
 
 function checkModuleOwnership(record, session, state, key) {
   if (session.role === 'admin') return true;
@@ -1111,12 +1112,67 @@ function checkModuleOwnership(record, session, state, key) {
 // 记录本次操作中删除的 record id，按 module 分组
 const _deletedIds = {}; // { applications: Set(['id1','id2']), contracts: Set([...]) }
 
+// schedules：快照字段兑底补全（直连 API 未带快照时，从关联申请带出）
+function enrichScheduleSnapshot(record, state) {
+  if (!record.appId) return;
+  const a = (state.applications || []).find(x => String(x.id) === String(record.appId));
+  if (!a) return;
+  if (!record.oppNo) record.oppNo = a.oppNo || '';
+  if (!record.customer) record.customer = a.customer || '';
+  if (!record.projectName) record.projectName = a.projectName || '';
+  if (!record.sales) record.sales = a.applicant || '';
+  if (!record.department) record.department = a.department || '';
+}
+
+// schedules（售前安排）校验：必填、枚举、时间先后、项目类型必选申请、时间冲突检测
+// excludeId：编辑时排除自身
+function validateSchedule(record, state, excludeId) {
+  const TYPES = ['项目','会议','培训','休假','其他'];
+  if (!TYPES.includes(record.type)) return { error: '事项类型无效（应为：项目/会议/培训/休假/其他）' };
+  if (!record.consultant || !String(record.consultant).trim()) return { error: '请选择顾问人员' };
+  const emp = (state.employees || []).find(e => e.name === record.consultant);
+  if (!emp) return { error: '顾问【' + record.consultant + '】不存在于组织人员中' };
+  if (!record.scheduleDate) return { error: '请选择日期' };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(record.scheduleDate)) return { error: '日期格式无效（YYYY-MM-DD）' };
+  const tm = /^([01]\d|2[0-3]):[0-5]\d$/;
+  if (!tm.test(record.startTime || '')) return { error: '开始时间格式无效（HH:mm）' };
+  if (!tm.test(record.endTime || '')) return { error: '结束时间格式无效（HH:mm）' };
+  if (record.startTime >= record.endTime) return { error: '结束时间必须晚于开始时间' };
+  if (record.type === '项目' && !record.appId) return { error: '项目类事项必须关联售前申请' };
+  // appId 必须能找到对应申请（防脏数据）
+  if (record.appId && !(state.applications || []).some(a => String(a.id) === String(record.appId))) {
+    return { error: '关联的售前申请不存在，请重新选择' };
+  }
+  // 时间冲突：同一顾问 + 同一天 + 时间段区间重叠
+  const conflict = (state.schedules || []).find(s =>
+    String(s.id) !== String(excludeId || '')
+    && !s.deleted
+    && s.consultant === record.consultant
+    && s.scheduleDate === record.scheduleDate
+    && s.startTime < record.endTime && record.startTime < s.endTime);
+  if (conflict) {
+    return { error: '时间冲突：【' + conflict.consultant + '】当天已有【' + conflict.type
+      + (conflict.projectName ? '·' + conflict.projectName : '')
+      + ' ' + conflict.startTime + '-' + conflict.endTime + '】与此时间段重叠' };
+  }
+  return null;
+}
+
 function moduleOp(key, action, record, session) {
   if (!MODULE_KEYS.includes(key)) return { error: '不支持的模块: ' + key };
+  // schedules：仅管理员可操作（create/update/delete 统一入口校验）
+  if (key === 'schedules' && (!session || session.role !== 'admin')) return { error: '仅管理员可操作排程' };
   const state = getState().state;
   const arr = state[key] || [];
   const now = new Date().toISOString();
   if (action === 'create') {
+    // schedules（售前安排）：业务校验 + 记录创建人
+    if (key === 'schedules') {
+      const scErr = validateSchedule(record, state, null);
+      if (scErr) return scErr;
+      enrichScheduleSnapshot(record, state);
+      record.createdBy = session.displayName || session.username || '';
+    }
     // 商机号唯一性校验（直接读DB，避免缓存问题）
     if (key === 'applications' && record.oppNo) {
       const raw = getStateRow();
@@ -1163,9 +1219,17 @@ function moduleOp(key, action, record, session) {
       const dup = allApps.find(a => a.oppNo === record.oppNo && String(a.id) !== String(record.id) && !a.deleted);
       if (dup) return { error: '商机号 【' + record.oppNo + '】 已存在，属于顾问 【' + (dup.consultant || '未知') + '】' };
     }
-    record.consultant = arr[idx].consultant;
+    // schedules（售前安排）：业务校验（编辑时排除自身）
+    if (key === 'schedules') {
+      const scErr2 = validateSchedule(record, state, String(record.id));
+      if (scErr2) return scErr2;
+      enrichScheduleSnapshot(record, state);
+    }
+    // schedules 的 consultant 是"被安排的顾问"，允许修改，不做回填；其余模块保持原逻辑（归属人不可变）
+    if (key !== 'schedules') record.consultant = arr[idx].consultant;
     record.id = arr[idx].id;
     record.createdAt = arr[idx].createdAt;
+    if (key === 'schedules') record.createdBy = arr[idx].createdBy || '';
     record.updatedAt = now;
     // allocations pct 校验
     if (key === 'allocations' && record.contractId != null) {
@@ -1234,8 +1298,8 @@ function moduleOp(key, action, record, session) {
       _deletedIds[key].add(delId);
       // 合同删除：重新同步申请签单状态（无合同则回退活跃，force=true 强制清空签单金额）
       syncAppSignStatus(state, oppNo, true);
-    } else if (key === 'allocations') {
-      // allocations 用 splice 真删
+    } else if (key === 'allocations' || key === 'schedules') {
+      // allocations / schedules 用 splice 真删
       arr.splice(idx, 1);
       if (!_deletedIds[key]) _deletedIds[key] = new Set();
       _deletedIds[key].add(delId);
