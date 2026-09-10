@@ -516,10 +516,11 @@ input[type=number]{-moz-appearance:textfield;}
 .rb-table{width:100%;border-collapse:separate;border-spacing:0;font-size:var(--text-xs);table-layout:fixed}
 .rb-table th{position:sticky;top:0;background:var(--sf-bg-soft);z-index:2;border-bottom:1px solid var(--sf-border);padding:6px 4px;text-align:center;color:var(--sf-text-secondary)}
 .rb-table th.rb-th-name{left:0;position:sticky;z-index:3;width:150px;min-width:150px;text-align:left;padding-left:10px}
+.rb-table td.rb-dept-cell{max-width:150px;overflow:hidden;text-overflow:ellipsis}
 .rb-table td{border-bottom:1px solid var(--sf-border);border-left:1px solid var(--sf-border);padding:4px;vertical-align:top;background:#fff}
 .rb-table tbody tr td:first-child{border-left:none}
 .rb-wknd{background:#fdf6f6 !important}
-.rb-dept-row td{background:#f7fafd !important;cursor:pointer;font-weight:600;color:var(--sf-text-secondary);padding:6px 10px}
+.rb-dept-row td{background:#f7fafd !important;cursor:pointer;font-weight:600;color:var(--sf-text-secondary);padding:6px 10px;word-break:break-all;white-space:normal;}
 .rb-arrow{display:inline-block;transition:transform .12s;margin-right:4px}
 .rb-arrow.open{transform:rotate(90deg)}
 .rb-name{position:sticky;left:0;background:#fff;z-index:1;width:150px;min-width:150px}
@@ -6194,7 +6195,7 @@ function renderRbBoard() {
   groups.forEach(function(g) {
     if (!_rbOpenState.hasOwnProperty(g.id)) _rbOpenState[g.id] = g.hasSch; // 默认：无安排则收起，有安排则展开
     var open = !!_rbOpenState[g.id];
-    body += '<tr class="rb-dept-row" onclick="rbToggleDept(\'' + g.id + '\')"><td colspan="8"><span class="rb-arrow' + (open ? ' open' : '') + '">▸</span>' + scEscape(g.name) + '（' + g.emps.length + '人' + (g.hasSch ? '' : ' · 本周无安排') + '）</td></tr>';
+    body += '<tr class="rb-dept-row" onclick="rbToggleDept(\'' + g.id + '\')"><td class="rb-dept-cell" colspan="8"><span class="rb-arrow' + (open ? ' open' : '') + '">▸</span>' + scEscape(g.name) + '（' + g.emps.length + '人' + (g.hasSch ? '' : ' · 本周无安排') + '）</td></tr>';
     if (!open) return;
     g.emps.forEach(function(e) {
       body += '<tr class="rb-emp-row"><td class="rb-name"><b>' + scEscape(e.name) + '</b><span class="rb-pos">' + scEscape(e.position || '') + '</span></td>';
