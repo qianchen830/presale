@@ -697,6 +697,11 @@ app.post('/api/auth/logout', (req, res) => {
 
 app.get('/api/auth/me', (req, res) => {
   if (!req.session || !req.session.userId) return res.json({ loggedIn: false });
+  // view_depts 每次从数据库实时读取，避免 session 缓存过期问题
+  const db = getDb();
+  const user = db.prepare('SELECT view_depts FROM users WHERE id = ?').get(req.session.userId);
+  let viewDepts = [];
+  try { viewDepts = user && user.view_depts ? JSON.parse(user.view_depts) : []; } catch {}
   res.json({
     loggedIn: true,
     userId: req.session.userId,
@@ -704,7 +709,7 @@ app.get('/api/auth/me', (req, res) => {
     displayName: req.session.displayName,
     role: req.session.role,
     department: req.session.department || '',
-    viewDepts: (() => { try { return JSON.parse(req.session.viewDepts || '[]'); } catch { return []; } })()
+    viewDepts: viewDepts
   });
 });
 
