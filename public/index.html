@@ -6044,8 +6044,6 @@ function openScheduleForm(dateStr, id, ev) {
   if (ev && ev.stopPropagation) ev.stopPropagation();
   if (!scIsAdmin() && !scHasDeptScope()) return;
   closeScDayPop();
-  if (!scIsAdmin()) return;
-  closeScDayPop();
   _scEditingId = id || null;
   document.getElementById('scErrMsg').textContent = '';
   document.getElementById('scConflictTip').textContent = '';
