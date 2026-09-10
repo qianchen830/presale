@@ -5906,6 +5906,7 @@ function scRefreshAfterChange() {
 
 /* ---------- 安排日历（月视图） ---------- */
 function openScheduleCalendar() {
+  console.log('[DEBUG] openScheduleCalendar', { isAdmin: scIsAdmin(), hasDept: scHasDeptScope(), viewDepts: scViewDepts(), currentUser: _currentUser });
   if (!scIsAdmin() && !scHasDeptScope()) return;
   closeScDayPop();
   var now = new Date();
