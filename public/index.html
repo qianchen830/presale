@@ -5872,6 +5872,13 @@ function scSchedules() { return state.schedules || []; }
 function scEmps() { return state.employees || []; }
 function scDepts() { return state.departments || []; }
 function scIsAdmin() { return !!(_currentUser && _currentUser.role === 'admin'); }
+function scHasDeptScope() { return !!(_currentUser && _currentUser.view_depts && _currentUser.view_depts.length > 0); }
+// admin 不受限；有 view_depts 的部门负责人，仅操作/查看自己部门的顾问
+// 返回允许的部门名称数组（null=不限，即admin）
+function scViewDepts() {
+  if (scIsAdmin()) return null;
+  return _currentUser.view_depts || [];
+}
 function scFmtDate(d) { var y = d.getFullYear(), m = d.getMonth() + 1, dd = d.getDate(); return y + '-' + (m < 10 ? '0' : '') + m + '-' + (dd < 10 ? '0' : '') + dd; }
 function scWeekMonday(base) { var d = new Date(base.getFullYear(), base.getMonth(), base.getDate()); var w = (d.getDay() + 6) % 7; d.setDate(d.getDate() - w); return d; }
 function scEscape(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
@@ -5880,7 +5887,14 @@ function scAppLabel(appId) {
   return a ? ((a.oppNo || '') + ' ' + (a.customer || '') + ' ' + (a.projectName || '')).replace(/\s+/g, ' ').trim() : '';
 }
 function scConsultantNames() {
-  var names = scEmps().map(function(e) { return e.name; }).filter(function(n) { return n; });
+  var vd = scViewDepts(); // null=不限(admin)，其余为允许部门名称数组
+  var names = scEmps().filter(function(e) {
+    if (!e.name) return false;
+    if (vd === null) return true; // admin 不受限
+    if (!vd.length) return false;
+    var dept = (scDepts() || []).find(function(d) { return d.id === e.deptId; });
+    return dept && vd.includes(dept.name);
+  }).map(function(e) { return e.name; });
   return names.filter(function(n, i) { return names.indexOf(n) === i; }).sort(function(a, b) { return a.localeCompare(b, 'zh'); });
 }
 function scRefreshAfterChange() {
@@ -5892,7 +5906,7 @@ function scRefreshAfterChange() {
 
 /* ---------- 安排日历（月视图） ---------- */
 function openScheduleCalendar() {
-  if (!scIsAdmin()) return;
+  if (!scIsAdmin() && !scHasDeptScope()) return;
   closeScDayPop();
   var now = new Date();
   if (_scYear == null) { _scYear = now.getFullYear(); _scMonth = now.getMonth() + 1; }
@@ -6028,6 +6042,8 @@ function scPrecheck() {
 }
 function openScheduleForm(dateStr, id, ev) {
   if (ev && ev.stopPropagation) ev.stopPropagation();
+  if (!scIsAdmin() && !scHasDeptScope()) return;
+  closeScDayPop();
   if (!scIsAdmin()) return;
   closeScDayPop();
   _scEditingId = id || null;
@@ -6153,7 +6169,7 @@ async function deleteSchedule() {
 
 /* ---------- 资源看板（周视图） ---------- */
 function openResourceBoard() {
-  if (!scIsAdmin()) return;
+  if (!scIsAdmin() && !scHasDeptScope()) return;
   _rbWeekStart = scWeekMonday(new Date());
   renderRbBoard();
   openModal('resourceBoardModal');
@@ -6179,17 +6195,23 @@ function renderRbBoard() {
   days.forEach(function(d) { weekSet[scFmtDate(d)] = true; });
   var byConsultant = {};
   scSchedules().forEach(function(s) { if (weekSet[s.scheduleDate]) { (byConsultant[s.consultant] = byConsultant[s.consultant] || []).push(s); } });
-  // 按部门分组：仅显示「解决方案与交付部」体系下6个部门（id白名单），其余部门整体过滤
-  var RB_DEPT_WHITELIST = ['id_mspqeyli_i8hs38','id_mspqf4cv_xqbbm7','id_msrgkzzz_6pszbs','id_msrgl4r1_xbbfbz','id_msrglik2_lulr8c','id_msrglt8v_wyo3fo'];
+  // 按部门分组：admin 看全部6个部门；部门负责人仅看 view_depts 范围内的部门
+  var vd = scViewDepts(); // null=不限(admin)
+  var RB_ALL = ['id_mspqeyli_i8hs38','id_mspqf4cv_xqbbm7','id_msrgkzzz_6pszbs','id_msrgl4r1_xbbfbz','id_msrglik2_lulr8c','id_msrglt8v_wyo3fo'];
   var groups = [], usedDept = {};
   scDepts().forEach(function(dep) {
-    if (!RB_DEPT_WHITELIST.includes(dep.id)) return; // 只看这6个部门
+    if (!RB_ALL.includes(dep.id)) return; // 限定解决方案与交付部体系下
+    if (vd !== null && !vd.includes(dep.name)) return; // 部门负责人只看权限内部门
     var emps = scEmps().filter(function(e) { return e.deptId === dep.id; });
     if (!emps.length) return;
     usedDept[dep.id] = true;
+    // 部门负责人：顾问也需是本部门的
+    if (vd !== null) {
+      emps = emps.filter(function(e) { return vd.includes(dep.name); });
+      if (!emps.length) return;
+    }
     groups.push({ id: dep.id, name: dep.name, emps: emps, hasSch: emps.some(function(e) { return (byConsultant[e.name] || []).length > 0; }) });
   });
-  // 剩余逻辑不变：未分配部门不再显示（均已归入上述6个部门）
   var WD = ['周一','周二','周三','周四','周五','周六','周日'];
   // 固定列宽：姓名200px，7天均分剩余宽度（table-layout:fixed 需要 colgroup 配合，colspan=8 的部门行才能正确占满总宽）
   var colHtml = '<colgroup><col class="rb-col-name"><col class="rb-col-day"><col class="rb-col-day"><col class="rb-col-day"><col class="rb-col-day"><col class="rb-col-day"><col class="rb-col-day"><col class="rb-col-day"></colgroup>';
@@ -6458,11 +6480,11 @@ var _appSearchText = '';
     // 仅 admin 角色显示看板入口
     var dashBtn = document.getElementById('dashboardBtn');
     if (dashBtn) dashBtn.style.display = (d.role === 'admin') ? '' : 'none';
-    // 仅 admin 角色显示「安排」与「资源看板」入口（售前安排登记+资源看板）
+    // 安排/资源看板：admin 或有 view_depts 的部门负责人均可见
     var scBtn = document.getElementById('scheduleBtn');
-    if (scBtn) scBtn.style.display = (d.role === 'admin') ? '' : 'none';
+    if (scBtn) scBtn.style.display = (d.role === 'admin' || (_currentUser.view_depts && _currentUser.view_depts.length > 0)) ? '' : 'none';
     var rbBtn = document.getElementById('resourceBoardBtn');
-    if (rbBtn) rbBtn.style.display = (d.role === 'admin') ? '' : 'none';
+    if (rbBtn) rbBtn.style.display = (d.role === 'admin' || (_currentUser.view_depts && _currentUser.view_depts.length > 0)) ? '' : 'none';
     // 仅 admin 角色显示部门人员按钮
     var orgBtn = document.getElementById('orgBtn');
     if (orgBtn) orgBtn.style.display = (d.role === 'admin') ? '' : 'none';

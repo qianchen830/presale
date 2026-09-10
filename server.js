@@ -1124,14 +1124,36 @@ function enrichScheduleSnapshot(record, state) {
   if (!record.department) record.department = a.department || '';
 }
 
+// schedules 权限判断：admin 不受限；有 view_depts 的部门负责人，仅能操作自己部门的人
+// 返回 true=允许，false=拒绝；alsoReturnsDepts=true 时返回允许的部门名称数组
+function canManageSchedule(session, consultant, state, alsoReturnsDepts) {
+  if (session.role === 'admin') return alsoReturnsDepts ? null : true; // null 表示不限部门
+  const vd = [];
+  try { const parsed = JSON.parse(session.view_depts || '[]'); if (Array.isArray(parsed)) vd.push(...parsed); } catch(e) {}
+  if (!vd.length) return false;
+  if (!consultant) return alsoReturnsDepts ? vd : true; // 新建时仅检查是否有权限
+  // 查顾问所属部门
+  const emp = (state.employees || []).find(e => e.name === consultant);
+  if (!emp) return false;
+  const dept = (state.departments || []).find(d => d.id === emp.deptId);
+  if (!dept || !vd.includes(dept.name)) return false;
+  return alsoReturnsDepts ? vd : true;
+}
+
 // schedules（售前安排）校验：必填、枚举、时间先后、项目类型必选申请、时间冲突检测
-// excludeId：编辑时排除自身
-function validateSchedule(record, state, excludeId) {
+// excludeId：编辑时排除自身；viewDepts：部门负责人可见范围（null/undefined=不限）
+function validateSchedule(record, state, excludeId, viewDepts) {
   const TYPES = ['项目','会议','培训','休假','其他'];
   if (!TYPES.includes(record.type)) return { error: '事项类型无效（应为：项目/会议/培训/休假/其他）' };
   if (!record.consultant || !String(record.consultant).trim()) return { error: '请选择顾问人员' };
   const emp = (state.employees || []).find(e => e.name === record.consultant);
   if (!emp) return { error: '顾问【' + record.consultant + '】不存在于组织人员中' };
+  const dept = (state.departments || []).find(d => d.id === emp.deptId);
+  const consultantDept = dept ? dept.name : '';
+  // 部门负责人：被安排人必须在本人管辖部门内
+  if (viewDepts && Array.isArray(viewDepts) && viewDepts.length && !viewDepts.includes(consultantDept)) {
+    return { error: '仅能安排【' + viewDepts.join('、') + '】部门的顾问，当前顾问【' + consultantDept + '】不在范围内' };
+  }
   if (!record.scheduleDate) return { error: '请选择日期' };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(record.scheduleDate)) return { error: '日期格式无效（YYYY-MM-DD）' };
   const tm = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -1160,15 +1182,20 @@ function validateSchedule(record, state, excludeId) {
 
 function moduleOp(key, action, record, session) {
   if (!MODULE_KEYS.includes(key)) return { error: '不支持的模块: ' + key };
-  // schedules：仅管理员可操作（create/update/delete 统一入口校验）
-  if (key === 'schedules' && (!session || session.role !== 'admin')) return { error: '仅管理员可操作排程' };
+  if (key === 'schedules') {
+    // admin 或有 view_depts 的部门负责人可操作（部门负责人仅能操作本部门顾问的排程）
+    if (!session) return { error: '未登录或会话已过期' };
+    const scDepts = canManageSchedule(session, null, getState().state, true);
+    if (!scDepts) return { error: '仅管理员或具备部门权限的用户可操作排程' };
+  }
   const state = getState().state;
   const arr = state[key] || [];
   const now = new Date().toISOString();
   if (action === 'create') {
     // schedules（售前安排）：业务校验 + 记录创建人
     if (key === 'schedules') {
-      const scErr = validateSchedule(record, state, null);
+      const scDepts = canManageSchedule(session, null, state, true);
+      const scErr = validateSchedule(record, state, null, scDepts);
       if (scErr) return scErr;
       enrichScheduleSnapshot(record, state);
       record.createdBy = session.displayName || session.username || '';
@@ -1221,7 +1248,8 @@ function moduleOp(key, action, record, session) {
     }
     // schedules（售前安排）：业务校验（编辑时排除自身）
     if (key === 'schedules') {
-      const scErr2 = validateSchedule(record, state, String(record.id));
+      const scDepts = canManageSchedule(session, null, state, true);
+      const scErr2 = validateSchedule(record, state, String(record.id), scDepts);
       if (scErr2) return scErr2;
       enrichScheduleSnapshot(record, state);
     }
