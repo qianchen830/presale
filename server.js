@@ -703,6 +703,7 @@ app.get('/api/auth/me', (req, res) => {
     const user = db.prepare('SELECT view_depts FROM users WHERE id = ?').get(req.session.userId);
     viewDepts = user && user.view_depts ? JSON.parse(user.view_depts) : [];
   } catch {}
+  console.log('[DEBUG /api/auth/me] userId:', req.session.userId, 'viewDepts:', JSON.stringify(viewDepts));
   res.json({
     loggedIn: true,
     userId: req.session.userId,
