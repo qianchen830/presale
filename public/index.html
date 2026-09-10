@@ -5865,7 +5865,7 @@ var _scYear = null, _scMonth = null;   // 月历当前年（1-12 月）
 var _scFilter = '';                     // 月历顾问筛选（'' = 全部）
 var _scEditingId = null;                // 编辑中的排程 id
 var _scAppId = '';                      // 当前表单关联的售前申请 id
-var _scPrefilledAppId = null;            // 从售前申请点安排时预填的申请 id（仅一次性使用）
+var _scPrefilledAppId = null;            // 从售前申请点安排时预填的申请 id（持续有效直到换选）
 var _scPopEl = null;                    // 当日安排浮层
 var _rbWeekStart = null;                // 资源看板周一（Date）
 var _rbOpenState = {};                  // 资源看板部门分组展开状态
@@ -6079,7 +6079,7 @@ function openScheduleForm(dateStr, id, ev) {
       _scAppId = prefilledApp.id;
       scApplyApp(prefilledApp.id); // 自动填入客户/项目/销售/部门
     }
-    _scPrefilledAppId = null; // 仅一次性使用
+    _scPrefilledAppId = null; // 仅一次性使用（用户换了售前申请才清）
   } else {
     scApplyApp('');
   }
