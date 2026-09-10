@@ -6175,16 +6175,17 @@ function renderRbBoard() {
   days.forEach(function(d) { weekSet[scFmtDate(d)] = true; });
   var byConsultant = {};
   scSchedules().forEach(function(s) { if (weekSet[s.scheduleDate]) { (byConsultant[s.consultant] = byConsultant[s.consultant] || []).push(s); } });
-  // 按部门分组（未挂部门的员工归入“未分配部门”）
+  // 按部门分组：仅显示「解决方案与交付部」体系下6个部门（id白名单），其余部门整体过滤
+  var RB_DEPT_WHITELIST = ['id_mspqeyli_i8hs38','id_mspqf4cv_xqbbm7','id_msrgkzzz_6pszbs','id_msrgl4r1_xbbfbz','id_msrglik2_lulr8c','id_msrglt8v_wyo3fo'];
   var groups = [], usedDept = {};
   scDepts().forEach(function(dep) {
+    if (!RB_DEPT_WHITELIST.includes(dep.id)) return; // 只看这6个部门
     var emps = scEmps().filter(function(e) { return e.deptId === dep.id; });
     if (!emps.length) return;
     usedDept[dep.id] = true;
     groups.push({ id: dep.id, name: dep.name, emps: emps, hasSch: emps.some(function(e) { return (byConsultant[e.name] || []).length > 0; }) });
   });
-  var stray = scEmps().filter(function(e) { return !usedDept[e.deptId]; });
-  if (stray.length) groups.push({ id: '__none', name: '未分配部门', emps: stray, hasSch: stray.some(function(e) { return (byConsultant[e.name] || []).length > 0; }) });
+  // 剩余逻辑不变：未分配部门不再显示（均已归入上述6个部门）
   var WD = ['周一','周二','周三','周四','周五','周六','周日'];
   var head = '<tr><th class="rb-th-name">顾问信息</th>' + days.map(function(d, i) {
     return '<th class="rb-th-day' + (i >= 5 ? ' rb-wknd' : '') + '"><div>' + WD[i] + '</div><div style="font-weight:400;opacity:.75">' + (d.getMonth() + 1) + '/' + d.getDate() + '</div></th>';
