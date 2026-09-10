@@ -6069,17 +6069,6 @@ function openScheduleForm(dateStr, id, ev) {
   document.getElementById('scAppInput').value = '';
   document.getElementById('scNote').value = '';
   document.getElementById('scDate').value = dateStr || scFmtDate(new Date());
-  // 若是从售前申请点安排过来的，自动预填商机号（仅新增时有效）
-  console.log('[DEBUG openScheduleForm] id:', id, '_scPrefilledAppId:', _scPrefilledAppId, 'applications count:', (state.applications||[]).length);
-  if (!id && _scPrefilledAppId) {
-    var prefilledApp = (state.applications || []).find(function(a){ return a.id === _scPrefilledAppId; });
-    console.log('[DEBUG openScheduleForm] prefilledApp:', prefilledApp);
-    if (prefilledApp) {
-      document.getElementById('scAppInput').value = scAppLabel(prefilledApp.id);
-      _scAppId = prefilledApp.id;
-    }
-    _scPrefilledAppId = null; // 仅一次性使用
-  }
   document.getElementById('scStart').value = '09:00';
   document.getElementById('scEnd').value = '10:00';
   // 从售前申请点安排时，自动预填所有关联信息（商机号+客户+项目+销售+部门）
@@ -6087,6 +6076,7 @@ function openScheduleForm(dateStr, id, ev) {
     var prefilledApp = (state.applications || []).find(function(a){ return a.id === _scPrefilledAppId; });
     if (prefilledApp) {
       document.getElementById('scAppInput').value = scAppLabel(prefilledApp.id);
+      _scAppId = prefilledApp.id;
       scApplyApp(prefilledApp.id); // 自动填入客户/项目/销售/部门
     }
     _scPrefilledAppId = null; // 仅一次性使用
