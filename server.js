@@ -697,13 +697,12 @@ app.post('/api/auth/logout', (req, res) => {
 
 app.get('/api/auth/me', (req, res) => {
   if (!req.session || !req.session.userId) return res.json({ loggedIn: false });
-  // view_depts 每次从数据库实时读取（state.users 初始化时不带此字段）
-  const row = getStateRow();
+  // view_depts 每次从数据库实时读取（state.users 初始化时不带此字段，直接查 users 表）
   let viewDepts = [];
-  if (row && row.db) {
-    const user = row.db.prepare('SELECT view_depts FROM users WHERE id = ?').get(req.session.userId);
-    try { viewDepts = user && user.view_depts ? JSON.parse(user.view_depts) : []; } catch {}
-  }
+  try {
+    const user = db.prepare('SELECT view_depts FROM users WHERE id = ?').get(req.session.userId);
+    viewDepts = user && user.view_depts ? JSON.parse(user.view_depts) : [];
+  } catch {}
   res.json({
     loggedIn: true,
     userId: req.session.userId,
