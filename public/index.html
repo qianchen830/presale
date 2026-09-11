@@ -5893,20 +5893,29 @@ function scAppLabel(appId) {
   var a = (state.applications || []).find(function(x) { return String(x.id) === String(appId); });
   return a ? ((a.oppNo || '') + ' ' + (a.customer || '') + ' ' + (a.projectName || '')).replace(/\s+/g, ' ').trim() : '';
 }
+var _scNamesCache = null; // 可见顾问名单缓存：按员工/部门数组引用+长度+当前用户失效
 function scConsultantNames() {
   var vd = scViewDepts(); // null=不限(admin)，[] 普通顾问，其余为允许部门名称数组
+  var emps = scEmps(), depts = scDepts();
+  var user = (_currentUser && (_currentUser.username || _currentUser.displayName)) || '';
+  var isAdmin = scIsAdmin();
+  if (_scNamesCache && _scNamesCache.emps === emps && _scNamesCache.empsLen === emps.length
+    && _scNamesCache.depts === depts && _scNamesCache.deptsLen === depts.length
+    && _scNamesCache.user === user && _scNamesCache.isAdmin === isAdmin) return _scNamesCache.res;
+  var res;
   if (vd !== null && !vd.length) {
-    // 普通顾问：仅自己
-    var me = (_currentUser && (_currentUser.displayName || _currentUser.username)) || '';
-    return me ? [me] : [];
+    res = user ? [user] : []; // 普通顾问：仅自己
+  } else {
+    var names = emps.filter(function(e) {
+      if (!e.name) return false;
+      if (vd === null) return true; // admin 不受限
+      var dept = (depts || []).find(function(d) { return d.id === e.deptId; });
+      return dept && vd.includes(dept.name);
+    }).map(function(e) { return e.name; });
+    res = names.filter(function(n, i) { return names.indexOf(n) === i; }).sort(function(a, b) { return a.localeCompare(b, 'zh'); });
   }
-  var names = scEmps().filter(function(e) {
-    if (!e.name) return false;
-    if (vd === null) return true; // admin 不受限
-    var dept = (scDepts() || []).find(function(d) { return d.id === e.deptId; });
-    return dept && vd.includes(dept.name);
-  }).map(function(e) { return e.name; });
-  return names.filter(function(n, i) { return names.indexOf(n) === i; }).sort(function(a, b) { return a.localeCompare(b, 'zh'); });
+  _scNamesCache = { emps: emps, empsLen: emps.length, depts: depts, deptsLen: depts.length, user: user, isAdmin: isAdmin, res: res };
+  return res;
 }
 function scRefreshAfterChange() {
   renderScCalendar();

@@ -1189,9 +1189,7 @@ function validateSchedule(record, state, excludeId, viewDepts) {
 function moduleOp(key, action, record, session) {
   if (!MODULE_KEYS.includes(key)) return { error: '不支持的模块: ' + key };
   if (key === 'schedules') {
-    // admin 或有 view_depts 的部门负责人可操作（部门负责人仅能操作本部门顾问的排程）
     if (!session) return { error: '未登录或会话已过期' };
-    const scDepts = canManageSchedule(session, null, getState().state, true);
   }
   const state = getState().state;
   const arr = state[key] || [];
@@ -1200,6 +1198,11 @@ function moduleOp(key, action, record, session) {
     // schedules（售前安排）：业务校验 + 记录创建人
     if (key === 'schedules') {
       const scDepts = canManageSchedule(session, null, state, true);
+      // 普通顾问（无部门权限）仅能安排自己
+      if (Array.isArray(scDepts) && scDepts.length === 0) {
+        const me = session.displayName || session.username || '';
+        if (record.consultant !== me) return { error: '普通用户仅能安排自己（当前登录：' + me + '）' };
+      }
       const scErr = validateSchedule(record, state, null, scDepts);
       if (scErr) return scErr;
       enrichScheduleSnapshot(record, state);
@@ -1254,6 +1257,11 @@ function moduleOp(key, action, record, session) {
     // schedules（售前安排）：业务校验（编辑时排除自身）
     if (key === 'schedules') {
       const scDepts = canManageSchedule(session, null, state, true);
+      // 普通顾问（无部门权限）仅能安排自己
+      if (Array.isArray(scDepts) && scDepts.length === 0) {
+        const me = session.displayName || session.username || '';
+        if (record.consultant !== me) return { error: '普通用户仅能安排自己（当前登录：' + me + '）' };
+      }
       const scErr2 = validateSchedule(record, state, String(record.id), scDepts);
       if (scErr2) return scErr2;
       enrichScheduleSnapshot(record, state);
