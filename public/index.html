@@ -5908,7 +5908,6 @@ function scRefreshAfterChange() {
 
 /* ---------- 安排日历（月视图） ---------- */
 function openScheduleCalendar() {
-  if (!scIsAdmin() && !scHasDeptScope()) return;
   closeScDayPop();
   // 记住当前选中的售前申请，用于从申请点安排时自动预填商机号
   _scPrefilledAppId = (state.selectedAppId && state.applications && state.applications.find(function(a){return a.id===state.selectedAppId;})) ? state.selectedAppId : null;
@@ -6047,7 +6046,6 @@ function scPrecheck() {
 }
 function openScheduleForm(dateStr, id, ev) {
   if (ev && ev.stopPropagation) ev.stopPropagation();
-  if (!scIsAdmin() && !scHasDeptScope()) return;
   closeScDayPop();
   _scEditingId = id || null;
   document.getElementById('scErrMsg').textContent = '';
