@@ -1027,7 +1027,7 @@ input[type=number]{-moz-appearance:textfield;}
           <div class="fg"><label>所属部门</label><input id="scDept" class="fi" readonly style="background:var(--sf-bg-soft)"></div>
         </div>
         <div class="fr">
-          <div class="fg"><label>顾问人员<span class="req">*</span></label><select id="scConsultant" class="sc-select" onchange="scPrecheck()"></select></div>
+          <div class="fg"><label>顾问人员<span class="req">*</span></label><input id="scConsultant" class="fi" readonly style="background:var(--sf-bg-soft)"></div>
           <div class="fg"><label>日期<span class="req">*</span></label><input type="date" id="scDate" class="fi" onchange="scPrecheck()"></div>
         </div>
         <div class="fr">
@@ -6056,11 +6056,8 @@ function openScheduleForm(dateStr, id, ev) {
   var typeSel = document.getElementById('scType');
   typeSel.innerHTML = '';
   SC_TYPES.forEach(function(t) { var o = document.createElement('option'); o.value = t; o.textContent = t; typeSel.appendChild(o); });
-  // 顾问下拉（员工表去重）
+  // 顾问人员只读，自动填入当前登录人（编辑时保留原记录值）
   var cSel = document.getElementById('scConsultant');
-  cSel.innerHTML = '';
-  var c0 = document.createElement('option'); c0.value = ''; c0.textContent = '请选择顾问'; cSel.appendChild(c0);
-  scConsultantNames().forEach(function(n) { var o = document.createElement('option'); o.value = n; o.textContent = n; cSel.appendChild(o); });
   // 售前申请 datalist（DOM 构建，保证与输入值精确匹配）
   var dl = document.getElementById('scAppList');
   dl.innerHTML = '';
@@ -6085,7 +6082,7 @@ function openScheduleForm(dateStr, id, ev) {
   } else {
     scApplyApp('');
   }
-  cSel.value = _scFilter || ''; // 默认当前筛选的顾问
+  cSel.value = ''; // 默认空，新增时由下面逻辑填入当前人
   var rec = null;
   if (id) {
     rec = scSchedules().find(function(x) { return String(x.id) === String(id); });
@@ -6099,6 +6096,9 @@ function openScheduleForm(dateStr, id, ev) {
       scApplyApp(rec.appId || '');
       document.getElementById('scAppInput').value = rec.appId ? scAppLabel(rec.appId) : '';
     }
+  } else {
+    // 新增时自动填入当前登录人
+    cSel.value = (_currentUser && (_currentUser.displayName || _currentUser.username)) || '';
   }
   scTypeChanged();
   scPrecheck();
