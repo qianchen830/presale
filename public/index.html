@@ -5915,11 +5915,10 @@ function openScheduleCalendar() {
   var now = new Date();
   if (_scYear == null) { _scYear = now.getFullYear(); _scMonth = now.getMonth() + 1; }
   var sel = document.getElementById('scFilter');
-  var prev = _scFilter || '';
   sel.innerHTML = '';
   var o0 = document.createElement('option'); o0.value = ''; o0.textContent = '全部顾问'; sel.appendChild(o0);
   scConsultantNames().forEach(function(n) { var o = document.createElement('option'); o.value = n; o.textContent = n; sel.appendChild(o); });
-  sel.value = prev; if (sel.value !== prev) { sel.value = ''; _scFilter = ''; } else { _scFilter = prev; }
+  sel.value = ''; _scFilter = ''; // 打开时始终默认显示全部顾问
   renderScCalendar();
   openModal('scheduleCalModal');
 }
