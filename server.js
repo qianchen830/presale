@@ -1137,8 +1137,7 @@ function canManageSchedule(session, consultant, state, alsoReturnsDepts) {
   if (session.role === 'admin') return alsoReturnsDepts ? null : true; // null 表示不限部门
   const vd = [];
   try { const parsed = JSON.parse(session.viewDepts || '[]'); if (Array.isArray(parsed)) vd.push(...parsed); } catch(e) {}
-  if (!vd.length) return false;
-  if (!consultant) return alsoReturnsDepts ? vd : true; // 新建时仅检查是否有权限
+  if (!consultant) return alsoReturnsDepts ? vd : (vd.length > 0); // 新建时：普通顾问返回[], 部门负责人返回true
   // 查顾问所属部门
   const emp = (state.employees || []).find(e => e.name === consultant);
   if (!emp) return false;
@@ -1193,7 +1192,6 @@ function moduleOp(key, action, record, session) {
     // admin 或有 view_depts 的部门负责人可操作（部门负责人仅能操作本部门顾问的排程）
     if (!session) return { error: '未登录或会话已过期' };
     const scDepts = canManageSchedule(session, null, getState().state, true);
-    if (scDepts === false) return { error: '仅管理员或具备部门权限的用户可操作排程' };
   }
   const state = getState().state;
   const arr = state[key] || [];
