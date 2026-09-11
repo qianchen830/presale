@@ -6185,7 +6185,6 @@ async function deleteSchedule() {
 
 /* ---------- 资源看板（周视图） ---------- */
 function openResourceBoard() {
-  if (!scIsAdmin() && !scHasDeptScope()) return;
   _rbWeekStart = scWeekMonday(new Date());
   renderRbBoard();
   openModal('resourceBoardModal');
@@ -6211,12 +6210,22 @@ function renderRbBoard() {
   days.forEach(function(d) { weekSet[scFmtDate(d)] = true; });
   var byConsultant = {};
   scSchedules().forEach(function(s) { if (weekSet[s.scheduleDate]) { (byConsultant[s.consultant] = byConsultant[s.consultant] || []).push(s); } });
-  // 按部门分组：admin 看全部6个部门；部门负责人仅看 view_depts 范围内的部门
-  var vd = scViewDepts(); // null=不限(admin)
+  // 按部门分组：admin 看全部6个部门；部门负责人仅看 view_depts 范围内的部门；普通顾问只看自己所在部门自己的行
+  var vd = scViewDepts(); // null=不限(admin), []=普通顾问, ["部门名"]=部门负责人
+  var myName = (_currentUser && (_currentUser.displayName || _currentUser.username)) || '';
+  var myDept = (_currentUser && _currentUser.department) || '';
   var RB_ALL = ['id_mspqeyli_i8hs38','id_mspqf4cv_xqbbm7','id_msrgkzzz_6pszbs','id_msrgl4r1_xbbfbz','id_msrglik2_lulr8c','id_msrglt8v_wyo3fo'];
   var groups = [], usedDept = {};
   scDepts().forEach(function(dep) {
     if (!RB_ALL.includes(dep.id)) return; // 限定解决方案与交付部体系下
+    // 普通顾问（vd=[]）只看自己部门自己的行
+    if (vd !== null && vd.length === 0) {
+      if (dep.name !== myDept) return;
+      var emps = scEmps().filter(function(e) { return e.deptId === dep.id && e.name === myName; });
+      if (!emps.length) return;
+      groups.push({ id: dep.id, name: dep.name, emps: emps, hasSch: emps.some(function(e) { return (byConsultant[e.name] || []).length > 0; }) });
+      return;
+    }
     if (vd !== null && !vd.includes(dep.name)) return; // 部门负责人只看权限内部门
     var emps = scEmps().filter(function(e) { return e.deptId === dep.id; });
     if (!emps.length) return;
@@ -6497,11 +6506,11 @@ var _appSearchText = '';
     // 仅 admin 角色显示看板入口
     var dashBtn = document.getElementById('dashboardBtn');
     if (dashBtn) dashBtn.style.display = (d.role === 'admin') ? '' : 'none';
-    // 安排/资源看板：admin 或有 view_depts 的部门负责人均可见
+    // 安排/资源看板：所有认证用户均可见
     var scBtn = document.getElementById('scheduleBtn');
-    if (scBtn) scBtn.style.display = (d.role === 'admin' || (_currentUser.view_depts && _currentUser.view_depts.length > 0)) ? '' : 'none';
+    if (scBtn) scBtn.style.display = '';
     var rbBtn = document.getElementById('resourceBoardBtn');
-    if (rbBtn) rbBtn.style.display = (d.role === 'admin' || (_currentUser.view_depts && _currentUser.view_depts.length > 0)) ? '' : 'none';
+    if (rbBtn) rbBtn.style.display = '';
     // 仅 admin 角色显示部门人员按钮
     var orgBtn = document.getElementById('orgBtn');
     if (orgBtn) orgBtn.style.display = (d.role === 'admin') ? '' : 'none';
