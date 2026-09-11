@@ -5870,7 +5870,12 @@ var _scPopEl = null;                    // 当日安排浮层
 var _rbWeekStart = null;                // 资源看板周一（Date）
 var _rbOpenState = {};                  // 资源看板部门分组展开状态
 
-function scSchedules() { return state.schedules || []; }
+function scSchedules() {
+  var list = state.schedules || [];
+  if (scIsAdmin()) return list; // admin 看全部
+  var allowed = {}; scConsultantNames().forEach(function(n) { allowed[n] = true; });
+  return list.filter(function(s) { return !!allowed[s.consultant]; });
+}
 function scEmps() { return state.employees || []; }
 function scDepts() { return state.departments || []; }
 function scIsAdmin() { return !!(_currentUser && _currentUser.role === 'admin'); }
@@ -5889,11 +5894,15 @@ function scAppLabel(appId) {
   return a ? ((a.oppNo || '') + ' ' + (a.customer || '') + ' ' + (a.projectName || '')).replace(/\s+/g, ' ').trim() : '';
 }
 function scConsultantNames() {
-  var vd = scViewDepts(); // null=不限(admin)，其余为允许部门名称数组
+  var vd = scViewDepts(); // null=不限(admin)，[] 普通顾问，其余为允许部门名称数组
+  if (vd !== null && !vd.length) {
+    // 普通顾问：仅自己
+    var me = (_currentUser && (_currentUser.displayName || _currentUser.username)) || '';
+    return me ? [me] : [];
+  }
   var names = scEmps().filter(function(e) {
     if (!e.name) return false;
     if (vd === null) return true; // admin 不受限
-    if (!vd.length) return false;
     var dept = (scDepts() || []).find(function(d) { return d.id === e.deptId; });
     return dept && vd.includes(dept.name);
   }).map(function(e) { return e.name; });
