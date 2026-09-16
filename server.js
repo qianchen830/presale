@@ -55,7 +55,11 @@ class EncryptedFileStore extends (require('events').EventEmitter) {
   constructor(options = {}) {
     super();
     const FileStoreClass = require('session-file-store')(session);
-    this._store = new FileStoreClass({ ...options, path: sessionsDir });
+    // 文件读写由本类全权接管；底层实例仅提供 createSession（不碰文件）。
+    // 必须关闭其自带的每小时清理定时器（reapInterval），并不传 secret：
+    // 定时器会按它自己的加密格式解析本类的 AES-256-GCM 文件，解析失败会抛出
+    // 未捕获异常 "Unable to parse ciphertext object!" 导致整个进程崩溃。
+    this._store = new FileStoreClass({ path: sessionsDir, reapInterval: -1 });
   }
   _readFile(sessionId, callback) {
     const filePath = path.join(sessionsDir, `${sessionId}.json`);
