@@ -2449,7 +2449,7 @@ var sfDB = null;
 /* ===== 初始化 SQLite 数据库（异步） ===== */
 async function initDatabase() {
   try {
-    window.SQL = await initSqlJs({ locateFile: f => './vendor/' + f });
+    window.SQL = await initSqlJs({ locateFile: f => 'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/' + f });
     var SQL = window.SQL; // 保持局部引用兼容
     // 尝试从嵌入的 Base64 数据加载数据库
     var b64 = readEmbeddedDB();
@@ -2528,7 +2528,7 @@ async function exportDBToBase64() {
   if (!serverState) { console.error('无法从服务器获取数据'); return ''; }
   try {
     if (!window.SQL) {
-      window.SQL = await initSqlJs({ locateFile: f => './vendor/' + f });
+      window.SQL = await initSqlJs({ locateFile: f => 'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/' + f });
     }
     var db = new window.SQL.Database();
     db.run("CREATE TABLE IF NOT EXISTS app_state (id INTEGER PRIMARY KEY, data TEXT, updated_at TEXT)");
